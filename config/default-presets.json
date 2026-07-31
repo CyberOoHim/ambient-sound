@@ -1,0 +1,284 @@
+[
+  {
+    "version": 1,
+    "id": "cozy_fireplace",
+    "name": "Cozy Fireplace",
+    "createdAt": "2026-07-31T08:00:00.000Z",
+    "updatedAt": "2026-07-31T08:00:00.000Z",
+    "master": {
+      "volumeLinear": 0.85
+    },
+    "layers": [
+      {
+        "kind": "noise",
+        "params": {
+          "id": "noise-pink",
+          "type": "pink",
+          "volumeLinear": 0.35,
+          "muted": false,
+          "solo": false,
+          "stereoWidth": 0.5,
+          "pan": 0
+        }
+      },
+      {
+        "kind": "sample",
+        "params": {
+          "id": "sample-fire",
+          "assetId": "fire_camp",
+          "label": "Campfire",
+          "volumeLinear": 0.75,
+          "muted": false,
+          "solo": false,
+          "pan": 0,
+          "loopMode": "native",
+          "crossfadeMs": 80,
+          "playbackRate": 1
+        }
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "id": "rainy_forest",
+    "name": "Rainy Forest",
+    "createdAt": "2026-07-31T08:00:00.000Z",
+    "updatedAt": "2026-07-31T08:00:00.000Z",
+    "master": {
+      "volumeLinear": 0.8
+    },
+    "layers": [
+      {
+        "kind": "sample",
+        "params": {
+          "id": "sample-rain",
+          "assetId": "rain_light",
+          "label": "Light rain",
+          "volumeLinear": 0.7,
+          "muted": false,
+          "solo": false,
+          "pan": -0.2,
+          "loopMode": "crossfade",
+          "crossfadeMs": 100,
+          "playbackRate": 1
+        }
+      },
+      {
+        "kind": "sample",
+        "params": {
+          "id": "sample-wind",
+          "assetId": "wind_trees",
+          "label": "Wind in trees",
+          "volumeLinear": 0.5,
+          "muted": false,
+          "solo": false,
+          "pan": 0.2,
+          "loopMode": "crossfade",
+          "crossfadeMs": 100,
+          "playbackRate": 1
+        }
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "id": "ocean_stream",
+    "name": "Ocean Shore & Stream",
+    "createdAt": "2026-07-31T08:00:00.000Z",
+    "updatedAt": "2026-07-31T08:00:00.000Z",
+    "master": {
+      "volumeLinear": 0.8
+    },
+    "layers": [
+      {
+        "kind": "sample",
+        "params": {
+          "id": "sample-ocean",
+          "assetId": "ocean_shore",
+          "label": "Ocean shore",
+          "volumeLinear": 0.65,
+          "muted": false,
+          "solo": false,
+          "pan": 0,
+          "loopMode": "crossfade",
+          "crossfadeMs": 120,
+          "playbackRate": 1
+        }
+      },
+      {
+        "kind": "sample",
+        "params": {
+          "id": "sample-stream",
+          "assetId": "stream_small",
+          "label": "Small stream",
+          "volumeLinear": 0.45,
+          "muted": false,
+          "solo": false,
+          "pan": 0,
+          "loopMode": "crossfade",
+          "crossfadeMs": 100,
+          "playbackRate": 1
+        }
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "id": "windy_rainstorm",
+    "name": "Windy Rainstorm",
+    "createdAt": "2026-07-31T08:00:00.000Z",
+    "updatedAt": "2026-07-31T08:00:00.000Z",
+    "master": {
+      "volumeLinear": 0.85
+    },
+    "layers": [
+      {
+        "kind": "noise",
+        "params": {
+          "id": "noise-rain",
+          "type": "rain",
+          "volumeLinear": 0.3,
+          "muted": false,
+          "solo": false,
+          "stereoWidth": 0.8,
+          "pan": 0
+        }
+      },
+      {
+        "kind": "sample",
+        "params": {
+          "id": "sample-rain",
+          "assetId": "rain_light",
+          "label": "Light rain",
+          "volumeLinear": 0.75,
+          "muted": false,
+          "solo": false,
+          "pan": -0.3,
+          "loopMode": "crossfade",
+          "crossfadeMs": 100,
+          "playbackRate": 1
+        }
+      },
+      {
+        "kind": "sample",
+        "params": {
+          "id": "sample-wind",
+          "assetId": "wind_trees",
+          "label": "Wind in trees",
+          "volumeLinear": 0.6,
+          "muted": false,
+          "solo": false,
+          "pan": 0.3,
+          "loopMode": "crossfade",
+          "crossfadeMs": 100,
+          "playbackRate": 1
+        }
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "id": "riverside_campfire",
+    "name": "Riverside Campfire",
+    "createdAt": "2026-07-31T08:00:00.000Z",
+    "updatedAt": "2026-07-31T08:00:00.000Z",
+    "master": {
+      "volumeLinear": 0.8
+    },
+    "layers": [
+      {
+        "kind": "sample",
+        "params": {
+          "id": "sample-fire",
+          "assetId": "fire_camp",
+          "label": "Campfire",
+          "volumeLinear": 0.7,
+          "muted": false,
+          "solo": false,
+          "pan": -0.2,
+          "loopMode": "native",
+          "crossfadeMs": 80,
+          "playbackRate": 1
+        }
+      },
+      {
+        "kind": "sample",
+        "params": {
+          "id": "sample-stream",
+          "assetId": "stream_small",
+          "label": "Small stream",
+          "volumeLinear": 0.6,
+          "muted": false,
+          "solo": false,
+          "pan": 0.2,
+          "loopMode": "crossfade",
+          "crossfadeMs": 100,
+          "playbackRate": 1
+        }
+      },
+      {
+        "kind": "noise",
+        "params": {
+          "id": "noise-brown",
+          "type": "brown",
+          "volumeLinear": 0.2,
+          "muted": false,
+          "solo": false,
+          "stereoWidth": 0.6,
+          "pan": 0
+        }
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "id": "deep_sleep_focus",
+    "name": "Deep Sleep Focus",
+    "createdAt": "2026-07-31T08:00:00.000Z",
+    "updatedAt": "2026-07-31T08:00:00.000Z",
+    "master": {
+      "volumeLinear": 0.75
+    },
+    "layers": [
+      {
+        "kind": "noise",
+        "params": {
+          "id": "noise-brown",
+          "type": "brown",
+          "volumeLinear": 0.45,
+          "muted": false,
+          "solo": false,
+          "stereoWidth": 1.0,
+          "pan": 0
+        }
+      },
+      {
+        "kind": "noise",
+        "params": {
+          "id": "noise-fan",
+          "type": "fan",
+          "volumeLinear": 0.35,
+          "muted": false,
+          "solo": false,
+          "stereoWidth": 0.8,
+          "pan": 0
+        }
+      },
+      {
+        "kind": "sample",
+        "params": {
+          "id": "sample-ocean",
+          "assetId": "ocean_shore",
+          "label": "Ocean shore",
+          "volumeLinear": 0.4,
+          "muted": false,
+          "solo": false,
+          "pan": 0,
+          "loopMode": "crossfade",
+          "crossfadeMs": 120,
+          "playbackRate": 1
+        }
+      }
+    ]
+  }
+]

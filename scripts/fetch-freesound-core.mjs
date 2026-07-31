@@ -7,7 +7,7 @@
  *
  * Usage: node scripts/fetch-freesound-core.mjs
  */
-import { mkdirSync, writeFileSync, existsSync, unlinkSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, unlinkSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
@@ -16,87 +16,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
 const coreDir = join(root, 'public', 'sounds', 'core');
 const staging = join(root, 'assets-masters', 'freesound');
+const configPath = join(root, 'config', 'sounds.json');
 
 mkdirSync(coreDir, { recursive: true });
 mkdirSync(staging, { recursive: true });
 
-/**
- * Curated CC0 pack — verified on freesound.org pages 2026-07-31.
- * HQ preview paths scraped from sound pages (public CDN).
- */
-const SOUNDS = [
-  {
-    id: 'rain_light',
-    title: 'Light rain',
-    category: 'rain',
-    tags: ['rain', 'ambient', 'field-recording', 'freesound'],
-    freesoundId: 478665,
-    username: 'DBlover',
-    originalTitle: 'Rain ambient sounds',
-    license: 'CC0-1.0',
-    previewPath: 'previews/478/478665_7846219-hq.mp3',
-    pageUrl: 'https://freesound.org/people/DBlover/sounds/478665/',
-    maxSec: 60,
-    crossfadeMs: 100,
-  },
-  {
-    id: 'ocean_shore',
-    title: 'Ocean shore',
-    category: 'ocean',
-    tags: ['ocean', 'waves', 'ambient', 'freesound'],
-    freesoundId: 450755,
-    username: 'florianreichelt',
-    originalTitle: 'Waves of Hawaii',
-    license: 'CC0-1.0',
-    previewPath: 'previews/450/450755_6253486-hq.mp3',
-    pageUrl: 'https://freesound.org/people/florianreichelt/sounds/450755/',
-    maxSec: 60,
-    crossfadeMs: 120,
-  },
-  {
-    id: 'wind_trees',
-    title: 'Wind in trees',
-    category: 'wind',
-    tags: ['wind', 'forest', 'ambient', 'freesound'],
-    freesoundId: 563571,
-    username: 'Cinetony',
-    originalTitle: 'Wind in forest with creaking tree',
-    license: 'CC0-1.0',
-    previewPath: 'previews/563/563571_5985747-hq.mp3',
-    pageUrl: 'https://freesound.org/people/Cinetony/sounds/563571/',
-    maxSec: 60,
-    crossfadeMs: 100,
-  },
-  {
-    id: 'fire_camp',
-    title: 'Campfire',
-    category: 'fire',
-    tags: ['fire', 'campfire', 'crackling', 'loop', 'freesound'],
-    freesoundId: 813328,
-    username: 'NickTayloe',
-    originalTitle: 'Crackling Flames (loop)',
-    license: 'CC0-1.0',
-    previewPath: 'previews/813/813328_11606594-hq.mp3',
-    pageUrl: 'https://freesound.org/people/NickTayloe/sounds/813328/',
-    maxSec: 90,
-    crossfadeMs: 80,
-    loopMode: 'native', // labeled loop on Freesound
-  },
-  {
-    id: 'stream_small',
-    title: 'Small stream',
-    category: 'stream',
-    tags: ['stream', 'river', 'water', 'ambient', 'freesound'],
-    freesoundId: 733004,
-    username: 'sonicalypse',
-    originalTitle: 'Water Stream River Creek with crickets',
-    license: 'CC0-1.0',
-    previewPath: 'previews/733/733004_3141657-hq.mp3',
-    pageUrl: 'https://freesound.org/people/sonicalypse/sounds/733004/',
-    maxSec: 60,
-    crossfadeMs: 100,
-  },
-];
+const SOUNDS = JSON.parse(readFileSync(configPath, 'utf8'));
 
 const CDN_BASES = [
   'https://cdn.freesound.org/',
@@ -181,7 +106,11 @@ for (const s of SOUNDS) {
   const src = join(staging, `${s.id}-src.mp3`);
   const ogg = join(coreDir, `${s.id}.ogg`);
   console.log(`\n=== ${s.id} (${s.freesoundId}) ===`);
-  await download(s.previewPath, src);
+  if (!existsSync(src)) {
+    await download(s.previewPath, src);
+  } else {
+    console.log('  cached master source:', src);
+  }
   processAudio(src, ogg, s.maxSec);
 
   assets.push({
@@ -209,13 +138,15 @@ for (const s of SOUNDS) {
   });
 }
 
-// Remove old procedural files that are not in the new set
-const keep = new Set(assets.map((a) => a.file.split('/').pop()));
-for (const name of ['rain_light', 'ocean_shore', 'wind_trees', 'fire_camp', 'stream_small']) {
-  // all kept
-  void name;
+// Remove orphan audio files in coreDir that are not in assets
+const keepFiles = new Set(assets.map((a) => a.file.split('/').pop()));
+for (const file of readdirSync(coreDir)) {
+  if (file.endsWith('.ogg') && !keepFiles.has(file)) {
+    const orphan = join(coreDir, file);
+    unlinkSync(orphan);
+    console.log('  deleted orphan audio:', file);
+  }
 }
-void keep;
 
 const catalog = {
   version: 1,

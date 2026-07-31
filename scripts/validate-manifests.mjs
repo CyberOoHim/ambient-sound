@@ -49,8 +49,49 @@ for (const a of catalog.assets ?? []) {
   if (!existsSync(filePath)) fail(`${a.id}: file missing ${a.file}`);
 }
 
+const soundsConfigPath = join(root, 'config', 'sounds.json');
+const presetsConfigPath = join(root, 'config', 'default-presets.json');
+
+if (!existsSync(soundsConfigPath)) {
+  fail(`Missing ${soundsConfigPath}`);
+} else {
+  try {
+    const soundsConf = JSON.parse(readFileSync(soundsConfigPath, 'utf8'));
+    if (!Array.isArray(soundsConf)) fail('config/sounds.json must be an array');
+  } catch (e) {
+    fail(`Invalid config/sounds.json: ${e.message}`);
+  }
+}
+
+if (!existsSync(presetsConfigPath)) {
+  fail(`Missing ${presetsConfigPath}`);
+} else {
+  try {
+    const presetsConf = JSON.parse(readFileSync(presetsConfigPath, 'utf8'));
+    if (!Array.isArray(presetsConf)) {
+      fail('config/default-presets.json must be an array');
+    } else {
+      for (const p of presetsConf) {
+        if (!p.id || !p.name) fail(`Preset missing id or name`);
+        if (!Array.isArray(p.layers)) fail(`Preset ${p.id} missing layers array`);
+        for (const layer of p.layers ?? []) {
+          if (layer.kind === 'sample') {
+            const assetId = layer.params?.assetId;
+            if (!assetId) fail(`Preset ${p.id} sample layer missing assetId`);
+            else if (!ids.has(assetId)) {
+              fail(`Preset ${p.id} references unknown catalog assetId: "${assetId}"`);
+            }
+          }
+        }
+      }
+    }
+  } catch (e) {
+    fail(`Invalid config/default-presets.json: ${e.message}`);
+  }
+}
+
 if (failed > 0) {
   console.error(`\n${failed} validation error(s)`);
   process.exit(1);
 }
-console.log(`OK: ${catalog.assets.length} asset(s) in pack "${catalog.packId}"`);
+console.log(`OK: ${catalog.assets.length} asset(s) in pack "${catalog.packId}" and presets validated successfully`);

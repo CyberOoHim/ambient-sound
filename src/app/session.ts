@@ -75,6 +75,8 @@ export class Session {
     const last = loadLastSession();
     if (last) {
       this.applyPresetData(last);
+    } else if (this.presets.length > 0) {
+      this.applyPresetData(this.presets[0]);
     } else {
       this.layers = [
         { kind: 'noise', params: createDefaultNoiseLayer(uid('noise'), 'pink') },
@@ -204,9 +206,18 @@ export class Session {
   }
 
   removeLayer(id: string): void {
-    if (this.layers.length <= 1) return;
     this.layers = this.layers.filter((l) => l.params.id !== id);
     audioEngine.removeLayer(id);
+    if (this.playing) {
+      audioEngine.applyMuteSolo(this.layers);
+    }
+    this.notify();
+    this.schedulePersist();
+  }
+
+  clearAllLayers(): void {
+    audioEngine.stopAll();
+    this.layers = [];
     if (this.playing) {
       audioEngine.applyMuteSolo(this.layers);
     }
@@ -429,11 +440,6 @@ export class Session {
         },
       };
     });
-    if (this.layers.length === 0) {
-      this.layers = [
-        { kind: 'noise', params: createDefaultNoiseLayer(uid('noise'), 'pink') },
-      ];
-    }
     if (preset.timer) {
       this.timerDefaults = {
         durationSec: preset.timer.durationSec,

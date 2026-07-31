@@ -1,0 +1,73 @@
+[
+  {
+    "id": "rain_light",
+    "title": "Light rain",
+    "category": "rain",
+    "tags": ["rain", "ambient", "field-recording", "freesound"],
+    "freesoundId": 478665,
+    "username": "DBlover",
+    "originalTitle": "Rain ambient sounds",
+    "license": "CC0-1.0",
+    "previewPath": "previews/478/478665_7846219-hq.mp3",
+    "pageUrl": "https://freesound.org/people/DBlover/sounds/478665/",
+    "maxSec": 60,
+    "crossfadeMs": 100
+  },
+  {
+    "id": "ocean_shore",
+    "title": "Ocean shore",
+    "category": "ocean",
+    "tags": ["ocean", "waves", "ambient", "freesound"],
+    "freesoundId": 450755,
+    "username": "florianreichelt",
+    "originalTitle": "Waves of Hawaii",
+    "license": "CC0-1.0",
+    "previewPath": "previews/450/450755_6253486-hq.mp3",
+    "pageUrl": "https://freesound.org/people/florianreichelt/sounds/450755/",
+    "maxSec": 60,
+    "crossfadeMs": 120
+  },
+  {
+    "id": "wind_trees",
+    "title": "Wind in trees",
+    "category": "wind",
+    "tags": ["wind", "forest", "ambient", "freesound"],
+    "freesoundId": 563571,
+    "username": "Cinetony",
+    "originalTitle": "Wind in forest with creaking tree",
+    "license": "CC0-1.0",
+    "previewPath": "previews/563/563571_5985747-hq.mp3",
+    "pageUrl": "https://freesound.org/people/Cinetony/sounds/563571/",
+    "maxSec": 60,
+    "crossfadeMs": 100
+  },
+  {
+    "id": "fire_camp",
+    "title": "Campfire",
+    "category": "fire",
+    "tags": ["fire", "campfire", "crackling", "loop", "freesound"],
+    "freesoundId": 813328,
+    "username": "NickTayloe",
+    "originalTitle": "Crackling Flames (loop)",
+    "license": "CC0-1.0",
+    "previewPath": "previews/813/813328_11606594-hq.mp3",
+    "pageUrl": "https://freesound.org/people/NickTayloe/sounds/813328/",
+    "maxSec": 90,
+    "crossfadeMs": 80,
+    "loopMode": "native"
+  },
+  {
+    "id": "stream_small",
+    "title": "Small stream",
+    "category": "stream",
+    "tags": ["stream", "river", "water", "ambient", "freesound"],
+    "freesoundId": 733004,
+    "username": "sonicalypse",
+    "originalTitle": "Water Stream River Creek with crickets",
+    "license": "CC0-1.0",
+    "previewPath": "previews/733/733004_3141657-hq.mp3",
+    "pageUrl": "https://freesound.org/people/sonicalypse/sounds/733004/",
+    "maxSec": 60,
+    "crossfadeMs": 100
+  }
+]

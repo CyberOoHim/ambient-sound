@@ -89,10 +89,18 @@ export function parseCatalog(raw: unknown): SoundCatalog | null {
   };
 }
 
+const getBaseUrl = (): string => {
+  if (typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL) {
+    const base = import.meta.env.BASE_URL;
+    return base.endsWith('/') ? base : `${base}/`;
+  }
+  return '/';
+};
+
 /** Resolve public URL for an asset file path. */
 export function assetUrl(file: string): string {
   const cleaned = file.replace(/^\/+/, '');
-  return `/sounds/${cleaned}`;
+  return `${getBaseUrl()}sounds/${cleaned}`;
 }
 
 export function findAsset(
@@ -108,7 +116,7 @@ export async function loadCoreCatalog(
   fetchFn: typeof fetch = fetch,
 ): Promise<SoundCatalog> {
   if (cached) return cached;
-  const res = await fetchFn('/sounds/catalog.json');
+  const res = await fetchFn(`${getBaseUrl()}sounds/catalog.json`);
   if (!res.ok) throw new Error(`Failed to load catalog: ${res.status}`);
   const parsed = parseCatalog(await res.json());
   if (!parsed) throw new Error('Invalid catalog.json');

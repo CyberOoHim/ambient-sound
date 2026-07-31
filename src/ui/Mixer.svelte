@@ -54,6 +54,11 @@
     syncFromSession();
   }
 
+  function clearAll() {
+    session.clearAllLayers();
+    syncFromSession();
+  }
+
   function setLayerDb(id: string, db: number) {
     session.updateLayerCommon(id, { volumeLinear: dbToLinear(db) });
     syncFromSession();
@@ -181,7 +186,22 @@
   <section class="layers">
     <div class="layers-head">
       <h2>Mixer layers</h2>
+      {#if layers.length > 0}
+        <button
+          type="button"
+          class="chip danger clear-btn"
+          onclick={clearAll}
+        >
+          Clear all
+        </button>
+      {/if}
     </div>
+
+    {#if layers.length === 0}
+      <div class="empty-layers card">
+        <p>No active layers in the mixer. Add noise or ambient sounds from the Library above.</p>
+      </div>
+    {/if}
 
     {#each layers as layer (layer.params.id)}
       <article class="layer card" class:muted={layer.params.muted}>
@@ -227,7 +247,6 @@
               type="button"
               class="chip danger"
               aria-label="Remove layer"
-              disabled={layers.length <= 1}
               onclick={() => removeLayer(layer.params.id)}
             >
               ×

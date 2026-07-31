@@ -59,8 +59,10 @@ describe('presets', () => {
     }
   });
 
-  it('rejects empty layers', () => {
-    expect(parsePreset({ ...sample, layers: [] })).toBeNull();
+  it('parses empty layers', () => {
+    const parsed = parsePreset({ ...sample, layers: [] });
+    expect(parsed).not.toBeNull();
+    expect(parsed!.layers).toHaveLength(0);
   });
 
   it('rejects bad version', () => {

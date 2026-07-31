@@ -6,6 +6,7 @@ import type {
 } from '../audio/types';
 import { NOISE_TYPES } from '../audio/dsp/colored-noise';
 import { clampLinear } from '../audio/dsp/curves';
+import defaultPresetsRaw from '../../config/default-presets.json';
 
 export const PRESETS_STORAGE_KEY = 'ambient-sound:presets';
 export const LAST_SESSION_KEY = 'ambient-sound:last-session';
@@ -82,7 +83,7 @@ export function parsePreset(raw: unknown): PresetV1 | null {
   if (typeof o.id !== 'string' || typeof o.name !== 'string') return null;
   if (!o.master || typeof o.master !== 'object') return null;
   const master = o.master as Record<string, unknown>;
-  if (!Array.isArray(o.layers) || o.layers.length === 0) return null;
+  if (!Array.isArray(o.layers)) return null;
 
   const layers: MixerLayer[] = [];
   for (let i = 0; i < o.layers.length; i++) {
@@ -101,7 +102,6 @@ export function parsePreset(raw: unknown): PresetV1 | null {
       return null;
     }
   }
-  if (layers.length === 0) return null;
 
   let timer: PresetTimerConfig | null | undefined;
   if (o.timer === null || o.timer === undefined) {
@@ -145,15 +145,31 @@ export function parsePresetStore(raw: unknown): PresetStoreFile {
   return { version: 1, presets };
 }
 
+
+
+export function getDefaultPresets(): PresetV1[] {
+  if (!Array.isArray(defaultPresetsRaw)) return [];
+  const presets: PresetV1[] = [];
+  for (const p of defaultPresetsRaw) {
+    const parsed = parsePreset(p);
+    if (parsed) presets.push(parsed);
+  }
+  return presets;
+}
+
 export function loadPresetsFromStorage(
   storage: Storage = localStorage,
 ): PresetStoreFile {
   try {
     const text = storage.getItem(PRESETS_STORAGE_KEY);
-    if (!text) return { version: 1, presets: [] };
-    return parsePresetStore(JSON.parse(text) as unknown);
+    if (!text) return { version: 1, presets: getDefaultPresets() };
+    const parsed = parsePresetStore(JSON.parse(text) as unknown);
+    if (parsed.presets.length === 0) {
+      return { version: 1, presets: getDefaultPresets() };
+    }
+    return parsed;
   } catch {
-    return { version: 1, presets: [] };
+    return { version: 1, presets: getDefaultPresets() };
   }
 }
 
