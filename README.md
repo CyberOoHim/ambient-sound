@@ -1,77 +1,120 @@
 # Ambient Sound
 
-Offline-first noise and ambient sound mixer (Windows-first).
+An offline-first noise and ambient sound mixer built for desktop and web.
 
-**Status:** noise + **ambient sample layers**, library, sleep timer, presets.  
-Core pack = 5 **Freesound CC0** field recordings (see `ATTRIBUTIONS.md`).
+## Features
 
-## Quick start
+- **Procedural Noise Generators:** Custom Web Audio API DSP noise synth (White, Pink, Brown, etc.).
+- **Ambient Sample Layers:** High-quality natural field recordings (Rain, Ocean, Wind, Fire, Stream, Crickets, Birds, Thunder, Waterfall, Frogs).
+- **Sleep Timer:** Flexible duration with customizable fade-out curves.
+- **Custom Presets & Session Storage:** Save layer combinations and volume settings locally or export/import JSON presets.
+- **Offline-First:** Runs entirely in the browser without remote servers or track streaming dependencies.
+
+## Quick Start
 
 ```bash
+# Install dependencies
 pnpm install
+
+# Start local development server
 pnpm dev
 ```
 
-Open the URL Vite prints (usually `http://localhost:5173`). Click **Play** (browser autoplay policy requires a gesture).
+Open the local server URL provided by Vite (typically `http://localhost:5173`). Click **Play** to start audio output (required due to browser autoplay policies).
 
-### Scripts
+### Available Scripts
 
 | Command | Description |
 |---------|-------------|
-| `pnpm dev` | Dev server + HMR |
-| `pnpm build` | Production build |
-| `pnpm preview` | Preview production build |
-| `pnpm test` | Unit tests (DSP + curves) |
-| `pnpm check` | `svelte-check` + `tsc` |
+| `pnpm dev` | Start development server with HMR |
+| `pnpm build` | Build production assets |
+| `pnpm preview` | Preview production build locally |
+| `pnpm test` | Run DSP and utility unit tests |
+| `pnpm check` | Run `svelte-check` and TypeScript type checking |
+| `pnpm validate-manifests` | Validate sound catalog integrity |
 
-### Keyboard
+### Shortcuts & Controls
 
-- **Space bar** — same as clicking Play / Pause (when focus is not in an input/select). Hint only — not a UI button.
+- **Spacebar:** Toggle playback Play/Pause (when focus is not on an input or selector element).
 
-### Sleep timer
+### Sleep Timer
 
-1. Pick a duration (5–90 min or custom minutes) and fade length.
-2. Click **Start timer** (starts playback if needed).
-3. Countdown runs on wall clock; in the last fade window volume ramps to silence, then audio stops.
-4. **Cancel timer** aborts and restores master volume.
+1. Select a countdown duration (5–90 minutes or custom value) and fade-out duration.
+2. Click **Start timer** (automatically starts audio playback if paused).
+3. The timer counts down; during the final fade window, master volume smoothly decreases to zero before stopping playback.
+4. Click **Cancel timer** at any time to abort the countdown and restore full volume.
 
-### Presets
+### Presets & State
 
-- **Save** current layers + master + timer defaults to `localStorage`.
-- Click a preset name to load it (does not auto-play unless you were already playing).
-- **Last session** restores automatically on reload (still requires Play for audio).
-- **Copy JSON** / **Paste JSON** for backup or sharing.
+- **Save Presets:** Save active layer combinations, gain settings, and timer defaults to `localStorage`.
+- **Load Presets:** Click any saved preset to apply its configuration immediately.
+- **Session Persistence:** Automatically saves your active state on reload.
+- **Import / Export:** Use **Copy JSON** and **Paste JSON** to back up or share custom mix presets.
 
-### Ambient library
+### Ambient Sound Library
 
-- **Library** panel: add any noise type or a **core pack** ambient loop (rain, ocean, wind, fire, stream).
-- Core pack is **Freesound CC0** HQ previews, trimmed + loudnorm’d to Ogg (`pnpm sounds:freesound`).
-- Catalog: `public/sounds/catalog.json` · attributions: `ATTRIBUTIONS.md`
-- Validate: `pnpm validate-manifests`
-- Optional procedural placeholders: `pnpm sounds:generate`
+- Add procedural noise or curated field recordings from the **Library** panel.
+- Audio field recording previews are trimmed and loudness-normalized to Ogg format (`pnpm sounds:freesound`).
+- Sound catalog manifest: `public/sounds/catalog.json`.
 
-## Architecture (prototype)
+---
 
-- **UI:** Svelte 5 + TypeScript + Vite
-- **Audio:** Web Audio API + `AudioWorklet` (`src/audio/worklets/noise-processor.js`)
-- **Volume:** store linear gain; UI in dB (−60…0) via `src/audio/dsp/curves.ts`
-- **Session:** owns mute/solo matrix; engine applies per-layer mute gates
+## Architecture
+
+- **UI Framework:** Svelte 5 + TypeScript + Vite
+- **Audio Engine:** Web Audio API graph + custom `AudioWorklet` (`src/audio/worklets/noise-processor.js`)
+- **Gain & Volume:** Linear internal gain with logarithmic dB control curves (`src/audio/dsp/curves.ts`)
+- **Session Matrix:** State management owning per-layer volume, mute/solo gates, and routing.
 
 ```
 src/
-  audio/
-    dsp/          # pure DSP + tests
-    worklets/     # self-contained worklet (no imports)
-    engine.ts     # AudioContext graph
-    types.ts
-  app/session.ts  # play state + layers
-  ui/Mixer.svelte
+├── audio/
+│   ├── dsp/          # Pure DSP calculations & unit tests
+│   ├── worklets/     # AudioWorklet processor implementation
+│   ├── engine.ts     # Web AudioContext node graph & lifecycle
+│   └── types.ts      # Audio engine TypeScript definitions
+├── app/session.ts    # Application state, presets & layer matrix
+└── ui/Mixer.svelte   # Main mixer user interface component
 ```
 
-## Design
+For full product specs and design decisions, see [Design Document](docs/design-ambient-sound-app.md).
 
-Full product plan (samples, Tauri, licensing, PR plan): [`docs/design-ambient-sound-app.md`](docs/design-ambient-sound-app.md)
+---
 
-## License
+## License & Credits
 
-MIT — see `LICENSE`.
+### Software License
+
+This project is open-source software licensed under the **[MIT License](LICENSE)**.
+
+```text
+MIT License
+
+Copyright (c) 2026
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### Freesound License & Credits
+
+The ambient field recording audio samples included in this repository are sourced from **[Freesound.org](https://freesound.org)** under the **[Creative Commons CC0 1.0 Universal (CC0 1.0) Public Domain Dedication](https://creativecommons.org/publicdomain/zero/1.0/)**.
+
+- **License:** CC0 1.0 Universal (Public Domain).
+- **Attribution & Provenance:** Although attribution is not legally required under CC0 1.0, full credits, author names, original track titles, and direct Freesound page links for all included samples are documented in **[ATTRIBUTIONS.md](ATTRIBUTIONS.md)**.
+
