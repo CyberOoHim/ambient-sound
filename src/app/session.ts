@@ -131,6 +131,11 @@ export class Session {
   }
 
   async play(): Promise<void> {
+    if (this.layers.length === 0) {
+      this.playing = false;
+      this.notify();
+      return;
+    }
     await this.catalogReady;
     await audioEngine.resume();
     audioEngine.restoreMasterGain();
@@ -208,7 +213,11 @@ export class Session {
   removeLayer(id: string): void {
     this.layers = this.layers.filter((l) => l.params.id !== id);
     audioEngine.removeLayer(id);
-    if (this.playing) {
+    if (this.layers.length === 0 && this.playing) {
+      this.cancelTimer();
+      this.playing = false;
+      void audioEngine.suspend();
+    } else if (this.playing) {
       audioEngine.applyMuteSolo(this.layers);
     }
     this.notify();
@@ -219,7 +228,9 @@ export class Session {
     audioEngine.stopAll();
     this.layers = [];
     if (this.playing) {
-      audioEngine.applyMuteSolo(this.layers);
+      this.cancelTimer();
+      this.playing = false;
+      void audioEngine.suspend();
     }
     this.notify();
     this.schedulePersist();
@@ -459,7 +470,7 @@ export class Session {
     audioEngine.setMasterVolumeLinear(this.masterVolumeLinear);
     this.playing = false;
 
-    if (wasPlaying) {
+    if (wasPlaying && this.layers.length > 0) {
       await this.play();
     }
     this.notify();

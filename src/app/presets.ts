@@ -158,10 +158,12 @@ export function getDefaultPresets(): PresetV1[] {
 }
 
 export function loadPresetsFromStorage(
-  storage: Storage = localStorage,
+  storage?: Storage,
 ): PresetStoreFile {
+  const st = storage ?? (typeof localStorage !== 'undefined' ? localStorage : undefined);
+  if (!st) return { version: 1, presets: getDefaultPresets() };
   try {
-    const text = storage.getItem(PRESETS_STORAGE_KEY);
+    const text = st.getItem(PRESETS_STORAGE_KEY);
     if (!text) return { version: 1, presets: getDefaultPresets() };
     const parsed = parsePresetStore(JSON.parse(text) as unknown);
     if (parsed.presets.length === 0) {
@@ -175,16 +177,19 @@ export function loadPresetsFromStorage(
 
 export function savePresetsToStorage(
   store: PresetStoreFile,
-  storage: Storage = localStorage,
+  storage?: Storage,
 ): void {
-  storage.setItem(PRESETS_STORAGE_KEY, JSON.stringify(store));
+  const st = storage ?? (typeof localStorage !== 'undefined' ? localStorage : undefined);
+  st?.setItem(PRESETS_STORAGE_KEY, JSON.stringify(store));
 }
 
 export function loadLastSession(
-  storage: Storage = localStorage,
+  storage?: Storage,
 ): PresetV1 | null {
+  const st = storage ?? (typeof localStorage !== 'undefined' ? localStorage : undefined);
+  if (!st) return null;
   try {
-    const text = storage.getItem(LAST_SESSION_KEY);
+    const text = st.getItem(LAST_SESSION_KEY);
     if (!text) return null;
     return parsePreset(JSON.parse(text) as unknown);
   } catch {
@@ -194,9 +199,10 @@ export function loadLastSession(
 
 export function saveLastSession(
   snapshot: PresetV1,
-  storage: Storage = localStorage,
+  storage?: Storage,
 ): void {
-  storage.setItem(LAST_SESSION_KEY, JSON.stringify(snapshot));
+  const st = storage ?? (typeof localStorage !== 'undefined' ? localStorage : undefined);
+  st?.setItem(LAST_SESSION_KEY, JSON.stringify(snapshot));
 }
 
 export function createPresetId(): string {
