@@ -32,12 +32,25 @@
 
   async function addSample(asset: CatalogAsset) {
     busy = true;
-    message = null;
+    const downloading =
+      session.playing && session.needsSampleFetch(asset);
+    message = downloading ? `Downloading ${asset.title}…` : null;
     try {
-      await session.addSampleFromAsset(asset);
-      message = `Added ${asset.title}`;
+      const layerId = await session.addSampleFromAsset(asset);
+      // Failure auto-removes the layer and sets a session notice.
+      if (session.loadNotice) {
+        message = session.loadNotice;
+        return;
+      }
+      // If this layer was removed mid-download, do not claim it was added.
+      const stillThere = session.layers.some((l) => l.params.id === layerId);
+      message = stillThere
+        ? `Added ${asset.title}`
+        : downloading
+          ? `Download cancelled · ${asset.title} removed`
+          : null;
     } catch (e) {
-      message = e instanceof Error ? e.message : String(e);
+      message = session.loadNotice ?? (e instanceof Error ? e.message : String(e));
     } finally {
       busy = false;
     }

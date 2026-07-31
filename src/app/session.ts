@@ -27,11 +27,13 @@ import {
   type PresetV1,
 } from './presets';
 import {
+  assetUrl,
   findAsset,
   loadCoreCatalog,
   type CatalogAsset,
   type SoundCatalog,
 } from '../assets/catalog';
+import { decodeCache } from '../audio/decode-cache';
 
 let nextId = 1;
 
@@ -57,6 +59,21 @@ export class Session {
   masterVolumeLinear = 1;
   catalog: SoundCatalog | null = null;
   catalogError: string | null = null;
+  /**
+   * Sample layer ids currently fetching/decoding their FreeSound (core pack) file.
+   * Used for "Downloading…" UI; cleared when load finishes or the layer is removed.
+   */
+  loadingLayerIds = new Set<string>();
+  /**
+   * Per-layer download progress (0..1). Present only while loading.
+   * `determinate` is false when Content-Length is unknown (indeterminate bar).
+   */
+  loadingProgress = new Map<string, { ratio: number; determinate: boolean }>();
+  /**
+   * Short user-facing notice (e.g. download failed and layer was removed).
+   * Cleared by {@link clearLoadNotice} or the next notice.
+   */
+  loadNotice: string | null = null;
 
   timerDefaults: PresetTimerConfig = { durationSec: 30 * 60, fadeSec: 60 };
 
@@ -76,6 +93,7 @@ export class Session {
   private catalogReady: Promise<void>;
   private mediaSessionInstalled = false;
   private pageLifecycleBound = false;
+  private lastProgressNotifyMs = 0;
 
   constructor() {
     this.presets = loadPresetsFromStorage().presets;
@@ -192,9 +210,24 @@ export class Session {
     await audioEngine.resume();
     audioEngine.restoreMasterGain();
     audioEngine.setMasterVolumeLinear(this.masterVolumeLinear);
-    for (const layer of this.layers) {
-      await audioEngine.addLayer(layer);
+
+    // Snapshot ids at start; layers may be removed while samples download.
+    // Failed sample downloads auto-remove that layer and continue the rest.
+    const toStart = [...this.layers];
+    for (const layer of toStart) {
+      if (!this.hasLayer(layer.params.id)) continue;
+      await this.ensureSampleInEngine(layer);
     }
+
+    // User cleared the mix, or every sample failed to download — do not start.
+    if (this.layers.length === 0) {
+      this.clearAllLoading();
+      this.playing = false;
+      setMediaSessionPlayback(false);
+      this.notify();
+      return;
+    }
+
     audioEngine.applyMuteSolo(this.layers);
     this.playing = true;
     setMediaSessionPlayback(true, this.mediaTitle());
@@ -244,7 +277,12 @@ export class Session {
     await this.addNoiseLayer(type);
   }
 
-  async addSampleFromAsset(asset: CatalogAsset): Promise<void> {
+  /**
+   * Adds a sample layer immediately (shows in the mix), then fetches/decodes
+   * the FreeSound file when playback is active.
+   * @returns layer id (still valid after return only if the layer was not removed mid-download)
+   */
+  async addSampleFromAsset(asset: CatalogAsset): Promise<string> {
     await this.catalogReady;
     if (!this.catalog) throw new Error(this.catalogError ?? 'Catalog unavailable');
 
@@ -256,16 +294,23 @@ export class Session {
       }),
     };
     this.layers = [...this.layers, layer];
-    if (this.playing) {
-      await audioEngine.addLayer(layer);
-      audioEngine.applyMuteSolo(this.layers);
-    }
     this.notify();
     this.schedulePersist();
+
+    if (this.playing) {
+      await this.ensureSampleInEngine(layer);
+      // Only apply mute/solo if the layer survived download (not deleted mid-flight).
+      if (this.hasLayer(layer.params.id) && this.playing) {
+        audioEngine.applyMuteSolo(this.layers);
+      }
+    }
+    this.notify();
+    return layer.params.id;
   }
 
   removeLayer(id: string): void {
     this.layers = this.layers.filter((l) => l.params.id !== id);
+    this.clearLayerLoadState(id);
     audioEngine.removeLayer(id);
     if (this.layers.length === 0 && this.playing) {
       this.cancelTimer();
@@ -283,6 +328,7 @@ export class Session {
   clearAllLayers(): void {
     audioEngine.stopAll();
     this.layers = [];
+    this.clearAllLoading();
     if (this.playing) {
       this.cancelTimer();
       this.playing = false;
@@ -291,6 +337,12 @@ export class Session {
     }
     this.notify();
     this.schedulePersist();
+  }
+
+  clearLoadNotice(): void {
+    if (this.loadNotice == null) return;
+    this.loadNotice = null;
+    this.notify();
   }
 
   updateNoiseLayer(
@@ -599,6 +651,148 @@ export class Session {
   getAsset(assetId: string): CatalogAsset | undefined {
     if (!this.catalog) return undefined;
     return findAsset(this.catalog, assetId);
+  }
+
+  /** True while any sample file is being fetched/decoded. */
+  isAnyLayerLoading(): boolean {
+    return this.loadingLayerIds.size > 0;
+  }
+
+  isLayerLoading(id: string): boolean {
+    return this.loadingLayerIds.has(id);
+  }
+
+  getLayerLoadProgress(
+    id: string,
+  ): { ratio: number; determinate: boolean } | null {
+    return this.loadingProgress.get(id) ?? null;
+  }
+
+  /**
+   * Whether adding/playing this asset will need a network (or disk) fetch
+   * rather than an in-memory decode-cache hit.
+   */
+  needsSampleFetch(asset: CatalogAsset): boolean {
+    return !decodeCache.has(assetUrl(asset.file));
+  }
+
+  private hasLayer(id: string): boolean {
+    return this.layers.some((l) => l.params.id === id);
+  }
+
+  private setLayerLoading(id: string, loading: boolean): void {
+    if (loading) {
+      this.loadingLayerIds.add(id);
+      if (!this.loadingProgress.has(id)) {
+        this.loadingProgress.set(id, { ratio: 0, determinate: false });
+      }
+    } else {
+      this.loadingLayerIds.delete(id);
+      this.loadingProgress.delete(id);
+    }
+  }
+
+  private clearLayerLoadState(id: string): void {
+    this.loadingLayerIds.delete(id);
+    this.loadingProgress.delete(id);
+  }
+
+  private clearAllLoading(): void {
+    this.loadingLayerIds.clear();
+    this.loadingProgress.clear();
+  }
+
+  private setLoadNotice(message: string): void {
+    this.loadNotice = message;
+  }
+
+  private updateLayerProgress(
+    id: string,
+    ratio: number,
+    determinate: boolean,
+  ): void {
+    this.loadingProgress.set(id, {
+      ratio: Math.max(0, Math.min(1, ratio)),
+      determinate,
+    });
+    const now =
+      typeof performance !== 'undefined' ? performance.now() : Date.now();
+    // Throttle UI updates during streaming (~12 fps).
+    if (now - this.lastProgressNotifyMs >= 80 || ratio >= 1) {
+      this.lastProgressNotifyMs = now;
+      this.notify();
+    }
+  }
+
+  /**
+   * Remove a sample layer that failed to download/decode and notify the user.
+   * Does not rethrow — callers continue with remaining layers.
+   */
+  private removeFailedSampleLayer(id: string, label: string, err: unknown): void {
+    const detail = err instanceof Error ? err.message : String(err);
+    const short =
+      detail.includes('Failed to fetch') || detail.includes('fetch')
+        ? 'network or file missing'
+        : detail.includes('decode') || detail.includes('Unable to decode')
+          ? 'could not decode audio'
+          : 'download failed';
+
+    if (this.hasLayer(id)) {
+      this.removeLayer(id);
+    } else {
+      this.clearLayerLoadState(id);
+      audioEngine.removeLayer(id);
+    }
+    this.setLoadNotice(
+      `Couldn't load “${label}” (${short}). Layer removed from the mix.`,
+    );
+    this.notify();
+  }
+
+  /**
+   * Start a sample layer in the engine if still present in the mix.
+   * Discards the engine node if the user removed/cleared the layer mid-download.
+   * On fetch/decode failure, auto-removes the layer and sets {@link loadNotice}.
+   */
+  private async ensureSampleInEngine(layer: MixerLayer): Promise<void> {
+    if (layer.kind === 'noise') {
+      await audioEngine.addLayer(layer);
+      return;
+    }
+    const id = layer.params.id;
+    const label = layer.params.label;
+    if (!this.hasLayer(id)) return;
+
+    const asset = this.getAsset(layer.params.assetId);
+    const willFetch = asset ? this.needsSampleFetch(asset) : true;
+    if (willFetch) {
+      this.setLayerLoading(id, true);
+      this.notify();
+    }
+    try {
+      await audioEngine.addLayer(layer, (p) => {
+        if (!this.hasLayer(id)) return;
+        this.updateLayerProgress(id, p.ratio, p.determinate);
+      });
+    } catch (err) {
+      // Only auto-remove if the layer is still in the mix (user may have deleted it).
+      if (this.hasLayer(id)) {
+        this.removeFailedSampleLayer(id, label, err);
+      } else {
+        this.clearLayerLoadState(id);
+      }
+      return;
+    } finally {
+      const wasLoading = this.loadingLayerIds.has(id);
+      this.clearLayerLoadState(id);
+      if (wasLoading) this.notify();
+    }
+
+    // Layer deleted or mix cleared while FreeSound file was downloading:
+    // engine also cancels in-flight loads; tear down anything that slipped through.
+    if (!this.hasLayer(id)) {
+      audioEngine.removeLayer(id);
+    }
   }
 }
 

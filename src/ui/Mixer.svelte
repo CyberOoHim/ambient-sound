@@ -14,6 +14,13 @@
   let peak = $state(0);
   let error = $state<string | null>(null);
   let busy = $state(false);
+  /** Sample layer ids currently fetching FreeSound files (for "Downloading…" UI). */
+  let loadingIds = $state<string[]>([]);
+  /** layerId → progress snapshot for bars */
+  let loadProgress = $state<
+    Record<string, { ratio: number; determinate: boolean }>
+  >({});
+  let loadNotice = $state<string | null>(null);
 
   let timerPanel: TimerPanel | undefined = $state();
   let presetsPanel: PresetsPanel | undefined = $state();
@@ -26,21 +33,44 @@
     layers = session.layers;
     playing = session.playing;
     masterDb = linearToDb(session.masterVolumeLinear);
+    loadingIds = [...session.loadingLayerIds];
+    const prog: Record<string, { ratio: number; determinate: boolean }> = {};
+    for (const [id, p] of session.loadingProgress) {
+      prog[id] = p;
+    }
+    loadProgress = prog;
+    loadNotice = session.loadNotice;
     timerPanel?.sync();
     presetsPanel?.sync();
     libraryPanel?.sync();
+  }
+
+  function isLayerLoading(id: string): boolean {
+    return loadingIds.includes(id);
+  }
+
+  function layerProgress(id: string): { ratio: number; determinate: boolean } {
+    return loadProgress[id] ?? { ratio: 0, determinate: false };
+  }
+
+  function dismissNotice() {
+    session.clearLoadNotice();
+    syncFromSession();
   }
 
   async function togglePlay() {
     error = null;
     busy = true;
     try {
+      // Show downloading state as soon as play starts fetching sample files.
+      syncFromSession();
       await session.togglePlay();
       syncFromSession();
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
     } finally {
       busy = false;
+      syncFromSession();
     }
   }
 
@@ -106,12 +136,7 @@
   onMount(() => {
     window.addEventListener('keydown', onKey);
     unsub = session.subscribe(() => {
-      layers = session.layers;
-      playing = session.playing;
-      masterDb = linearToDb(session.masterVolumeLinear);
-      timerPanel?.sync();
-      presetsPanel?.sync();
-      libraryPanel?.sync();
+      syncFromSession();
     });
     void session.whenCatalogReady().then(() => libraryPanel?.sync());
     const tick = () => {
@@ -192,6 +217,21 @@
     <div class="error" role="alert">{error}</div>
   {/if}
 
+  {#if loadNotice}
+    <div class="notice" role="status">
+      <p>{loadNotice}</p>
+      <button type="button" class="text-btn notice-dismiss" onclick={dismissNotice}>
+        Dismiss
+      </button>
+    </div>
+  {/if}
+
+  {#if loadingIds.length > 0}
+    <div class="status-line" role="status">
+      Downloading sound{loadingIds.length > 1 ? 's' : ''}…
+    </div>
+  {/if}
+
   <section class="layers">
     <div class="layers-head">
       <h2>
@@ -229,6 +269,16 @@
             {:else}
               <div class="sample-label">
                 <span class="name">{layer.params.label}</span>
+                {#if isLayerLoading(layer.params.id)}
+                  {@const prog = layerProgress(layer.params.id)}
+                  <span class="load-status">
+                    {#if prog.determinate}
+                      Downloading {Math.round(prog.ratio * 100)}%
+                    {:else}
+                      Downloading…
+                    {/if}
+                  </span>
+                {/if}
               </div>
             {/if}
 
@@ -264,6 +314,28 @@
               </button>
             </div>
           </div>
+
+          {#if isLayerLoading(layer.params.id)}
+            {@const prog = layerProgress(layer.params.id)}
+            <div
+              class="dl-progress"
+              class:indeterminate={!prog.determinate}
+              role="progressbar"
+              aria-label="Download progress for {layer.kind === 'sample'
+                ? layer.params.label
+                : 'layer'}"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={prog.determinate ? Math.round(prog.ratio * 100) : undefined}
+            >
+              <div
+                class="dl-progress-fill"
+                style={prog.determinate
+                  ? `width: ${Math.round(prog.ratio * 100)}%`
+                  : undefined}
+              ></div>
+            </div>
+          {/if}
 
           <div class="row">
             <label for="vol-{layer.params.id}">Vol</label>
@@ -607,10 +679,55 @@
     margin-bottom: 0.35rem;
   }
 
+  .sample-label {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.1rem;
+    min-width: 0;
+  }
+
   .sample-label .name {
     font-weight: 650;
     font-size: 0.9rem;
     color: var(--text-soft);
+  }
+
+  .sample-label .load-status {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 0.02em;
+  }
+
+  .dl-progress {
+    height: 0.28rem;
+    border-radius: 999px;
+    background: var(--border);
+    overflow: hidden;
+    margin: 0.15rem 0 0.35rem;
+  }
+
+  .dl-progress-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 70%, white));
+    transition: width 0.12s ease-out;
+  }
+
+  .dl-progress.indeterminate .dl-progress-fill {
+    width: 35%;
+    animation: dl-indeterminate 1.1s ease-in-out infinite;
+  }
+
+  @keyframes dl-indeterminate {
+    0% {
+      transform: translateX(-120%);
+    }
+    100% {
+      transform: translateX(320%);
+    }
   }
 
   select {
@@ -725,6 +842,42 @@
     padding: 0.5rem 0.75rem;
     margin-bottom: 0.65rem;
     font-size: 0.85rem;
+  }
+
+  .status-line {
+    background: var(--accent-dim);
+    border: 1px solid var(--border);
+    color: var(--accent);
+    border-radius: var(--radius);
+    padding: 0.45rem 0.75rem;
+    margin-bottom: 0.65rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+
+  .notice {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    background: var(--danger-dim, color-mix(in srgb, var(--danger) 14%, transparent));
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    border-radius: var(--radius);
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.65rem;
+    font-size: 0.82rem;
+  }
+
+  .notice p {
+    margin: 0;
+    line-height: 1.35;
+  }
+
+  .notice-dismiss {
+    flex-shrink: 0;
+    color: inherit;
+    opacity: 0.9;
   }
 
   .footer {

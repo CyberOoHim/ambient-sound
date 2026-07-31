@@ -11,7 +11,10 @@ import {
   type SampleLayerParams,
 } from './types';
 import { SamplePlayer } from './sample-player';
-import { decodeCache } from './decode-cache';
+import {
+  decodeCache,
+  type DecodeProgressCallback,
+} from './decode-cache';
 import { assetUrl, findAsset, type SoundCatalog } from '../assets/catalog';
 import { MediaOutput } from './media-output';
 
@@ -51,6 +54,14 @@ export class AudioEngine {
   /** User wants audio running (used to re-resume after iOS interrupt). */
   private wantRunning = false;
   private stateChangeBound = false;
+  /**
+   * Layer ids whose in-flight sample fetch/decode should be discarded.
+   * Set by removeLayer / stopAll so a late download cannot start audio
+   * after the mix layer was cleared or deleted.
+   */
+  private cancelledLoads = new Set<string>();
+  /** Sample layer ids currently awaiting fetch/decode. */
+  private inflightLoads = new Set<string>();
 
   get context(): AudioContext | null {
     return this.ctx;
@@ -187,11 +198,14 @@ export class AudioEngine {
     g.setValueAtTime(this.masterVolumeLinear, t);
   }
 
-  async addLayer(layer: MixerLayer): Promise<void> {
+  async addLayer(
+    layer: MixerLayer,
+    onProgress?: DecodeProgressCallback,
+  ): Promise<void> {
     if (layer.kind === 'noise') {
       await this.addNoiseLayer(layer.params);
     } else {
-      await this.addSampleLayer(layer.params);
+      await this.addSampleLayer(layer.params, onProgress);
     }
   }
 
@@ -258,7 +272,10 @@ export class AudioEngine {
     nodes.pan.pan.setTargetAtTime(Math.max(-1, Math.min(1, params.pan)), t, 0.015);
   }
 
-  async addSampleLayer(params: SampleLayerParams): Promise<void> {
+  async addSampleLayer(
+    params: SampleLayerParams,
+    onProgress?: DecodeProgressCallback,
+  ): Promise<void> {
     const ctx = await this.ensureContext();
     if (!this.master) throw new Error('Master bus missing');
     if (this.layers.has(params.id)) {
@@ -269,30 +286,48 @@ export class AudioEngine {
     const asset = findAsset(this.catalog, params.assetId);
     if (!asset) throw new Error(`Unknown asset: ${params.assetId}`);
 
+    // Fresh load for this id — clear any prior cancel from a previous attempt.
+    this.cancelledLoads.delete(params.id);
+    this.inflightLoads.add(params.id);
+
     const url = assetUrl(asset.file);
-    const buffer = await decodeCache.get(ctx, url);
+    try {
+      const buffer = await decodeCache.get(ctx, url, { onProgress });
 
-    const volume = ctx.createGain();
-    volume.gain.value = clampLinear(params.volumeLinear);
+      // Layer removed / mix cleared while the FreeSound file was downloading.
+      if (this.cancelledLoads.has(params.id)) {
+        return;
+      }
+      if (this.layers.has(params.id)) {
+        this.updateSampleLayer(params);
+        return;
+      }
 
-    const pan = ctx.createStereoPanner();
-    pan.pan.value = Math.max(-1, Math.min(1, params.pan));
+      const volume = ctx.createGain();
+      volume.gain.value = clampLinear(params.volumeLinear);
 
-    const muteSolo = ctx.createGain();
-    muteSolo.gain.value = 1;
+      const pan = ctx.createStereoPanner();
+      pan.pan.value = Math.max(-1, Math.min(1, params.pan));
 
-    volume.connect(pan);
-    pan.connect(muteSolo);
-    muteSolo.connect(this.master);
+      const muteSolo = ctx.createGain();
+      muteSolo.gain.value = 1;
 
-    const player = new SamplePlayer(ctx, buffer, volume, {
-      loopMode: params.loopMode,
-      crossfadeMs: params.crossfadeMs,
-      playbackRate: params.playbackRate,
-    });
-    player.start();
+      volume.connect(pan);
+      pan.connect(muteSolo);
+      muteSolo.connect(this.master);
 
-    this.layers.set(params.id, { kind: 'sample', player, volume, pan, muteSolo });
+      const player = new SamplePlayer(ctx, buffer, volume, {
+        loopMode: params.loopMode,
+        crossfadeMs: params.crossfadeMs,
+        playbackRate: params.playbackRate,
+      });
+      player.start();
+
+      this.layers.set(params.id, { kind: 'sample', player, volume, pan, muteSolo });
+    } finally {
+      this.inflightLoads.delete(params.id);
+      this.cancelledLoads.delete(params.id);
+    }
   }
 
   updateSampleLayer(params: SampleLayerParams): void {
@@ -330,6 +365,9 @@ export class AudioEngine {
   }
 
   removeLayer(id: string): void {
+    // Always mark cancel so an in-flight fetch for this id is discarded,
+    // even when engine nodes do not exist yet (download still in progress).
+    this.cancelledLoads.add(id);
     const nodes = this.layers.get(id);
     if (!nodes) return;
     try {
@@ -372,6 +410,10 @@ export class AudioEngine {
   }
 
   stopAll(): void {
+    // Cancel every sample still downloading, not only layers already wired.
+    for (const id of this.inflightLoads) {
+      this.cancelledLoads.add(id);
+    }
     for (const id of [...this.layers.keys()]) {
       this.removeLayer(id);
     }

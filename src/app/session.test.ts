@@ -43,3 +43,82 @@ describe('Session empty mix layer behavior', () => {
     expect(session.playing).toBe(false);
   });
 });
+
+describe('Session sample download / loading UI state', () => {
+  let session: Session;
+
+  beforeEach(() => {
+    session = new Session();
+    session.layers = [
+      {
+        kind: 'sample',
+        params: {
+          id: 's1',
+          assetId: 'rain_light',
+          label: 'Light rain',
+          volumeLinear: 0.7,
+          muted: false,
+          solo: false,
+          pan: 0,
+          loopMode: 'crossfade',
+          crossfadeMs: 80,
+          playbackRate: 1,
+        },
+      },
+    ];
+    session.playing = true;
+    session.loadingLayerIds = new Set(['s1']);
+  });
+
+  it('clears loading state when the layer is removed mid-download', () => {
+    expect(session.isLayerLoading('s1')).toBe(true);
+
+    session.removeLayer('s1');
+
+    expect(session.isLayerLoading('s1')).toBe(false);
+    expect(session.isAnyLayerLoading()).toBe(false);
+    expect(session.layers.length).toBe(0);
+    expect(session.playing).toBe(false);
+  });
+
+  it('clears all loading state when the mix is cleared mid-download', () => {
+    session.loadingLayerIds.add('s2');
+    session.loadingProgress.set('s2', { ratio: 0.4, determinate: true });
+    expect(session.isAnyLayerLoading()).toBe(true);
+
+    session.clearAllLayers();
+
+    expect(session.loadingLayerIds.size).toBe(0);
+    expect(session.loadingProgress.size).toBe(0);
+    expect(session.layers.length).toBe(0);
+    expect(session.playing).toBe(false);
+  });
+
+  it('clears progress when a loading layer is removed', () => {
+    session.loadingProgress.set('s1', { ratio: 0.55, determinate: true });
+    session.removeLayer('s1');
+    expect(session.loadingProgress.has('s1')).toBe(false);
+    expect(session.isLayerLoading('s1')).toBe(false);
+  });
+
+  it('needsSampleFetch is true when the asset is not in the decode cache', async () => {
+    const { decodeCache } = await import('../audio/decode-cache');
+    const { assetUrl } = await import('../assets/catalog');
+    const asset = {
+      id: 'unique_uncached_asset',
+      title: 'Test',
+      category: 'test',
+      file: 'core/definitely_not_cached_xyz.ogg',
+      loop: { mode: 'crossfade' as const, crossfadeMs: 80 },
+      license: { spdx: 'CC0-1.0', author: 'test' },
+    };
+    expect(decodeCache.has(assetUrl(asset.file))).toBe(false);
+    expect(session.needsSampleFetch(asset)).toBe(true);
+  });
+
+  it('clearLoadNotice dismisses the user-facing download failure message', () => {
+    session.loadNotice = 'Could not load “Rain”. Layer removed from the mix.';
+    session.clearLoadNotice();
+    expect(session.loadNotice).toBeNull();
+  });
+});
