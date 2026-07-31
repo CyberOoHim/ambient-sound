@@ -58,15 +58,25 @@ jobs:
       - name: Decide whether to rebuild sounds
         id: sounds
         run: |
+          # .ogg binaries are gitignored (see .gitignore). CI checkouts only have
+          # catalog.json unless we rebuild — so missing files must force a rebuild.
+          HAS_BINARIES=false
+          if [ -f public/sounds/core/rain_light.ogg ]; then
+            HAS_BINARIES=true
+          fi
+
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.rebuild_sounds }}" = "true" ]; then
             echo "rebuild=true" >> "$GITHUB_OUTPUT"
             echo "Rebuilding sounds: forced via workflow_dispatch"
+          elif [ "$HAS_BINARIES" = "false" ]; then
+            echo "rebuild=true" >> "$GITHUB_OUTPUT"
+            echo "Rebuilding sounds: binary assets not in checkout (gitignored)"
           elif [ "${{ github.event_name }}" = "push" ] && [ "${{ steps.filter.outputs.sounds }}" = "true" ]; then
             echo "rebuild=true" >> "$GITHUB_OUTPUT"
             echo "Rebuilding sounds: sound pack inputs changed"
           else
             echo "rebuild=false" >> "$GITHUB_OUTPUT"
-            echo "Skipping sound rebuild (committed public/sounds assets)"
+            echo "Skipping sound rebuild (binaries already present)"
           fi
 
       - name: Install ffmpeg
