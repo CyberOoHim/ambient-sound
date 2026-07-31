@@ -142,27 +142,36 @@
 
 <div class="mixer">
   <header class="header">
-    <div>
-      <h1>Ambient Sound</h1>
-      <p class="sub">Noise + ambient loops · timer · presets</p>
+    <div class="brand">
+      <span class="logo" aria-hidden="true">◎</span>
+      <div class="brand-text">
+        <h1>Ambient</h1>
+        <p class="sub">soft sounds · rest easy</p>
+      </div>
     </div>
+
     <div class="transport">
-      <button class="play" class:active={playing} disabled={busy} onclick={() => void togglePlay()}>
-        {playing ? 'Pause' : 'Play'}
+      <button
+        class="play"
+        class:active={playing}
+        disabled={busy}
+        onclick={() => void togglePlay()}
+        aria-label={playing ? 'Pause' : 'Play'}
+        title="Space to play/pause"
+      >
+        {#if playing}
+          <span class="play-icon" aria-hidden="true">❚❚</span>
+          <span>Pause</span>
+        {:else}
+          <span class="play-icon" aria-hidden="true">▶</span>
+          <span>Play</span>
+        {/if}
       </button>
-      <span class="hint" title="Press the Space bar on your keyboard to play or pause">
-        Keyboard: <kbd>Space</kbd> play/pause
-      </span>
+      <kbd class="hint-kbd" title="Keyboard shortcut">Space</kbd>
     </div>
-  </header>
 
-  {#if error}
-    <div class="error" role="alert">{error}</div>
-  {/if}
-
-  <section class="master card">
-    <div class="row">
-      <label for="master">Master</label>
+    <div class="master">
+      <label for="master" class="master-label">Master</label>
       <input
         id="master"
         type="range"
@@ -172,320 +181,466 @@
         value={masterDb}
         oninput={(e) => setMasterDb(Number(e.currentTarget.value))}
       />
-      <span class="db">{masterDb.toFixed(1)} dB</span>
+      <span class="db">{masterDb.toFixed(0)} dB</span>
+      <div class="meter" aria-hidden="true">
+        <div class="meter-fill" style="width: {Math.min(100, peak * 100)}%"></div>
+      </div>
     </div>
-    <div class="meter" aria-hidden="true">
-      <div class="meter-fill" style="width: {Math.min(100, peak * 100)}%"></div>
-    </div>
-  </section>
+  </header>
 
-  <LibraryPanel bind:this={libraryPanel} />
-  <TimerPanel bind:this={timerPanel} />
-  <PresetsPanel bind:this={presetsPanel} />
+  {#if error}
+    <div class="error" role="alert">{error}</div>
+  {/if}
 
   <section class="layers">
     <div class="layers-head">
-      <h2>Mixer layers</h2>
+      <h2>
+        Now playing
+        {#if layers.length > 0}
+          <span class="count">{layers.length}</span>
+        {/if}
+      </h2>
       {#if layers.length > 0}
-        <button
-          type="button"
-          class="chip danger clear-btn"
-          onclick={clearAll}
-        >
-          Clear all
-        </button>
+        <button type="button" class="text-btn" onclick={clearAll}>Clear all</button>
       {/if}
     </div>
 
     {#if layers.length === 0}
-      <div class="empty-layers card">
-        <p>No active layers in the mixer. Add noise or ambient sounds from the Library above.</p>
+      <div class="empty-layers">
+        <p>Your mix is quiet. Pick a sound below to begin.</p>
       </div>
     {/if}
 
-    {#each layers as layer (layer.params.id)}
-      <article class="layer card" class:muted={layer.params.muted}>
-        <div class="layer-top">
-          {#if layer.kind === 'noise'}
-            <select
-              aria-label="Noise type"
-              value={layer.params.type}
-              onchange={(e) =>
-                setNoiseType(layer.params.id, e.currentTarget.value as NoiseType)}
-            >
-              {#each NOISE_TYPES as t}
-                <option value={t}>{labelType(t)}</option>
-              {/each}
-            </select>
-          {:else}
-            <div class="sample-label">
-              <span class="kind">Ambient</span>
-              <span class="name">{layer.params.label}</span>
+    <div class="layer-list">
+      {#each layers as layer (layer.params.id)}
+        <article class="layer" class:muted={layer.params.muted}>
+          <div class="layer-top">
+            {#if layer.kind === 'noise'}
+              <select
+                aria-label="Noise type"
+                value={layer.params.type}
+                onchange={(e) =>
+                  setNoiseType(layer.params.id, e.currentTarget.value as NoiseType)}
+              >
+                {#each NOISE_TYPES as t}
+                  <option value={t}>{labelType(t)}</option>
+                {/each}
+              </select>
+            {:else}
+              <div class="sample-label">
+                <span class="name">{layer.params.label}</span>
+              </div>
+            {/if}
+
+            <div class="toggles">
+              <button
+                type="button"
+                class="chip"
+                class:on={layer.params.muted}
+                aria-pressed={layer.params.muted}
+                title="Mute"
+                onclick={() => setMuted(layer.params.id, !layer.params.muted)}
+              >
+                M
+              </button>
+              <button
+                type="button"
+                class="chip solo"
+                class:on={layer.params.solo}
+                aria-pressed={layer.params.solo}
+                title="Solo"
+                onclick={() => setSolo(layer.params.id, !layer.params.solo)}
+              >
+                S
+              </button>
+              <button
+                type="button"
+                class="chip danger"
+                aria-label="Remove layer"
+                title="Remove"
+                onclick={() => removeLayer(layer.params.id)}
+              >
+                ×
+              </button>
             </div>
-          {/if}
-
-          <div class="toggles">
-            <button
-              type="button"
-              class="chip"
-              class:on={layer.params.muted}
-              aria-pressed={layer.params.muted}
-              onclick={() => setMuted(layer.params.id, !layer.params.muted)}
-            >
-              M
-            </button>
-            <button
-              type="button"
-              class="chip solo"
-              class:on={layer.params.solo}
-              aria-pressed={layer.params.solo}
-              onclick={() => setSolo(layer.params.id, !layer.params.solo)}
-            >
-              S
-            </button>
-            <button
-              type="button"
-              class="chip danger"
-              aria-label="Remove layer"
-              onclick={() => removeLayer(layer.params.id)}
-            >
-              ×
-            </button>
           </div>
-        </div>
 
-        <div class="row">
-          <label for="vol-{layer.params.id}">Vol</label>
-          <input
-            id="vol-{layer.params.id}"
-            type="range"
-            min={DB_MIN}
-            max={DB_MAX}
-            step="0.5"
-            value={linearToDb(layer.params.volumeLinear)}
-            oninput={(e) => setLayerDb(layer.params.id, Number(e.currentTarget.value))}
-          />
-          <span class="db">{linearToDb(layer.params.volumeLinear).toFixed(1)} dB</span>
-        </div>
-
-        <div class="row">
-          <label for="pan-{layer.params.id}">Pan</label>
-          <input
-            id="pan-{layer.params.id}"
-            type="range"
-            min="-1"
-            max="1"
-            step="0.01"
-            value={layer.params.pan}
-            oninput={(e) => setPan(layer.params.id, Number(e.currentTarget.value))}
-          />
-          <span class="db">{layer.params.pan.toFixed(2)}</span>
-        </div>
-
-        {#if layer.kind === 'noise'}
           <div class="row">
-            <label for="width-{layer.params.id}">Width</label>
+            <label for="vol-{layer.params.id}">Vol</label>
             <input
-              id="width-{layer.params.id}"
+              id="vol-{layer.params.id}"
               type="range"
-              min="0"
-              max="1"
-              step="0.01"
-              value={layer.params.stereoWidth}
-              oninput={(e) =>
-                setWidth(layer.params.id, Number(e.currentTarget.value))}
+              min={DB_MIN}
+              max={DB_MAX}
+              step="0.5"
+              value={linearToDb(layer.params.volumeLinear)}
+              oninput={(e) => setLayerDb(layer.params.id, Number(e.currentTarget.value))}
             />
-            <span class="db">{layer.params.stereoWidth.toFixed(2)}</span>
+            <span class="db">{linearToDb(layer.params.volumeLinear).toFixed(0)}</span>
           </div>
-        {/if}
-      </article>
-    {/each}
+
+          <div class="controls-compact">
+            <div class="row mini">
+              <label for="pan-{layer.params.id}">Pan</label>
+              <input
+                id="pan-{layer.params.id}"
+                type="range"
+                min="-1"
+                max="1"
+                step="0.01"
+                value={layer.params.pan}
+                oninput={(e) => setPan(layer.params.id, Number(e.currentTarget.value))}
+              />
+            </div>
+
+            {#if layer.kind === 'noise'}
+              <div class="row mini">
+                <label for="width-{layer.params.id}">Width</label>
+                <input
+                  id="width-{layer.params.id}"
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={layer.params.stereoWidth}
+                  oninput={(e) =>
+                    setWidth(layer.params.id, Number(e.currentTarget.value))}
+                />
+              </div>
+            {/if}
+          </div>
+        </article>
+      {/each}
+    </div>
   </section>
 
+  <div class="side-grid">
+    <LibraryPanel bind:this={libraryPanel} />
+    <div class="side-stack">
+      <TimerPanel bind:this={timerPanel} />
+      <PresetsPanel bind:this={presetsPanel} />
+    </div>
+  </div>
+
   <footer class="footer">
-    <p>
-      Ambient loops from Freesound (CC0) — full credits in <code>ATTRIBUTIONS.md</code>.
-    </p>
+    <p>Sounds from Freesound (CC0) · see <code>ATTRIBUTIONS.md</code></p>
   </footer>
 </div>
 
 <style>
   .mixer {
-    max-width: 40rem;
+    max-width: 52rem;
     margin: 0 auto;
-    padding: 1.5rem 1.25rem 3rem;
+    padding: 0.75rem 0.85rem 2rem;
   }
 
+  /* ── Sticky warm header ── */
   .header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    align-items: center;
+    gap: 0.75rem 1rem;
+    padding: 0.65rem 0.85rem;
+    margin: 0 -0.15rem 0.85rem;
+    background: color-mix(in srgb, var(--card) 92%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-soft);
+  }
+
+  .brand {
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 1rem;
-    margin-bottom: 1.25rem;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  .logo {
+    display: grid;
+    place-items: center;
+    width: 1.85rem;
+    height: 1.85rem;
+    border-radius: 50%;
+    background: var(--accent-dim);
+    color: var(--accent);
+    font-size: 0.95rem;
+    line-height: 1;
+    box-shadow: 0 0 12px var(--accent-glow);
+    flex-shrink: 0;
+  }
+
+  .brand-text {
+    min-width: 0;
   }
 
   h1 {
     margin: 0;
-    font-size: 1.5rem;
+    font-size: 1.05rem;
     font-weight: 650;
     letter-spacing: -0.02em;
+    color: var(--text);
+    line-height: 1.15;
   }
 
   .sub {
-    margin: 0.25rem 0 0;
+    margin: 0.05rem 0 0;
     color: var(--muted);
-    font-size: 0.9rem;
-  }
-
-  h2 {
-    margin: 0;
-    font-size: 0.85rem;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--muted);
+    font-size: 0.68rem;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
   }
 
   .transport {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.4rem;
   }
 
-  .hint {
-    font-size: 0.75rem;
-    color: var(--muted);
-    max-width: 9rem;
-    line-height: 1.3;
-  }
-
-  .hint kbd {
-    display: inline-block;
-    font: inherit;
-    font-size: 0.7rem;
-    font-weight: 650;
-    border: 1px solid var(--border);
-    border-bottom-width: 2px;
-    border-radius: 0.3rem;
-    padding: 0.05rem 0.35rem;
-    background: var(--card);
-    color: var(--text);
-  }
-
-  .card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 0.85rem;
-    padding: 0.9rem 1rem;
-    margin-bottom: 0.75rem;
-  }
-
-  .row {
-    display: grid;
-    grid-template-columns: 3.2rem 1fr 4.2rem;
+  .play {
+    display: inline-flex;
     align-items: center;
-    gap: 0.6rem;
-    margin-top: 0.45rem;
-  }
-
-  .row:first-child {
-    margin-top: 0;
-  }
-
-  label {
-    font-size: 0.8rem;
-    color: var(--muted);
-  }
-
-  .db {
-    font-variant-numeric: tabular-nums;
-    font-size: 0.8rem;
-    color: var(--muted);
-    text-align: right;
-  }
-
-  input[type='range'] {
-    width: 100%;
-    accent-color: var(--accent);
-  }
-
-  select {
-    background: var(--bg);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 0.5rem;
-    padding: 0.4rem 0.55rem;
-    font: inherit;
-  }
-
-  button {
+    gap: 0.35rem;
     font: inherit;
     cursor: pointer;
-    border-radius: 0.55rem;
-    border: 1px solid var(--border);
-    background: var(--bg);
-    color: var(--text);
-    padding: 0.45rem 0.85rem;
+    border-radius: var(--radius-pill);
+    border: none;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-weight: 650;
+    font-size: 0.85rem;
+    padding: 0.45rem 0.95rem;
+    min-width: 5.25rem;
+    justify-content: center;
+    box-shadow: 0 2px 10px var(--accent-glow);
+    transition:
+      background 0.15s ease,
+      transform 0.12s ease;
   }
 
-  button:disabled {
-    opacity: 0.45;
+  .play:hover:not(:disabled) {
+    background: var(--accent-hover);
+  }
+
+  .play:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+
+  .play.active {
+    background: var(--solo);
+  }
+
+  .play:disabled {
+    opacity: 0.5;
     cursor: not-allowed;
   }
 
-  button.play {
-    background: var(--accent);
-    border-color: transparent;
-    color: #0b1020;
-    font-weight: 650;
-    min-width: 5.5rem;
+  .play-icon {
+    font-size: 0.7rem;
+    line-height: 1;
   }
 
-  button.play.active {
-    background: #f0b429;
+  .hint-kbd {
+    display: none;
+    font: inherit;
+    font-size: 0.65rem;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    border-bottom-width: 2px;
+    border-radius: 0.3rem;
+    padding: 0.1rem 0.35rem;
+    background: var(--bg);
+    color: var(--muted);
+  }
+
+  .master {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-rows: auto auto;
+    align-items: center;
+    gap: 0.2rem 0.5rem;
+    min-width: 0;
+  }
+
+  .master-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .master input[type='range'] {
+    grid-column: 2;
+    grid-row: 1;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .master .db {
+    grid-column: 3;
+    grid-row: 1;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-align: right;
+    min-width: 2.6rem;
+  }
+
+  .meter {
+    grid-column: 2 / -1;
+    grid-row: 2;
+    height: 0.22rem;
+    background: var(--bg);
+    border-radius: var(--radius-pill);
+    overflow: hidden;
+  }
+
+  .meter-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--success));
+    transition: width 50ms linear;
+    border-radius: inherit;
+  }
+
+  /* ── Layers ── */
+  .layers {
+    margin-bottom: 0.85rem;
   }
 
   .layers-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin: 1rem 0 0.6rem;
+    margin-bottom: 0.45rem;
+    padding: 0 0.15rem;
+  }
+
+  h2 {
+    margin: 0;
+    font-size: 0.75rem;
+    font-weight: 650;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .count {
+    display: inline-grid;
+    place-items: center;
+    min-width: 1.15rem;
+    height: 1.15rem;
+    padding: 0 0.3rem;
+    border-radius: var(--radius-pill);
+    background: var(--accent-dim);
+    color: var(--accent);
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0;
+  }
+
+  .text-btn {
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.2rem 0.35rem;
+    border-radius: var(--radius-sm);
+  }
+
+  .text-btn:hover {
+    color: var(--danger);
+    background: var(--danger-dim);
+  }
+
+  .empty-layers {
+    border: 1px dashed var(--border-soft);
+    border-radius: var(--radius);
+    padding: 1rem 1.1rem;
+    text-align: center;
+    background: color-mix(in srgb, var(--card) 60%, transparent);
+  }
+
+  .empty-layers p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+
+  .layer-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .layer {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.55rem 0.7rem 0.6rem;
+    box-shadow: var(--shadow-card);
+    transition: opacity 0.15s ease;
+  }
+
+  .layer.muted {
+    opacity: 0.55;
   }
 
   .layer-top {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.75rem;
+    gap: 0.5rem;
     margin-bottom: 0.35rem;
-  }
-
-  .sample-label {
-    display: flex;
-    flex-direction: column;
-    gap: 0.1rem;
-  }
-
-  .sample-label .kind {
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--muted);
   }
 
   .sample-label .name {
     font-weight: 650;
+    font-size: 0.9rem;
+    color: var(--text-soft);
+  }
+
+  select {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.28rem 0.45rem;
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    max-width: 100%;
   }
 
   .toggles {
     display: flex;
-    gap: 0.35rem;
+    gap: 0.25rem;
+    flex-shrink: 0;
   }
 
   .chip {
-    min-width: 2rem;
-    padding: 0.3rem 0.45rem;
-    font-size: 0.8rem;
-    font-weight: 650;
+    min-width: 1.75rem;
+    height: 1.75rem;
+    padding: 0 0.35rem;
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 700;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--muted);
+    cursor: pointer;
+    line-height: 1;
   }
 
   .chip.on {
@@ -495,48 +650,86 @@
   }
 
   .chip.solo.on {
-    background: #3d2a12;
-    border-color: #f0b429;
-    color: #f0b429;
+    background: var(--solo-dim);
+    border-color: var(--solo);
+    color: var(--solo);
   }
 
   .chip.danger {
-    color: #f07178;
+    color: var(--danger);
+    border-color: transparent;
+    background: transparent;
   }
 
-  .layer.muted {
-    opacity: 0.65;
+  .chip.danger:hover {
+    background: var(--danger-dim);
   }
 
-  .meter {
-    margin-top: 0.65rem;
-    height: 0.35rem;
-    background: var(--bg);
-    border-radius: 999px;
-    overflow: hidden;
+  .row {
+    display: grid;
+    grid-template-columns: 2rem 1fr 2rem;
+    align-items: center;
+    gap: 0.4rem;
   }
 
-  .meter-fill {
-    height: 100%;
-    background: linear-gradient(90deg, var(--accent), #7fd99a);
-    transition: width 50ms linear;
+  .row label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .row .db {
+    font-variant-numeric: tabular-nums;
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-align: right;
+  }
+
+  .controls-compact {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.35rem 0.75rem;
+    margin-top: 0.35rem;
+  }
+
+  .row.mini {
+    grid-template-columns: 2.4rem 1fr;
+  }
+
+  .row.mini label {
+    font-size: 0.68rem;
+  }
+
+  /* ── Side panels grid ── */
+  .side-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
+    align-items: start;
+  }
+
+  .side-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
   }
 
   .error {
-    background: #3a1a1a;
-    border: 1px solid #f07178;
-    color: #ffb4b4;
-    border-radius: 0.6rem;
-    padding: 0.65rem 0.85rem;
-    margin-bottom: 0.75rem;
-    font-size: 0.9rem;
+    background: var(--danger-dim);
+    border: 1px solid var(--danger);
+    color: #ffc8c0;
+    border-radius: var(--radius);
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.65rem;
+    font-size: 0.85rem;
   }
 
   .footer {
-    margin-top: 1.5rem;
-    color: var(--muted);
-    font-size: 0.8rem;
-    line-height: 1.45;
+    margin-top: 1.1rem;
+    color: var(--muted-soft);
+    font-size: 0.72rem;
+    text-align: center;
+    line-height: 1.4;
   }
 
   .footer p {
@@ -544,6 +737,53 @@
   }
 
   .footer code {
-    font-size: 0.85em;
+    font-size: 0.9em;
+    color: var(--muted);
+  }
+
+  @media (min-width: 640px) {
+    .mixer {
+      padding: 1rem 1.15rem 2.5rem;
+    }
+
+    .header {
+      padding: 0.7rem 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .hint-kbd {
+      display: inline-block;
+    }
+
+    .side-grid {
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 0.75rem;
+    }
+  }
+
+  @media (max-width: 520px) {
+    .header {
+      grid-template-columns: 1fr auto;
+      grid-template-areas:
+        'brand transport'
+        'master master';
+    }
+
+    .brand {
+      grid-area: brand;
+    }
+
+    .transport {
+      grid-area: transport;
+    }
+
+    .master {
+      grid-area: master;
+      margin-top: 0.15rem;
+    }
+
+    .controls-compact {
+      grid-template-columns: 1fr;
+    }
   }
 </style>

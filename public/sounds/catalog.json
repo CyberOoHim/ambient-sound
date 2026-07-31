@@ -144,6 +144,151 @@
         "username": "sonicalypse",
         "originalTitle": "Water Stream River Creek with crickets"
       }
+    },
+    {
+      "id": "crickets_night",
+      "title": "Night crickets",
+      "category": "insects",
+      "file": "core/crickets_night.ogg",
+      "tags": [
+        "crickets",
+        "night",
+        "insects",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 100
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "Defelozedd94",
+        "sourceUrl": "https://freesound.org/people/Defelozedd94/sounds/522299/",
+        "attribution": "\"Crickets At Night - Raw sound\" by Defelozedd94 (https://freesound.org/people/Defelozedd94/sounds/522299/) — CC0-1.0",
+        "notes": "Freesound #522299. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 522299,
+        "username": "Defelozedd94",
+        "originalTitle": "Crickets At Night - Raw sound"
+      }
+    },
+    {
+      "id": "birds_morning",
+      "title": "Morning birds",
+      "category": "birds",
+      "file": "core/birds_morning.ogg",
+      "tags": [
+        "birds",
+        "morning",
+        "forest",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 120
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "trezz77",
+        "sourceUrl": "https://freesound.org/people/trezz77/sounds/546521/",
+        "attribution": "\"birds on morning\" by trezz77 (https://freesound.org/people/trezz77/sounds/546521/) — CC0-1.0",
+        "notes": "Freesound #546521. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 546521,
+        "username": "trezz77",
+        "originalTitle": "birds on morning"
+      }
+    },
+    {
+      "id": "thunder_distant",
+      "title": "Distant thunder",
+      "category": "thunder",
+      "file": "core/thunder_distant.ogg",
+      "tags": [
+        "thunder",
+        "storm",
+        "rolling",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 150
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "SholeColtis",
+        "sourceUrl": "https://freesound.org/people/SholeColtis/sounds/683419/",
+        "attribution": "\"Rolling_Thunder_Deep.wav\" by SholeColtis (https://freesound.org/people/SholeColtis/sounds/683419/) — CC0-1.0",
+        "notes": "Freesound #683419. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 683419,
+        "username": "SholeColtis",
+        "originalTitle": "Rolling_Thunder_Deep.wav"
+      }
+    },
+    {
+      "id": "waterfall",
+      "title": "Waterfall",
+      "category": "waterfall",
+      "file": "core/waterfall.ogg",
+      "tags": [
+        "waterfall",
+        "water",
+        "nature",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 100
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "BassmanJourney",
+        "sourceUrl": "https://freesound.org/people/BassmanJourney/sounds/632107/",
+        "attribution": "\"Hidden waterfall.WAV\" by BassmanJourney (https://freesound.org/people/BassmanJourney/sounds/632107/) — CC0-1.0",
+        "notes": "Freesound #632107. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 632107,
+        "username": "BassmanJourney",
+        "originalTitle": "Hidden waterfall.WAV"
+      }
+    },
+    {
+      "id": "frogs_pond",
+      "title": "Pond frogs",
+      "category": "frogs",
+      "file": "core/frogs_pond.ogg",
+      "tags": [
+        "frogs",
+        "pond",
+        "night",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 100
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "felix.blume",
+        "sourceUrl": "https://freesound.org/people/felix.blume/sounds/135561/",
+        "attribution": "\"Toads and frogs are singing at night in the pond, in the center of the small village of Diafarabe, in Mali\" by felix.blume (https://freesound.org/people/felix.blume/sounds/135561/) — CC0-1.0",
+        "notes": "Freesound #135561. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 135561,
+        "username": "felix.blume",
+        "originalTitle": "Toads and frogs are singing at night in the pond, in the center of the small village of Diafarabe, in Mali"
+      }
     }
   ]
 }

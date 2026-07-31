@@ -22,7 +22,7 @@
     message = null;
     try {
       await session.addNoiseLayer(type);
-      message = `Added ${labelNoise(type)} noise`;
+      message = `Added ${labelNoise(type)}`;
     } catch (e) {
       message = e instanceof Error ? e.message : String(e);
     } finally {
@@ -42,43 +42,53 @@
       busy = false;
     }
   }
+
+  /** Friendly short labels for ambient categories / titles */
+  function shortTitle(title: string): string {
+    return title;
+  }
 </script>
 
-<section class="card library">
-  <div class="head">
-    <h2>Library</h2>
-  </div>
-  <p class="help">Add noise generators or core ambient loops to the mixer.</p>
+<section class="panel library">
+  <header class="panel-head">
+    <h2>Sounds</h2>
+    <p class="hint">tap to add</p>
+  </header>
 
-  <h3>Noise</h3>
-  <div class="chips">
-    {#each NOISE_TYPES as t}
-      <button type="button" class="chip" disabled={busy} onclick={() => void addNoise(t)}>
-        {labelNoise(t)}
-      </button>
-    {/each}
-  </div>
-
-  <h3>Ambient (core pack)</h3>
-  {#if catalogError}
-    <p class="err">{catalogError}</p>
-  {:else if assets.length === 0}
-    <p class="empty">Loading catalog…</p>
-  {:else}
-    <ul class="list">
-      {#each assets as a (a.id)}
-        <li>
-          <div class="meta">
-            <span class="title">{a.title}</span>
-            <span class="cat">{a.category} · {a.license.spdx}</span>
-          </div>
-          <button type="button" class="primary" disabled={busy} onclick={() => void addSample(a)}>
-            Add
-          </button>
-        </li>
+  <div class="section">
+    <h3>Noise</h3>
+    <div class="chips">
+      {#each NOISE_TYPES as t}
+        <button type="button" class="chip" disabled={busy} onclick={() => void addNoise(t)}>
+          {labelNoise(t)}
+        </button>
       {/each}
-    </ul>
-  {/if}
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>Nature</h3>
+    {#if catalogError}
+      <p class="err">{catalogError}</p>
+    {:else if assets.length === 0}
+      <p class="empty">Loading…</p>
+    {:else}
+      <div class="sound-grid">
+        {#each assets as a (a.id)}
+          <button
+            type="button"
+            class="sound-tile"
+            disabled={busy}
+            title="{a.title} · {a.category}"
+            onclick={() => void addSample(a)}
+          >
+            <span class="tile-title">{shortTitle(a.title)}</span>
+            <span class="tile-cat">{a.category}</span>
+          </button>
+        {/each}
+      </div>
+    {/if}
+  </div>
 
   {#if message}
     <p class="msg" role="status">{message}</p>
@@ -86,48 +96,76 @@
 </section>
 
 <style>
-  .head {
-    margin-bottom: 0.35rem;
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.65rem 0.75rem 0.75rem;
+    box-shadow: var(--shadow-card);
+  }
+
+  .panel-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
   }
 
   h2 {
     margin: 0;
-    font-size: 0.85rem;
+    font-size: 0.75rem;
+    font-weight: 650;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.05em;
     color: var(--muted);
+  }
+
+  .hint {
+    margin: 0;
+    font-size: 0.68rem;
+    color: var(--muted-soft);
+  }
+
+  .section + .section {
+    margin-top: 0.55rem;
   }
 
   h3 {
-    margin: 0.75rem 0 0.4rem;
-    font-size: 0.8rem;
-    color: var(--muted);
+    margin: 0 0 0.3rem;
+    font-size: 0.68rem;
     font-weight: 600;
-  }
-
-  .help {
-    margin: 0 0 0.35rem;
-    font-size: 0.8rem;
-    color: var(--muted);
-    line-height: 1.4;
+    color: var(--muted-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
   }
 
   .chips {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.35rem;
+    gap: 0.3rem;
   }
 
   .chip {
     font: inherit;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 600;
-    padding: 0.3rem 0.55rem;
-    border-radius: 0.45rem;
+    padding: 0.28rem 0.55rem;
+    border-radius: var(--radius-pill);
     border: 1px solid var(--border);
     background: var(--bg);
-    color: var(--text);
+    color: var(--text-soft);
     cursor: pointer;
+    transition:
+      border-color 0.12s ease,
+      background 0.12s ease,
+      color 0.12s ease;
+  }
+
+  .chip:hover:not(:disabled) {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+    color: var(--accent);
   }
 
   .chip:disabled {
@@ -135,71 +173,78 @@
     cursor: not-allowed;
   }
 
-  .list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
+  .sound-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
     gap: 0.35rem;
   }
 
-  .list li {
+  .sound-tile {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    border: 1px solid var(--border);
-    border-radius: 0.5rem;
-    background: var(--bg);
-    padding: 0.4rem 0.5rem;
-  }
-
-  .title {
-    display: block;
-    font-size: 0.9rem;
-    font-weight: 600;
-  }
-
-  .cat {
-    display: block;
-    font-size: 0.72rem;
-    color: var(--muted);
-    margin-top: 0.1rem;
-  }
-
-  .primary {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.12rem;
+    text-align: left;
     font: inherit;
-    font-size: 0.8rem;
-    font-weight: 650;
-    background: var(--accent);
-    border: none;
-    color: #0b1020;
-    border-radius: 0.45rem;
-    padding: 0.3rem 0.65rem;
+    padding: 0.45rem 0.55rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
     cursor: pointer;
-    white-space: nowrap;
+    min-height: 2.6rem;
+    transition:
+      border-color 0.12s ease,
+      background 0.12s ease,
+      transform 0.1s ease;
   }
 
-  .primary:disabled {
+  .sound-tile:hover:not(:disabled) {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+    transform: translateY(-1px);
+  }
+
+  .sound-tile:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  .sound-tile:disabled {
     opacity: 0.5;
     cursor: not-allowed;
   }
 
+  .tile-title {
+    font-size: 0.78rem;
+    font-weight: 650;
+    line-height: 1.2;
+    color: var(--text-soft);
+  }
+
+  .sound-tile:hover:not(:disabled) .tile-title {
+    color: var(--accent);
+  }
+
+  .tile-cat {
+    font-size: 0.62rem;
+    color: var(--muted-soft);
+    text-transform: capitalize;
+  }
+
   .empty,
   .err {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     color: var(--muted);
-    margin: 0.25rem 0;
+    margin: 0.15rem 0;
   }
 
   .err {
-    color: #ffb4b4;
+    color: var(--danger);
   }
 
   .msg {
-    margin: 0.55rem 0 0;
-    font-size: 0.8rem;
+    margin: 0.5rem 0 0;
+    font-size: 0.72rem;
     color: var(--accent);
   }
 </style>

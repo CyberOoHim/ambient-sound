@@ -18,7 +18,7 @@
     try {
       await session.loadPreset(id);
       selectedId = id;
-      message = 'Preset loaded (press Play if paused).';
+      message = 'Loaded — press Play if paused';
     } finally {
       busy = false;
     }
@@ -31,28 +31,28 @@
     name = '';
     selectedId = p.id;
     sync();
-    message = `Saved “${p.name}”.`;
+    message = `Saved “${p.name}”`;
   }
 
   function remove(id: string) {
     session.removePreset(id);
     if (selectedId === id) selectedId = null;
     sync();
-    message = 'Preset deleted.';
+    message = 'Deleted';
   }
 
   async function exportSelected() {
     if (!selectedId) {
-      message = 'Select a preset first.';
+      message = 'Select a preset first';
       return;
     }
     const json = session.exportPresetJson(selectedId);
     if (!json) return;
     try {
       await navigator.clipboard.writeText(json);
-      message = 'Copied preset JSON to clipboard.';
+      message = 'Copied to clipboard';
     } catch {
-      message = 'Could not copy — check browser permissions.';
+      message = 'Could not copy';
     }
   }
 
@@ -62,30 +62,28 @@
       const text = await navigator.clipboard.readText();
       const p = session.importPresetJson(text);
       if (!p) {
-        message = 'Clipboard is not a valid preset JSON.';
+        message = 'Not a valid preset';
         return;
       }
       sync();
       selectedId = p.id;
-      message = `Imported “${p.name}”.`;
+      message = `Imported “${p.name}”`;
     } catch {
-      message = 'Could not read clipboard.';
+      message = 'Could not read clipboard';
     }
   }
 </script>
 
-<section class="card presets">
-  <div class="head">
+<section class="panel presets">
+  <header class="panel-head">
     <h2>Presets</h2>
-  </div>
-  <p class="help">
-    Save the current mixer. Last session restores automatically on reload (audio never auto-starts).
-  </p>
+    <p class="hint">auto-saves last mix</p>
+  </header>
 
   <div class="save-row">
     <input
       type="text"
-      placeholder="Preset name"
+      placeholder="Name this mix…"
       bind:value={name}
       maxlength="48"
       aria-label="Preset name"
@@ -94,7 +92,7 @@
   </div>
 
   {#if presets.length === 0}
-    <p class="empty">No saved presets yet.</p>
+    <p class="empty">No presets yet — save your favorite mix.</p>
   {:else}
     <ul class="list">
       {#each presets as p (p.id)}
@@ -105,7 +103,7 @@
             disabled={busy}
             onclick={() => void load(p.id)}
           >
-            {p.name}
+            <span class="title">{p.name}</span>
             <span class="meta">{p.layers.length} layer{p.layers.length === 1 ? '' : 's'}</span>
           </button>
           <button
@@ -136,137 +134,189 @@
 </section>
 
 <style>
-  .head {
-    margin-bottom: 0.35rem;
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.65rem 0.75rem 0.7rem;
+    box-shadow: var(--shadow-card);
+  }
+
+  .panel-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.45rem;
   }
 
   h2 {
     margin: 0;
-    font-size: 0.85rem;
+    font-size: 0.75rem;
+    font-weight: 650;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.05em;
     color: var(--muted);
   }
 
-  .help {
-    margin: 0 0 0.65rem;
-    font-size: 0.8rem;
-    color: var(--muted);
-    line-height: 1.4;
+  .hint {
+    margin: 0;
+    font-size: 0.68rem;
+    color: var(--muted-soft);
   }
 
   .save-row {
     display: flex;
-    gap: 0.45rem;
-    margin-bottom: 0.65rem;
+    gap: 0.35rem;
+    margin-bottom: 0.5rem;
   }
 
   .save-row input {
     flex: 1;
+    min-width: 0;
     background: var(--bg);
     color: var(--text);
     border: 1px solid var(--border);
-    border-radius: 0.45rem;
-    padding: 0.4rem 0.55rem;
+    border-radius: var(--radius-sm);
+    padding: 0.35rem 0.5rem;
     font: inherit;
+    font-size: 0.8rem;
+  }
+
+  .save-row input::placeholder {
+    color: var(--muted-soft);
   }
 
   .primary {
     background: var(--accent);
     border: none;
-    color: #0b1020;
+    color: var(--accent-ink);
     font-weight: 650;
-    border-radius: 0.55rem;
-    padding: 0.4rem 0.75rem;
+    border-radius: var(--radius-pill);
+    padding: 0.35rem 0.7rem;
     cursor: pointer;
     font: inherit;
+    font-size: 0.8rem;
     white-space: nowrap;
+    box-shadow: 0 2px 8px var(--accent-glow);
+  }
+
+  .primary:hover {
+    background: var(--accent-hover);
   }
 
   .secondary {
     font: inherit;
     cursor: pointer;
-    border-radius: 0.5rem;
+    border-radius: var(--radius-pill);
     border: 1px solid var(--border);
     background: var(--bg);
-    color: var(--text);
-    padding: 0.35rem 0.65rem;
-    font-size: 0.85rem;
+    color: var(--muted);
+    padding: 0.28rem 0.55rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+
+  .secondary:hover {
+    color: var(--text-soft);
+    border-color: var(--border-soft);
   }
 
   .empty {
-    margin: 0.25rem 0 0.65rem;
-    font-size: 0.85rem;
+    margin: 0.1rem 0 0.5rem;
+    font-size: 0.78rem;
     color: var(--muted);
+    line-height: 1.35;
   }
 
   .list {
     list-style: none;
-    margin: 0 0 0.65rem;
+    margin: 0 0 0.5rem;
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 0.3rem;
+    gap: 0.25rem;
+    max-height: 9.5rem;
+    overflow-y: auto;
   }
 
   .list li {
     display: flex;
     align-items: center;
-    gap: 0.35rem;
+    gap: 0.2rem;
     border: 1px solid var(--border);
-    border-radius: 0.5rem;
+    border-radius: var(--radius-sm);
     background: var(--bg);
-    padding: 0.15rem 0.25rem 0.15rem 0.15rem;
+    padding: 0.1rem 0.15rem 0.1rem 0.1rem;
   }
 
   .list li.selected {
     border-color: var(--accent);
+    background: var(--accent-dim);
   }
 
   .name {
     flex: 1;
+    min-width: 0;
     text-align: left;
     border: none;
     background: transparent;
     color: var(--text);
     font: inherit;
     cursor: pointer;
-    padding: 0.35rem 0.45rem;
-    border-radius: 0.4rem;
+    padding: 0.3rem 0.4rem;
+    border-radius: 0.3rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.05rem;
   }
 
   .name:hover {
-    background: var(--card);
+    background: color-mix(in srgb, var(--card) 70%, transparent);
+  }
+
+  .title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-soft);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .meta {
-    display: block;
-    font-size: 0.75rem;
-    color: var(--muted);
-    margin-top: 0.1rem;
+    font-size: 0.65rem;
+    color: var(--muted-soft);
   }
 
   .chip {
-    min-width: 2rem;
-    border: 1px solid var(--border);
+    min-width: 1.6rem;
+    height: 1.6rem;
+    border: none;
     background: transparent;
-    color: #f07178;
-    border-radius: 0.4rem;
+    color: var(--danger);
+    border-radius: var(--radius-sm);
     cursor: pointer;
-    padding: 0.25rem 0.4rem;
+    padding: 0;
     font: inherit;
-    font-weight: 650;
+    font-weight: 700;
+    font-size: 0.9rem;
+    line-height: 1;
+  }
+
+  .chip:hover {
+    background: var(--danger-dim);
   }
 
   .io {
     display: flex;
-    gap: 0.4rem;
+    gap: 0.35rem;
     flex-wrap: wrap;
   }
 
   .msg {
-    margin: 0.55rem 0 0;
-    font-size: 0.8rem;
+    margin: 0.4rem 0 0;
+    font-size: 0.72rem;
     color: var(--accent);
   }
 </style>
