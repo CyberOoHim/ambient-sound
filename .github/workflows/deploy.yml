@@ -3,7 +3,26 @@ name: Deploy SPA to GitHub Pages
 on:
   push:
     branches: [main]
+    # Rebuild SPA when app, assets, or toolchain change — skip pure docs/license noise
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'config/**'
+      - 'scripts/**'
+      - 'assets-masters/**'
+      - 'index.html'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'vite.config.*'
+      - 'svelte.config.*'
+      - 'tsconfig*.json'
+      - '.github/workflows/deploy.yml'
   workflow_dispatch:
+    inputs:
+      rebuild_sounds:
+        description: 'Fetch/encode core sound pack with ffmpeg before build'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -20,8 +39,38 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # paths-filter needs a push/PR base; skip on workflow_dispatch (use input only)
+      - name: Detect sound-pack changes
+        id: filter
+        if: github.event_name == 'push'
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            sounds:
+              - 'config/sounds.json'
+              - 'scripts/generate-core-pack.mjs'
+              - 'scripts/fetch-freesound-core.mjs'
+              - 'assets-masters/**'
+
+      - name: Decide whether to rebuild sounds
+        id: sounds
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.rebuild_sounds }}" = "true" ]; then
+            echo "rebuild=true" >> "$GITHUB_OUTPUT"
+            echo "Rebuilding sounds: forced via workflow_dispatch"
+          elif [ "${{ github.event_name }}" = "push" ] && [ "${{ steps.filter.outputs.sounds }}" = "true" ]; then
+            echo "rebuild=true" >> "$GITHUB_OUTPUT"
+            echo "Rebuilding sounds: sound pack inputs changed"
+          else
+            echo "rebuild=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping sound rebuild (committed public/sounds assets)"
+          fi
 
       - name: Install ffmpeg
+        if: steps.sounds.outputs.rebuild == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
@@ -40,6 +89,10 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Rebuild core sound pack
+        if: steps.sounds.outputs.rebuild == 'true'
+        run: pnpm sounds:freesound
 
       - name: Validate sound catalog & manifests
         run: pnpm validate-manifests
