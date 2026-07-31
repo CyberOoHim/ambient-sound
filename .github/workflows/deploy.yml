@@ -27,14 +27,15 @@ jobs:
           sudo apt-get install -y ffmpeg
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v4
         with:
           version: 11.18.0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # pnpm 11 requires Node >= 22.13 (uses built-in node:sqlite)
+          node-version: 22
           cache: pnpm
 
       - name: Install dependencies

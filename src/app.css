@@ -1,32 +1,37 @@
 :root {
   color-scheme: dark;
-  /* Warm hearth palette — soft charcoal, honey, cream */
-  --bg: #1a1410;
-  --bg-elevated: #221b16;
-  --card: #2a211b;
-  --card-soft: #312820;
-  --text: #f3e8dc;
-  --text-soft: #e8d5c4;
-  --muted: #a89484;
-  --muted-soft: #7a6a5c;
-  --border: #3d322a;
-  --border-soft: #4a3d33;
-  --accent: #e8a85c;
-  --accent-hover: #f0b870;
-  --accent-dim: #3d2a18;
-  --accent-glow: rgba(232, 168, 92, 0.22);
-  --accent-ink: #2a1a0c;
-  --success: #8fbc8f;
-  --danger: #e07a6a;
-  --danger-dim: #3a221e;
-  --solo: #f0c14a;
-  --solo-dim: #3a2e12;
+  /*
+   * Stable warm neutrals — single amber family, low chroma deltas.
+   * Surfaces step by lightness only; accents share one hue.
+   */
+  --bg: #171411;
+  --bg-elevated: #1e1a16;
+  --card: #25201b;
+  --card-soft: #2c2721;
+  --text: #ebe4db;
+  --text-soft: #d6cdc2;
+  --muted: #9a9086;
+  --muted-soft: #6f675f;
+  --border: #3a342e;
+  --border-soft: #463f38;
+  /* Amber accent — same hue for hover / dim / glow */
+  --accent: #c9a06a;
+  --accent-hover: #d4af7a;
+  --accent-dim: #2f261c;
+  --accent-glow: rgba(201, 160, 106, 0.16);
+  --accent-ink: #1a1510;
+  /* Status colors stay warm-adjacent and desaturated */
+  --success: #9aab8e;
+  --danger: #c98a7a;
+  --danger-dim: #2e221f;
+  --solo: #c9b07a;
+  --solo-dim: #2e281c;
   --radius-sm: 0.4rem;
   --radius: 0.65rem;
   --radius-lg: 0.9rem;
   --radius-pill: 999px;
-  --shadow-soft: 0 2px 12px rgba(0, 0, 0, 0.22);
-  --shadow-card: 0 1px 0 rgba(255, 240, 220, 0.04) inset, 0 4px 16px rgba(0, 0, 0, 0.18);
+  --shadow-soft: 0 2px 12px rgba(0, 0, 0, 0.2);
+  --shadow-card: 0 1px 0 rgba(255, 245, 230, 0.03) inset, 0 4px 16px rgba(0, 0, 0, 0.16);
   --space-xs: 0.25rem;
   --space-sm: 0.4rem;
   --space-md: 0.65rem;
@@ -57,10 +62,9 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100svh;
+  /* Single soft wash — no multi-hue hotspots */
   background:
-    radial-gradient(ellipse 900px 520px at 15% -5%, rgba(180, 100, 50, 0.14) 0%, transparent 55%),
-    radial-gradient(ellipse 700px 480px at 95% 10%, rgba(120, 70, 40, 0.12) 0%, transparent 50%),
-    radial-gradient(ellipse 600px 400px at 50% 100%, rgba(80, 50, 30, 0.18) 0%, transparent 55%),
+    radial-gradient(ellipse 100% 70% at 50% -10%, rgba(201, 160, 106, 0.06) 0%, transparent 55%),
     var(--bg);
 }
 

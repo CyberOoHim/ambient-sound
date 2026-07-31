@@ -431,7 +431,9 @@
   }
 
   .play.active {
-    background: var(--solo);
+    background: var(--accent-hover);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent),
+      0 2px 10px var(--accent-glow);
   }
 
   .play:disabled {
@@ -502,7 +504,8 @@
 
   .meter-fill {
     height: 100%;
-    background: linear-gradient(90deg, var(--accent), var(--success));
+    background: var(--accent);
+    opacity: 0.85;
     transition: width 50ms linear;
     border-radius: inherit;
   }
@@ -717,7 +720,7 @@
   .error {
     background: var(--danger-dim);
     border: 1px solid var(--danger);
-    color: #ffc8c0;
+    color: var(--danger);
     border-radius: var(--radius);
     padding: 0.5rem 0.75rem;
     margin-bottom: 0.65rem;
