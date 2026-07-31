@@ -1,45 +1,53 @@
 :root {
   color-scheme: dark;
   /*
-   * Stable warm neutrals — single amber family, low chroma deltas.
-   * Surfaces step by lightness only; accents share one hue.
+   * Warm Terracotta Orange & Charcoal Obsidian palette.
+   * High contrast text, stable warm lightness steps, soft non-glaring warm orange accent.
    */
-  --bg: #171411;
-  --bg-elevated: #1e1a16;
-  --card: #25201b;
-  --card-soft: #2c2721;
-  --text: #ebe4db;
-  --text-soft: #d6cdc2;
-  --muted: #9a9086;
-  --muted-soft: #6f675f;
-  --border: #3a342e;
-  --border-soft: #463f38;
-  /* Amber accent — same hue for hover / dim / glow */
-  --accent: #c9a06a;
-  --accent-hover: #d4af7a;
-  --accent-dim: #2f261c;
-  --accent-glow: rgba(201, 160, 106, 0.16);
-  --accent-ink: #1a1510;
-  /* Status colors stay warm-adjacent and desaturated */
-  --success: #9aab8e;
-  --danger: #c98a7a;
-  --danger-dim: #2e221f;
-  --solo: #c9b07a;
-  --solo-dim: #2e281c;
+  --bg: #14100c;
+  --bg-elevated: #1c1611;
+  --card: #251d16;
+  --card-soft: #2e241c;
+  --text: #fff8f0;
+  --text-soft: #ebdacf;
+  --muted: #bf9e85;
+  --muted-soft: #856a56;
+  --border: #423427;
+  --border-soft: #564434;
+
+  /* Soft Warm Terracotta Orange Accent */
+  --accent: #d97736;
+  --accent-hover: #e58746;
+  --accent-dim: #321c10;
+  --accent-glow: rgba(217, 119, 54, 0.16);
+  --accent-ink: #120902;
+
+  /* Harmonized Status Colors */
+  --success: #34d399;
+  --danger: #f87171;
+  --danger-dim: #381616;
+  --solo: #fbbf24;
+  --solo-dim: #342409;
+
   --radius-sm: 0.4rem;
   --radius: 0.65rem;
   --radius-lg: 0.9rem;
   --radius-pill: 999px;
-  --shadow-soft: 0 2px 12px rgba(0, 0, 0, 0.2);
-  --shadow-card: 0 1px 0 rgba(255, 245, 230, 0.03) inset, 0 4px 16px rgba(0, 0, 0, 0.16);
+
+  --shadow-soft: 0 2px 12px rgba(0, 0, 0, 0.35);
+  --shadow-card: 0 1px 0 rgba(254, 243, 199, 0.05) inset, 0 4px 18px rgba(0, 0, 0, 0.32);
+
   --space-xs: 0.25rem;
   --space-sm: 0.4rem;
   --space-md: 0.65rem;
   --space-lg: 1rem;
+
   --font:
+    'Inter',
     'Segoe UI',
     system-ui,
     -apple-system,
+    BlinkMacSystemFont,
     'Helvetica Neue',
     sans-serif;
   font-family: var(--font);
@@ -62,9 +70,9 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100svh;
-  /* Single soft wash — no multi-hue hotspots */
+  /* Atmospheric soft terracotta wash */
   background:
-    radial-gradient(ellipse 100% 70% at 50% -10%, rgba(201, 160, 106, 0.06) 0%, transparent 55%),
+    radial-gradient(ellipse 100% 70% at 50% -10%, rgba(217, 119, 54, 0.07) 0%, transparent 60%),
     var(--bg);
 }
 
