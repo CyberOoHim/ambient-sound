@@ -12,9 +12,9 @@ dist
 dist-ssr
 *.local
 
-# Audio masters & generated sound binaries (generated via pnpm sounds:freesound)
+# Audio masters & intermediate formats (encode to public/sounds/core/*.ogg via pnpm sounds:freesound)
+# Committed .ogg files are the deployable pack — CI skips ffmpeg when they are present.
 public/sounds/**/*.wav
-public/sounds/**/*.ogg
 public/sounds/**/*.mp3
 assets-masters/
 
