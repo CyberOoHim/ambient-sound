@@ -1,0 +1,149 @@
+{
+  "version": 1,
+  "packId": "core",
+  "title": "Core ambient pack (Freesound CC0)",
+  "assets": [
+    {
+      "id": "rain_light",
+      "title": "Light rain",
+      "category": "rain",
+      "file": "core/rain_light.ogg",
+      "tags": [
+        "rain",
+        "ambient",
+        "field-recording",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 100
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "DBlover",
+        "sourceUrl": "https://freesound.org/people/DBlover/sounds/478665/",
+        "attribution": "\"Rain ambient sounds\" by DBlover (https://freesound.org/people/DBlover/sounds/478665/) — CC0-1.0",
+        "notes": "Freesound #478665. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 478665,
+        "username": "DBlover",
+        "originalTitle": "Rain ambient sounds"
+      }
+    },
+    {
+      "id": "ocean_shore",
+      "title": "Ocean shore",
+      "category": "ocean",
+      "file": "core/ocean_shore.ogg",
+      "tags": [
+        "ocean",
+        "waves",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 120
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "florianreichelt",
+        "sourceUrl": "https://freesound.org/people/florianreichelt/sounds/450755/",
+        "attribution": "\"Waves of Hawaii\" by florianreichelt (https://freesound.org/people/florianreichelt/sounds/450755/) — CC0-1.0",
+        "notes": "Freesound #450755. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 450755,
+        "username": "florianreichelt",
+        "originalTitle": "Waves of Hawaii"
+      }
+    },
+    {
+      "id": "wind_trees",
+      "title": "Wind in trees",
+      "category": "wind",
+      "file": "core/wind_trees.ogg",
+      "tags": [
+        "wind",
+        "forest",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 100
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "Cinetony",
+        "sourceUrl": "https://freesound.org/people/Cinetony/sounds/563571/",
+        "attribution": "\"Wind in forest with creaking tree\" by Cinetony (https://freesound.org/people/Cinetony/sounds/563571/) — CC0-1.0",
+        "notes": "Freesound #563571. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 563571,
+        "username": "Cinetony",
+        "originalTitle": "Wind in forest with creaking tree"
+      }
+    },
+    {
+      "id": "fire_camp",
+      "title": "Campfire",
+      "category": "fire",
+      "file": "core/fire_camp.ogg",
+      "tags": [
+        "fire",
+        "campfire",
+        "crackling",
+        "loop",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "native",
+        "crossfadeMs": 80
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "NickTayloe",
+        "sourceUrl": "https://freesound.org/people/NickTayloe/sounds/813328/",
+        "attribution": "\"Crackling Flames (loop)\" by NickTayloe (https://freesound.org/people/NickTayloe/sounds/813328/) — CC0-1.0",
+        "notes": "Freesound #813328. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 813328,
+        "username": "NickTayloe",
+        "originalTitle": "Crackling Flames (loop)"
+      }
+    },
+    {
+      "id": "stream_small",
+      "title": "Small stream",
+      "category": "stream",
+      "file": "core/stream_small.ogg",
+      "tags": [
+        "stream",
+        "river",
+        "water",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 100
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "sonicalypse",
+        "sourceUrl": "https://freesound.org/people/sonicalypse/sounds/733004/",
+        "attribution": "\"Water Stream River Creek with crickets\" by sonicalypse (https://freesound.org/people/sonicalypse/sounds/733004/) — CC0-1.0",
+        "notes": "Freesound #733004. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 733004,
+        "username": "sonicalypse",
+        "originalTitle": "Water Stream River Creek with crickets"
+      }
+    }
+  ]
+}

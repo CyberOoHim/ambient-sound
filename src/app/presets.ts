@@ -1,0 +1,232 @@
+import type {
+  MixerLayer,
+  NoiseLayerParams,
+  NoiseType,
+  SampleLayerParams,
+} from '../audio/types';
+import { NOISE_TYPES } from '../audio/dsp/colored-noise';
+import { clampLinear } from '../audio/dsp/curves';
+
+export const PRESETS_STORAGE_KEY = 'ambient-sound:presets';
+export const LAST_SESSION_KEY = 'ambient-sound:last-session';
+
+export interface PresetTimerConfig {
+  durationSec: number;
+  fadeSec: number;
+}
+
+export interface PresetV1 {
+  version: 1;
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  master: {
+    volumeLinear: number;
+  };
+  layers: MixerLayer[];
+  timer?: PresetTimerConfig | null;
+}
+
+export interface PresetStoreFile {
+  version: 1;
+  presets: PresetV1[];
+}
+
+function isNoiseType(v: unknown): v is NoiseType {
+  return typeof v === 'string' && (NOISE_TYPES as string[]).includes(v);
+}
+
+function parseNoiseParams(raw: unknown, fallbackId: string): NoiseLayerParams | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  if (!isNoiseType(o.type)) return null;
+  return {
+    id: typeof o.id === 'string' && o.id ? o.id : fallbackId,
+    type: o.type,
+    volumeLinear: clampLinear(Number(o.volumeLinear) || 0),
+    muted: Boolean(o.muted),
+    solo: Boolean(o.solo),
+    stereoWidth: Math.max(0, Math.min(1, Number(o.stereoWidth) || 0)),
+    pan: Math.max(-1, Math.min(1, Number(o.pan) || 0)),
+  };
+}
+
+function parseSampleParams(
+  raw: unknown,
+  fallbackId: string,
+): SampleLayerParams | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.assetId !== 'string' || !o.assetId) return null;
+  const loopMode = o.loopMode === 'native' ? 'native' : 'crossfade';
+  return {
+    id: typeof o.id === 'string' && o.id ? o.id : fallbackId,
+    assetId: o.assetId,
+    label: typeof o.label === 'string' ? o.label : o.assetId,
+    volumeLinear: clampLinear(Number(o.volumeLinear) || 0),
+    muted: Boolean(o.muted),
+    solo: Boolean(o.solo),
+    pan: Math.max(-1, Math.min(1, Number(o.pan) || 0)),
+    loopMode,
+    crossfadeMs: Math.max(0, Number(o.crossfadeMs) || 80),
+    playbackRate: Math.max(0.5, Math.min(1.5, Number(o.playbackRate) || 1)),
+  };
+}
+
+/** Parse a single preset; returns null if invalid. */
+export function parsePreset(raw: unknown): PresetV1 | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  if (o.version !== 1) return null;
+  if (typeof o.id !== 'string' || typeof o.name !== 'string') return null;
+  if (!o.master || typeof o.master !== 'object') return null;
+  const master = o.master as Record<string, unknown>;
+  if (!Array.isArray(o.layers) || o.layers.length === 0) return null;
+
+  const layers: MixerLayer[] = [];
+  for (let i = 0; i < o.layers.length; i++) {
+    const entry = o.layers[i];
+    if (!entry || typeof entry !== 'object') return null;
+    const e = entry as Record<string, unknown>;
+    if (e.kind === 'noise') {
+      const params = parseNoiseParams(e.params, `noise-${i + 1}`);
+      if (!params) return null;
+      layers.push({ kind: 'noise', params });
+    } else if (e.kind === 'sample') {
+      const params = parseSampleParams(e.params, `sample-${i + 1}`);
+      if (!params) return null;
+      layers.push({ kind: 'sample', params });
+    } else {
+      return null;
+    }
+  }
+  if (layers.length === 0) return null;
+
+  let timer: PresetTimerConfig | null | undefined;
+  if (o.timer === null || o.timer === undefined) {
+    timer = o.timer as null | undefined;
+  } else if (typeof o.timer === 'object') {
+    const t = o.timer as Record<string, unknown>;
+    const durationSec = Number(t.durationSec);
+    const fadeSec = Number(t.fadeSec);
+    if (Number.isFinite(durationSec) && Number.isFinite(fadeSec)) {
+      timer = {
+        durationSec: Math.max(1, durationSec),
+        fadeSec: Math.max(0, fadeSec),
+      };
+    }
+  }
+
+  const now = new Date().toISOString();
+  return {
+    version: 1,
+    id: o.id,
+    name: o.name,
+    createdAt: typeof o.createdAt === 'string' ? o.createdAt : now,
+    updatedAt: typeof o.updatedAt === 'string' ? o.updatedAt : now,
+    master: {
+      volumeLinear: clampLinear(Number(master.volumeLinear) || 0),
+    },
+    layers,
+    timer: timer ?? null,
+  };
+}
+
+export function parsePresetStore(raw: unknown): PresetStoreFile {
+  if (!raw || typeof raw !== 'object') return { version: 1, presets: [] };
+  const o = raw as Record<string, unknown>;
+  if (!Array.isArray(o.presets)) return { version: 1, presets: [] };
+  const presets: PresetV1[] = [];
+  for (const p of o.presets) {
+    const parsed = parsePreset(p);
+    if (parsed) presets.push(parsed);
+  }
+  return { version: 1, presets };
+}
+
+export function loadPresetsFromStorage(
+  storage: Storage = localStorage,
+): PresetStoreFile {
+  try {
+    const text = storage.getItem(PRESETS_STORAGE_KEY);
+    if (!text) return { version: 1, presets: [] };
+    return parsePresetStore(JSON.parse(text) as unknown);
+  } catch {
+    return { version: 1, presets: [] };
+  }
+}
+
+export function savePresetsToStorage(
+  store: PresetStoreFile,
+  storage: Storage = localStorage,
+): void {
+  storage.setItem(PRESETS_STORAGE_KEY, JSON.stringify(store));
+}
+
+export function loadLastSession(
+  storage: Storage = localStorage,
+): PresetV1 | null {
+  try {
+    const text = storage.getItem(LAST_SESSION_KEY);
+    if (!text) return null;
+    return parsePreset(JSON.parse(text) as unknown);
+  } catch {
+    return null;
+  }
+}
+
+export function saveLastSession(
+  snapshot: PresetV1,
+  storage: Storage = localStorage,
+): void {
+  storage.setItem(LAST_SESSION_KEY, JSON.stringify(snapshot));
+}
+
+export function createPresetId(): string {
+  return `preset-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export interface SessionSnapshotInput {
+  layers: MixerLayer[];
+  masterVolumeLinear: number;
+  timerDefaults?: PresetTimerConfig | null;
+  name?: string;
+  id?: string;
+}
+
+/** Build a PresetV1 snapshot from the current session (does not persist). */
+export function snapshotFromSession(input: SessionSnapshotInput): PresetV1 {
+  const now = new Date().toISOString();
+  const id = input.id ?? createPresetId();
+  return {
+    version: 1,
+    id,
+    name: input.name ?? 'Session',
+    createdAt: now,
+    updatedAt: now,
+    master: { volumeLinear: clampLinear(input.masterVolumeLinear) },
+    layers: input.layers.map((layer) => {
+      if (layer.kind === 'noise') {
+        return { kind: 'noise' as const, params: { ...layer.params } };
+      }
+      return { kind: 'sample' as const, params: { ...layer.params } };
+    }),
+    timer: input.timerDefaults ?? null,
+  };
+}
+
+export function upsertPreset(store: PresetStoreFile, preset: PresetV1): PresetStoreFile {
+  const idx = store.presets.findIndex((p) => p.id === preset.id);
+  const presets = [...store.presets];
+  if (idx >= 0) presets[idx] = preset;
+  else presets.push(preset);
+  return { version: 1, presets };
+}
+
+export function deletePreset(store: PresetStoreFile, id: string): PresetStoreFile {
+  return {
+    version: 1,
+    presets: store.presets.filter((p) => p.id !== id),
+  };
+}

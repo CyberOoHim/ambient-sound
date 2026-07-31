@@ -1,0 +1,272 @@
+<script lang="ts">
+  import { session } from '../app/session';
+  import type { PresetV1 } from '../app/presets';
+
+  let presets = $state<PresetV1[]>(session.presets);
+  let name = $state('');
+  let selectedId = $state<string | null>(null);
+  let message = $state<string | null>(null);
+  let busy = $state(false);
+
+  export function sync() {
+    presets = session.presets;
+  }
+
+  async function load(id: string) {
+    busy = true;
+    message = null;
+    try {
+      await session.loadPreset(id);
+      selectedId = id;
+      message = 'Preset loaded (press Play if paused).';
+    } finally {
+      busy = false;
+    }
+  }
+
+  function save() {
+    message = null;
+    const n = name.trim() || `Preset ${presets.length + 1}`;
+    const p = session.savePreset(n);
+    name = '';
+    selectedId = p.id;
+    sync();
+    message = `Saved “${p.name}”.`;
+  }
+
+  function remove(id: string) {
+    session.removePreset(id);
+    if (selectedId === id) selectedId = null;
+    sync();
+    message = 'Preset deleted.';
+  }
+
+  async function exportSelected() {
+    if (!selectedId) {
+      message = 'Select a preset first.';
+      return;
+    }
+    const json = session.exportPresetJson(selectedId);
+    if (!json) return;
+    try {
+      await navigator.clipboard.writeText(json);
+      message = 'Copied preset JSON to clipboard.';
+    } catch {
+      message = 'Could not copy — check browser permissions.';
+    }
+  }
+
+  async function importFromClipboard() {
+    message = null;
+    try {
+      const text = await navigator.clipboard.readText();
+      const p = session.importPresetJson(text);
+      if (!p) {
+        message = 'Clipboard is not a valid preset JSON.';
+        return;
+      }
+      sync();
+      selectedId = p.id;
+      message = `Imported “${p.name}”.`;
+    } catch {
+      message = 'Could not read clipboard.';
+    }
+  }
+</script>
+
+<section class="card presets">
+  <div class="head">
+    <h2>Presets</h2>
+  </div>
+  <p class="help">
+    Save the current mixer. Last session restores automatically on reload (audio never auto-starts).
+  </p>
+
+  <div class="save-row">
+    <input
+      type="text"
+      placeholder="Preset name"
+      bind:value={name}
+      maxlength="48"
+      aria-label="Preset name"
+    />
+    <button type="button" class="primary" onclick={save}>Save</button>
+  </div>
+
+  {#if presets.length === 0}
+    <p class="empty">No saved presets yet.</p>
+  {:else}
+    <ul class="list">
+      {#each presets as p (p.id)}
+        <li class:selected={selectedId === p.id}>
+          <button
+            type="button"
+            class="name"
+            disabled={busy}
+            onclick={() => void load(p.id)}
+          >
+            {p.name}
+            <span class="meta">{p.layers.length} layer{p.layers.length === 1 ? '' : 's'}</span>
+          </button>
+          <button
+            type="button"
+            class="chip danger"
+            aria-label="Delete {p.name}"
+            onclick={() => remove(p.id)}
+          >
+            ×
+          </button>
+        </li>
+      {/each}
+    </ul>
+  {/if}
+
+  <div class="io">
+    <button type="button" class="secondary" onclick={() => void exportSelected()}>
+      Copy JSON
+    </button>
+    <button type="button" class="secondary" onclick={() => void importFromClipboard()}>
+      Paste JSON
+    </button>
+  </div>
+
+  {#if message}
+    <p class="msg" role="status">{message}</p>
+  {/if}
+</section>
+
+<style>
+  .head {
+    margin-bottom: 0.35rem;
+  }
+
+  h2 {
+    margin: 0;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+
+  .help {
+    margin: 0 0 0.65rem;
+    font-size: 0.8rem;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+
+  .save-row {
+    display: flex;
+    gap: 0.45rem;
+    margin-bottom: 0.65rem;
+  }
+
+  .save-row input {
+    flex: 1;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 0.45rem;
+    padding: 0.4rem 0.55rem;
+    font: inherit;
+  }
+
+  .primary {
+    background: var(--accent);
+    border: none;
+    color: #0b1020;
+    font-weight: 650;
+    border-radius: 0.55rem;
+    padding: 0.4rem 0.75rem;
+    cursor: pointer;
+    font: inherit;
+    white-space: nowrap;
+  }
+
+  .secondary {
+    font: inherit;
+    cursor: pointer;
+    border-radius: 0.5rem;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    padding: 0.35rem 0.65rem;
+    font-size: 0.85rem;
+  }
+
+  .empty {
+    margin: 0.25rem 0 0.65rem;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+
+  .list {
+    list-style: none;
+    margin: 0 0 0.65rem;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .list li {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    background: var(--bg);
+    padding: 0.15rem 0.25rem 0.15rem 0.15rem;
+  }
+
+  .list li.selected {
+    border-color: var(--accent);
+  }
+
+  .name {
+    flex: 1;
+    text-align: left;
+    border: none;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    cursor: pointer;
+    padding: 0.35rem 0.45rem;
+    border-radius: 0.4rem;
+  }
+
+  .name:hover {
+    background: var(--card);
+  }
+
+  .meta {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 0.1rem;
+  }
+
+  .chip {
+    min-width: 2rem;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: #f07178;
+    border-radius: 0.4rem;
+    cursor: pointer;
+    padding: 0.25rem 0.4rem;
+    font: inherit;
+    font-weight: 650;
+  }
+
+  .io {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+  }
+
+  .msg {
+    margin: 0.55rem 0 0;
+    font-size: 0.8rem;
+    color: var(--accent);
+  }
+</style>
