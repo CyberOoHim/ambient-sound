@@ -2,6 +2,9 @@
 
 An offline-first noise and ambient sound mixer built for desktop and web.
 
+**Live Demo:** [https://cyberoohim.github.io/ambient-sound/](https://cyberoohim.github.io/ambient-sound/)
+
+
 ## Features
 
 - **Procedural Noise Generators:** Custom Web Audio API DSP noise synth (White, Pink, Brown, etc.).
