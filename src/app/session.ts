@@ -8,6 +8,11 @@ import {
 } from '../audio/types';
 import { clampLinear } from '../audio/dsp/curves';
 import {
+  clearMediaSession,
+  installMediaSessionHandlers,
+  setMediaSessionPlayback,
+} from '../audio/media-session';
+import {
   createPresetId,
   deletePreset,
   loadLastSession,
@@ -69,6 +74,8 @@ export class Session {
   private listeners = new Set<() => void>();
   private fadeInFlight = false;
   private catalogReady: Promise<void>;
+  private mediaSessionInstalled = false;
+  private pageLifecycleBound = false;
 
   constructor() {
     this.presets = loadPresetsFromStorage().presets;
@@ -83,6 +90,50 @@ export class Session {
       ];
     }
     this.catalogReady = this.initCatalog();
+    this.ensureMediaSession();
+    this.bindPageLifecycle();
+  }
+
+  private ensureMediaSession(): void {
+    if (this.mediaSessionInstalled || typeof navigator === 'undefined') return;
+    this.mediaSessionInstalled = true;
+    installMediaSessionHandlers({
+      play: () => this.play(),
+      pause: () => this.pause(),
+    });
+  }
+
+  /**
+   * Re-assert playback when returning to the tab / unlocking the device.
+   * Does not pause on hide — we want background audio on iPad.
+   */
+  private bindPageLifecycle(): void {
+    if (this.pageLifecycleBound || typeof document === 'undefined') return;
+    this.pageLifecycleBound = true;
+    document.addEventListener('visibilitychange', this.onPageVisible);
+    window.addEventListener('pageshow', this.onPageVisible);
+    window.addEventListener('focus', this.onPageVisible);
+  }
+
+  private onPageVisible = (): void => {
+    if (!this.playing) return;
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      return;
+    }
+    void audioEngine.resume();
+    setMediaSessionPlayback(true, this.mediaTitle());
+  };
+
+  private mediaTitle(): string {
+    const sample = this.layers.find((l) => l.kind === 'sample');
+    if (sample && sample.kind === 'sample' && sample.params.label) {
+      return sample.params.label;
+    }
+    const noise = this.layers.find((l) => l.kind === 'noise');
+    if (noise && noise.kind === 'noise') {
+      return `${noise.params.type} noise`;
+    }
+    return 'Ambient sounds';
   }
 
   private async initCatalog(): Promise<void> {
@@ -133,6 +184,7 @@ export class Session {
   async play(): Promise<void> {
     if (this.layers.length === 0) {
       this.playing = false;
+      setMediaSessionPlayback(false);
       this.notify();
       return;
     }
@@ -145,6 +197,7 @@ export class Session {
     }
     audioEngine.applyMuteSolo(this.layers);
     this.playing = true;
+    setMediaSessionPlayback(true, this.mediaTitle());
     this.notify();
     this.schedulePersist();
   }
@@ -152,6 +205,7 @@ export class Session {
   async pause(): Promise<void> {
     await audioEngine.suspend();
     this.playing = false;
+    setMediaSessionPlayback(false);
     this.notify();
     this.schedulePersist();
   }
@@ -217,8 +271,10 @@ export class Session {
       this.cancelTimer();
       this.playing = false;
       void audioEngine.suspend();
+      setMediaSessionPlayback(false);
     } else if (this.playing) {
       audioEngine.applyMuteSolo(this.layers);
+      setMediaSessionPlayback(true, this.mediaTitle());
     }
     this.notify();
     this.schedulePersist();
@@ -231,6 +287,7 @@ export class Session {
       this.cancelTimer();
       this.playing = false;
       void audioEngine.suspend();
+      setMediaSessionPlayback(false);
     }
     this.notify();
     this.schedulePersist();
@@ -416,6 +473,8 @@ export class Session {
     audioEngine.restoreMasterGain();
     await audioEngine.suspend();
     this.playing = false;
+    setMediaSessionPlayback(false);
+    clearMediaSession();
     this.timer = {
       status: 'done',
       endAtMs: null,

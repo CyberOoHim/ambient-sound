@@ -13,6 +13,7 @@ import {
 import { SamplePlayer } from './sample-player';
 import { decodeCache } from './decode-cache';
 import { assetUrl, findAsset, type SoundCatalog } from '../assets/catalog';
+import { MediaOutput } from './media-output';
 
 interface NoiseNodes {
   kind: 'noise';
@@ -46,6 +47,10 @@ export class AudioEngine {
   private fadeToken = 0;
   private fading = false;
   private catalog: SoundCatalog | null = null;
+  private mediaOutput = new MediaOutput();
+  /** User wants audio running (used to re-resume after iOS interrupt). */
+  private wantRunning = false;
+  private stateChangeBound = false;
 
   get context(): AudioContext | null {
     return this.ctx;
@@ -71,7 +76,11 @@ export class AudioEngine {
       this.analyser = this.ctx.createAnalyser();
       this.analyser.fftSize = 2048;
       this.master.connect(this.analyser);
-      this.analyser.connect(this.ctx.destination);
+      // Mobile (iOS + Android): route via HTMLAudioElement for background
+      // playback / media controls. Desktop: analyser → destination.
+      this.mediaOutput.attach(this.ctx, this.analyser);
+      this.mediaOutput.connectDestination(this.ctx, this.analyser);
+      this.bindStateChange(this.ctx);
     }
     if (!this.workletReady) {
       await this.ctx.audioWorklet.addModule(workletUrl);
@@ -80,14 +89,33 @@ export class AudioEngine {
     return this.ctx;
   }
 
+  private bindStateChange(ctx: AudioContext): void {
+    if (this.stateChangeBound) return;
+    this.stateChangeBound = true;
+    ctx.onstatechange = () => {
+      // iOS often moves the context to "interrupted" when backgrounding /
+      // locking; if the user still wants audio, try to resume without a
+      // new gesture (allowed after a prior user-started session).
+      // "interrupted" is WebKit-specific (not in the standard union type).
+      const state = ctx.state as string;
+      if (this.wantRunning && (state === 'interrupted' || state === 'suspended')) {
+        void ctx.resume().then(() => this.mediaOutput.play());
+      }
+    };
+  }
+
   async resume(): Promise<void> {
+    this.wantRunning = true;
     const ctx = await this.ensureContext();
     if (ctx.state !== 'running') {
       await ctx.resume();
     }
+    await this.mediaOutput.play();
   }
 
   async suspend(): Promise<void> {
+    this.wantRunning = false;
+    this.mediaOutput.pause();
     if (this.ctx && this.ctx.state === 'running') {
       await this.ctx.suspend();
     }
@@ -350,14 +378,18 @@ export class AudioEngine {
   }
 
   async dispose(): Promise<void> {
+    this.wantRunning = false;
     this.stopAll();
+    this.mediaOutput.dispose();
     decodeCache.clear();
     if (this.ctx) {
+      this.ctx.onstatechange = null;
       await this.ctx.close();
       this.ctx = null;
       this.master = null;
       this.analyser = null;
       this.workletReady = false;
+      this.stateChangeBound = false;
     }
   }
 }

@@ -12,6 +12,7 @@ An offline-first noise and ambient sound mixer built for desktop and web.
 - **Sleep Timer:** Flexible duration with customizable fade-out curves.
 - **Custom Presets & Session Storage:** Save layer combinations and volume settings locally or export/import JSON presets.
 - **Offline-First:** Runs entirely in the browser without remote servers or track streaming dependencies.
+- **Mobile background audio:** On iPhone, iPad, and Android browsers, playback is routed through an HTML media element plus the Media Session API so sound can keep going when you switch apps or lock the screen (see notes below).
 
 ## Quick Start
 
@@ -24,6 +25,14 @@ pnpm dev
 ```
 
 Open the local server URL provided by Vite (typically `http://localhost:5173`). Click **Play** to start audio output (required due to browser autoplay policies).
+
+### Phone / tablet tips (iOS & Android)
+
+1. Tap **Play** once (required by autoplay rules).
+2. Switch apps or lock the screen — audio should continue and appear in system media controls (Control Center / notification shade / lock screen).
+3. If the OS later suspends the tab under memory pressure, return to the tab and it will try to resume automatically while Play is still active.
+4. **Android:** If sound stops soon after leaving Chrome, check **Settings → Apps → Chrome (or your browser) → Battery** and allow unrestricted / no restriction while playing. Some OEMs (Xiaomi, Huawei, Oppo, etc.) also have “app launch” or “battery saver” rules that kill background tabs.
+5. Low Power Mode / battery savers can still stop web audio; ordinary websites cannot claim a full native background-audio entitlement.
 
 ### Available Scripts
 
