@@ -12,8 +12,10 @@ dist
 dist-ssr
 *.local
 
-# Audio masters / staging (ship compressed .ogg only)
+# Audio masters & generated sound binaries (generated via pnpm sounds:freesound)
 public/sounds/**/*.wav
+public/sounds/**/*.ogg
+public/sounds/**/*.mp3
 assets-masters/
 
 # Editor directories and files

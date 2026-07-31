@@ -289,6 +289,455 @@
         "username": "felix.blume",
         "originalTitle": "Toads and frogs are singing at night in the pond, in the center of the small village of Diafarabe, in Mali"
       }
+    },
+    {
+      "id": "rain_roof",
+      "title": "Rain on roofs",
+      "category": "rain",
+      "file": "core/rain_roof.ogg",
+      "tags": [
+        "rain",
+        "roof",
+        "urban",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 100
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "xkeril",
+        "sourceUrl": "https://freesound.org/people/xkeril/sounds/669487/",
+        "attribution": "\"Rain on roofs\" by xkeril (https://freesound.org/people/xkeril/sounds/669487/) — CC0-1.0",
+        "notes": "Freesound #669487. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 669487,
+        "username": "xkeril",
+        "originalTitle": "Rain on roofs"
+      }
+    },
+    {
+      "id": "rain_tent",
+      "title": "Rain on tent",
+      "category": "rain",
+      "file": "core/rain_tent.ogg",
+      "tags": [
+        "rain",
+        "tent",
+        "canvas",
+        "camping",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 90
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "dr19",
+        "sourceUrl": "https://freesound.org/people/dr19/sounds/457594/",
+        "attribution": "\"Rain on tent\" by dr19 (https://freesound.org/people/dr19/sounds/457594/) — CC0-1.0",
+        "notes": "Freesound #457594. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 457594,
+        "username": "dr19",
+        "originalTitle": "Rain on tent"
+      }
+    },
+    {
+      "id": "cave_drips",
+      "title": "Cave drips",
+      "category": "cave",
+      "file": "core/cave_drips.ogg",
+      "tags": [
+        "cave",
+        "drips",
+        "water",
+        "echo",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 120
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "Sclolex",
+        "sourceUrl": "https://freesound.org/people/Sclolex/sounds/177958/",
+        "attribution": "\"Water Dripping in Cave.wav\" by Sclolex (https://freesound.org/people/Sclolex/sounds/177958/) — CC0-1.0",
+        "notes": "Freesound #177958. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 177958,
+        "username": "Sclolex",
+        "originalTitle": "Water Dripping in Cave.wav"
+      }
+    },
+    {
+      "id": "cicadas_summer",
+      "title": "Summer cicadas",
+      "category": "insects",
+      "file": "core/cicadas_summer.ogg",
+      "tags": [
+        "cicadas",
+        "summer",
+        "insects",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 100
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "beansqueso31",
+        "sourceUrl": "https://freesound.org/people/beansqueso31/sounds/243438/",
+        "attribution": "\"Cicada summer.wav\" by beansqueso31 (https://freesound.org/people/beansqueso31/sounds/243438/) — CC0-1.0",
+        "notes": "Freesound #243438. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 243438,
+        "username": "beansqueso31",
+        "originalTitle": "Cicada summer.wav"
+      }
+    },
+    {
+      "id": "owls_forest",
+      "title": "Forest owls",
+      "category": "birds",
+      "file": "core/owls_forest.ogg",
+      "tags": [
+        "owls",
+        "night",
+        "forest",
+        "birds",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 150
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "kvgarlic",
+        "sourceUrl": "https://freesound.org/people/kvgarlic/sounds/151241/",
+        "attribution": "\"OwlsForestApril82012.wav\" by kvgarlic (https://freesound.org/people/kvgarlic/sounds/151241/) — CC0-1.0",
+        "notes": "Freesound #151241. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 151241,
+        "username": "kvgarlic",
+        "originalTitle": "OwlsForestApril82012.wav"
+      }
+    },
+    {
+      "id": "bees_buzzing",
+      "title": "Bees buzzing",
+      "category": "insects",
+      "file": "core/bees_buzzing.ogg",
+      "tags": [
+        "bees",
+        "insects",
+        "meadow",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 100
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "Cinetony",
+        "sourceUrl": "https://freesound.org/people/Cinetony/sounds/566112/",
+        "attribution": "\"Bees buzzing around tree\" by Cinetony (https://freesound.org/people/Cinetony/sounds/566112/) — CC0-1.0",
+        "notes": "Freesound #566112. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 566112,
+        "username": "Cinetony",
+        "originalTitle": "Bees buzzing around tree"
+      }
+    },
+    {
+      "id": "winter_storm",
+      "title": "Winter storm",
+      "category": "wind",
+      "file": "core/winter_storm.ogg",
+      "tags": [
+        "winter",
+        "storm",
+        "wind",
+        "blizzard",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 120
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "DBlover",
+        "sourceUrl": "https://freesound.org/people/DBlover/sounds/505999/",
+        "attribution": "\"Howling winter storm ambient sounds\" by DBlover (https://freesound.org/people/DBlover/sounds/505999/) — CC0-1.0",
+        "notes": "Freesound #505999. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 505999,
+        "username": "DBlover",
+        "originalTitle": "Howling winter storm ambient sounds"
+      }
+    },
+    {
+      "id": "jungle_amazon",
+      "title": "Amazon jungle",
+      "category": "forest",
+      "file": "core/jungle_amazon.ogg",
+      "tags": [
+        "jungle",
+        "amazon",
+        "rainforest",
+        "insects",
+        "birds",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 120
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "missteik",
+        "sourceUrl": "https://freesound.org/people/missteik/sounds/259510/",
+        "attribution": "\"Selva Amazonas Insectos y Aves 12m.mp3\" by missteik (https://freesound.org/people/missteik/sounds/259510/) — CC0-1.0",
+        "notes": "Freesound #259510. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 259510,
+        "username": "missteik",
+        "originalTitle": "Selva Amazonas Insectos y Aves 12m.mp3"
+      }
+    },
+    {
+      "id": "leaves_rustle",
+      "title": "Rustling leaves",
+      "category": "wind",
+      "file": "core/leaves_rustle.ogg",
+      "tags": [
+        "leaves",
+        "rustle",
+        "wind",
+        "forest",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 90
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "Garuda1982",
+        "sourceUrl": "https://freesound.org/people/Garuda1982/sounds/575645/",
+        "attribution": "\"large leaves rustle in the wind sound effect\" by Garuda1982 (https://freesound.org/people/Garuda1982/sounds/575645/) — CC0-1.0",
+        "notes": "Freesound #575645. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 575645,
+        "username": "Garuda1982",
+        "originalTitle": "large leaves rustle in the wind sound effect"
+      }
+    },
+    {
+      "id": "lake_shore",
+      "title": "Lake shore",
+      "category": "water",
+      "file": "core/lake_shore.ogg",
+      "tags": [
+        "lake",
+        "shore",
+        "waves",
+        "water",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 100
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "kyles",
+        "sourceUrl": "https://freesound.org/people/kyles/sounds/451630/",
+        "attribution": "\"water medium gentle lake waves splash on shore close.flac\" by kyles (https://freesound.org/people/kyles/sounds/451630/) — CC0-1.0",
+        "notes": "Freesound #451630. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 451630,
+        "username": "kyles",
+        "originalTitle": "water medium gentle lake waves splash on shore close.flac"
+      }
+    },
+    {
+      "id": "desert_wind",
+      "title": "Desert wind",
+      "category": "wind",
+      "file": "core/desert_wind.ogg",
+      "tags": [
+        "desert",
+        "wind",
+        "sand",
+        "arid",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 120
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "Benbojangles",
+        "sourceUrl": "https://freesound.org/people/Benbojangles/sounds/457159/",
+        "attribution": "\"Desert binaural Wind.WAV\" by Benbojangles (https://freesound.org/people/Benbojangles/sounds/457159/) — CC0-1.0",
+        "notes": "Freesound #457159. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 457159,
+        "username": "Benbojangles",
+        "originalTitle": "Desert binaural Wind.WAV"
+      }
+    },
+    {
+      "id": "pebble_beach",
+      "title": "Pebble beach",
+      "category": "ocean",
+      "file": "core/pebble_beach.ogg",
+      "tags": [
+        "pebbles",
+        "beach",
+        "waves",
+        "ocean",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 100
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "kyles",
+        "sourceUrl": "https://freesound.org/people/kyles/sounds/450637/",
+        "attribution": "\"waves pebble beach frothy close2.flac\" by kyles (https://freesound.org/people/kyles/sounds/450637/) — CC0-1.0",
+        "notes": "Freesound #450637. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 450637,
+        "username": "kyles",
+        "originalTitle": "waves pebble beach frothy close2.flac"
+      }
+    },
+    {
+      "id": "underwater",
+      "title": "Underwater",
+      "category": "water",
+      "file": "core/underwater.ogg",
+      "tags": [
+        "underwater",
+        "bubbles",
+        "ocean",
+        "submerged",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 100
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "Kinoton",
+        "sourceUrl": "https://freesound.org/people/Kinoton/sounds/393819/",
+        "attribution": "\"Underwater Ambience\" by Kinoton (https://freesound.org/people/Kinoton/sounds/393819/) — CC0-1.0",
+        "notes": "Freesound #393819. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 393819,
+        "username": "Kinoton",
+        "originalTitle": "Underwater Ambience"
+      }
+    },
+    {
+      "id": "bamboo_forest",
+      "title": "Bamboo forest",
+      "category": "forest",
+      "file": "core/bamboo_forest.ogg",
+      "tags": [
+        "bamboo",
+        "forest",
+        "wind",
+        "nature",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 110
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "Codly",
+        "sourceUrl": "https://freesound.org/people/Codly/sounds/546986/",
+        "attribution": "\"bamboo forest (2).wav\" by Codly (https://freesound.org/people/Codly/sounds/546986/) — CC0-1.0",
+        "notes": "Freesound #546986. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 546986,
+        "username": "Codly",
+        "originalTitle": "bamboo forest (2).wav"
+      }
+    },
+    {
+      "id": "seagulls_surf",
+      "title": "Seagulls and surf",
+      "category": "birds",
+      "file": "core/seagulls_surf.ogg",
+      "tags": [
+        "seagulls",
+        "surf",
+        "beach",
+        "coastal",
+        "birds",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 120
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "rayjensen",
+        "sourceUrl": "https://freesound.org/people/rayjensen/sounds/201284/",
+        "attribution": "\"surf waves seagulls australia\" by rayjensen (https://freesound.org/people/rayjensen/sounds/201284/) — CC0-1.0",
+        "notes": "Freesound #201284. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 201284,
+        "username": "rayjensen",
+        "originalTitle": "surf waves seagulls australia"
+      }
     }
   ]
 }

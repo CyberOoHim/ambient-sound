@@ -86,6 +86,126 @@ Audio files in this repository are derived from Freesound **HQ previews** (publi
 - **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
 - **Attribution text:** "Toads and frogs are singing at night in the pond, in the center of the small village of Diafarabe, in Mali" by felix.blume (https://freesound.org/people/felix.blume/sounds/135561/) — CC0-1.0
 
+### Rain on roofs (`rain_roof`)
+
+- **Original:** Rain on roofs
+- **Author:** [xkeril](https://freesound.org/people/xkeril/)
+- **Freesound:** [#669487](https://freesound.org/people/xkeril/sounds/669487/)
+- **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **Attribution text:** "Rain on roofs" by xkeril (https://freesound.org/people/xkeril/sounds/669487/) — CC0-1.0
+
+### Rain on tent (`rain_tent`)
+
+- **Original:** Rain on tent
+- **Author:** [dr19](https://freesound.org/people/dr19/)
+- **Freesound:** [#457594](https://freesound.org/people/dr19/sounds/457594/)
+- **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **Attribution text:** "Rain on tent" by dr19 (https://freesound.org/people/dr19/sounds/457594/) — CC0-1.0
+
+### Cave drips (`cave_drips`)
+
+- **Original:** Water Dripping in Cave.wav
+- **Author:** [Sclolex](https://freesound.org/people/Sclolex/)
+- **Freesound:** [#177958](https://freesound.org/people/Sclolex/sounds/177958/)
+- **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **Attribution text:** "Water Dripping in Cave.wav" by Sclolex (https://freesound.org/people/Sclolex/sounds/177958/) — CC0-1.0
+
+### Summer cicadas (`cicadas_summer`)
+
+- **Original:** Cicada summer.wav
+- **Author:** [beansqueso31](https://freesound.org/people/beansqueso31/)
+- **Freesound:** [#243438](https://freesound.org/people/beansqueso31/sounds/243438/)
+- **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **Attribution text:** "Cicada summer.wav" by beansqueso31 (https://freesound.org/people/beansqueso31/sounds/243438/) — CC0-1.0
+
+### Forest owls (`owls_forest`)
+
+- **Original:** OwlsForestApril82012.wav
+- **Author:** [kvgarlic](https://freesound.org/people/kvgarlic/)
+- **Freesound:** [#151241](https://freesound.org/people/kvgarlic/sounds/151241/)
+- **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **Attribution text:** "OwlsForestApril82012.wav" by kvgarlic (https://freesound.org/people/kvgarlic/sounds/151241/) — CC0-1.0
+
+### Bees buzzing (`bees_buzzing`)
+
+- **Original:** Bees buzzing around tree
+- **Author:** [Cinetony](https://freesound.org/people/Cinetony/)
+- **Freesound:** [#566112](https://freesound.org/people/Cinetony/sounds/566112/)
+- **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **Attribution text:** "Bees buzzing around tree" by Cinetony (https://freesound.org/people/Cinetony/sounds/566112/) — CC0-1.0
+
+### Winter storm (`winter_storm`)
+
+- **Original:** Howling winter storm ambient sounds
+- **Author:** [DBlover](https://freesound.org/people/DBlover/)
+- **Freesound:** [#505999](https://freesound.org/people/DBlover/sounds/505999/)
+- **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **Attribution text:** "Howling winter storm ambient sounds" by DBlover (https://freesound.org/people/DBlover/sounds/505999/) — CC0-1.0
+
+### Amazon jungle (`jungle_amazon`)
+
+- **Original:** Selva Amazonas Insectos y Aves 12m.mp3
+- **Author:** [missteik](https://freesound.org/people/missteik/)
+- **Freesound:** [#259510](https://freesound.org/people/missteik/sounds/259510/)
+- **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **Attribution text:** "Selva Amazonas Insectos y Aves 12m.mp3" by missteik (https://freesound.org/people/missteik/sounds/259510/) — CC0-1.0
+
+### Rustling leaves (`leaves_rustle`)
+
+- **Original:** large leaves rustle in the wind sound effect
+- **Author:** [Garuda1982](https://freesound.org/people/Garuda1982/)
+- **Freesound:** [#575645](https://freesound.org/people/Garuda1982/sounds/575645/)
+- **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **Attribution text:** "large leaves rustle in the wind sound effect" by Garuda1982 (https://freesound.org/people/Garuda1982/sounds/575645/) — CC0-1.0
+
+### Lake shore (`lake_shore`)
+
+- **Original:** water medium gentle lake waves splash on shore close.flac
+- **Author:** [kyles](https://freesound.org/people/kyles/)
+- **Freesound:** [#451630](https://freesound.org/people/kyles/sounds/451630/)
+- **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **Attribution text:** "water medium gentle lake waves splash on shore close.flac" by kyles (https://freesound.org/people/kyles/sounds/451630/) — CC0-1.0
+
+### Desert wind (`desert_wind`)
+
+- **Original:** Desert binaural Wind.WAV
+- **Author:** [Benbojangles](https://freesound.org/people/Benbojangles/)
+- **Freesound:** [#457159](https://freesound.org/people/Benbojangles/sounds/457159/)
+- **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **Attribution text:** "Desert binaural Wind.WAV" by Benbojangles (https://freesound.org/people/Benbojangles/sounds/457159/) — CC0-1.0
+
+### Pebble beach (`pebble_beach`)
+
+- **Original:** waves pebble beach frothy close2.flac
+- **Author:** [kyles](https://freesound.org/people/kyles/)
+- **Freesound:** [#450637](https://freesound.org/people/kyles/sounds/450637/)
+- **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **Attribution text:** "waves pebble beach frothy close2.flac" by kyles (https://freesound.org/people/kyles/sounds/450637/) — CC0-1.0
+
+### Underwater (`underwater`)
+
+- **Original:** Underwater Ambience
+- **Author:** [Kinoton](https://freesound.org/people/Kinoton/)
+- **Freesound:** [#393819](https://freesound.org/people/Kinoton/sounds/393819/)
+- **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **Attribution text:** "Underwater Ambience" by Kinoton (https://freesound.org/people/Kinoton/sounds/393819/) — CC0-1.0
+
+### Bamboo forest (`bamboo_forest`)
+
+- **Original:** bamboo forest (2).wav
+- **Author:** [Codly](https://freesound.org/people/Codly/)
+- **Freesound:** [#546986](https://freesound.org/people/Codly/sounds/546986/)
+- **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **Attribution text:** "bamboo forest (2).wav" by Codly (https://freesound.org/people/Codly/sounds/546986/) — CC0-1.0
+
+### Seagulls and surf (`seagulls_surf`)
+
+- **Original:** surf waves seagulls australia
+- **Author:** [rayjensen](https://freesound.org/people/rayjensen/)
+- **Freesound:** [#201284](https://freesound.org/people/rayjensen/sounds/201284/)
+- **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **Attribution text:** "surf waves seagulls australia" by rayjensen (https://freesound.org/people/rayjensen/sounds/201284/) — CC0-1.0
+
 ## License note
 
 CC0 dedications waive copyright to the extent allowed by law. No attribution is legally required for CC0, but we retain full provenance for transparency and community courtesy.
