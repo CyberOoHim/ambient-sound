@@ -1,12 +1,43 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DUPLICATE_MIN_OFFSET_DEFAULT_SEC,
+  DUPLICATE_MIN_OFFSET_MIN_SEC,
+} from '../audio/dsp/loop';
+import {
   deletePreset,
+  DUPLICATE_MIN_OFFSET_KEY,
+  loadDuplicateMinOffsetSec,
   parsePreset,
   parsePresetStore,
+  saveDuplicateMinOffsetSec,
   snapshotFromSession,
   upsertPreset,
   type PresetV1,
 } from './presets';
+
+function memoryStorage(): Storage {
+  const map = new Map<string, string>();
+  return {
+    get length() {
+      return map.size;
+    },
+    clear() {
+      map.clear();
+    },
+    getItem(key: string) {
+      return map.has(key) ? map.get(key)! : null;
+    },
+    key(index: number) {
+      return [...map.keys()][index] ?? null;
+    },
+    removeItem(key: string) {
+      map.delete(key);
+    },
+    setItem(key: string, value: string) {
+      map.set(key, value);
+    },
+  };
+}
 
 const sample: PresetV1 = {
   version: 1,
@@ -98,5 +129,27 @@ describe('presets', () => {
     expect(good.layers).toHaveLength(2);
     expect(good.master.volumeLinear).toBe(1);
     expect(good.timer?.fadeSec).toBe(30);
+  });
+});
+
+describe('duplicate min offset preference', () => {
+  it('defaults when storage is empty', () => {
+    const st = memoryStorage();
+    expect(loadDuplicateMinOffsetSec(st)).toBe(DUPLICATE_MIN_OFFSET_DEFAULT_SEC);
+  });
+
+  it('round-trips through storage', () => {
+    const st = memoryStorage();
+    saveDuplicateMinOffsetSec(5, st);
+    expect(st.getItem(DUPLICATE_MIN_OFFSET_KEY)).toBe('5');
+    expect(loadDuplicateMinOffsetSec(st)).toBe(5);
+  });
+
+  it('clamps on save and load', () => {
+    const st = memoryStorage();
+    saveDuplicateMinOffsetSec(0.1, st);
+    expect(loadDuplicateMinOffsetSec(st)).toBe(DUPLICATE_MIN_OFFSET_MIN_SEC);
+    st.setItem(DUPLICATE_MIN_OFFSET_KEY, '999');
+    expect(loadDuplicateMinOffsetSec(st)).toBe(60);
   });
 });

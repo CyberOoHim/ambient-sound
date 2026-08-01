@@ -2,6 +2,10 @@ import workletUrl from './worklets/noise-processor.js?url';
 import { clampLinear } from './dsp/curves';
 import type { NoiseType } from './dsp/colored-noise';
 import {
+  DUPLICATE_MIN_OFFSET_DEFAULT_SEC,
+  pickDuplicateStartOffset,
+} from './dsp/loop';
+import {
   effectiveMuteSolo,
   layerId,
   layerMuted,
@@ -36,6 +40,16 @@ interface SampleNodes {
 }
 
 type LayerNodes = NoiseNodes | SampleNodes;
+
+/** Options for decorrelating duplicate sample layers of the same asset. */
+export interface SampleStartOptions {
+  /** 0-based index among layers sharing the same assetId in the mix. */
+  siblingIndex?: number;
+  /** Total number of layers with that assetId. */
+  siblingCount?: number;
+  /** User min offset (seconds) for 2nd+ copies. */
+  minOffsetSec?: number;
+}
 
 /**
  * Web Audio engine: master bus + noise and sample layers.
@@ -202,11 +216,12 @@ export class AudioEngine {
   async addLayer(
     layer: MixerLayer,
     onProgress?: DecodeProgressCallback,
+    startOpts?: SampleStartOptions,
   ): Promise<void> {
     if (layer.kind === 'noise') {
       await this.addNoiseLayer(layer.params);
     } else {
-      await this.addSampleLayer(layer.params, onProgress);
+      await this.addSampleLayer(layer.params, onProgress, startOpts);
     }
   }
 
@@ -276,6 +291,7 @@ export class AudioEngine {
   async addSampleLayer(
     params: SampleLayerParams,
     onProgress?: DecodeProgressCallback,
+    startOpts?: SampleStartOptions,
   ): Promise<void> {
     const ctx = await this.ensureContext();
     if (!this.master) throw new Error('Master bus missing');
@@ -322,7 +338,13 @@ export class AudioEngine {
         crossfadeMs: params.crossfadeMs,
         playbackRate: params.playbackRate,
       });
-      player.start();
+      const offsetSec = pickDuplicateStartOffset(
+        buffer.duration,
+        startOpts?.siblingIndex ?? 0,
+        startOpts?.siblingCount ?? 1,
+        startOpts?.minOffsetSec ?? DUPLICATE_MIN_OFFSET_DEFAULT_SEC,
+      );
+      player.start(offsetSec);
 
       this.layers.set(params.id, { kind: 'sample', player, volume, pan, muteSolo });
     } finally {

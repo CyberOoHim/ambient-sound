@@ -6,10 +6,16 @@ import type {
 } from '../audio/types';
 import { NOISE_TYPES } from '../audio/dsp/colored-noise';
 import { clampLinear } from '../audio/dsp/curves';
+import {
+  clampDuplicateMinOffsetSec,
+  DUPLICATE_MIN_OFFSET_DEFAULT_SEC,
+} from '../audio/dsp/loop';
 import defaultPresetsRaw from '../../config/default-presets.json';
 
 export const PRESETS_STORAGE_KEY = 'ambient-sound:presets';
 export const LAST_SESSION_KEY = 'ambient-sound:last-session';
+/** User preference: min buffer offset (seconds) for 2nd+ copy of the same sample. */
+export const DUPLICATE_MIN_OFFSET_KEY = 'ambient-sound:duplicate-min-offset-sec';
 
 export interface PresetTimerConfig {
   durationSec: number;
@@ -203,6 +209,34 @@ export function saveLastSession(
 ): void {
   const st = storage ?? (typeof localStorage !== 'undefined' ? localStorage : undefined);
   st?.setItem(LAST_SESSION_KEY, JSON.stringify(snapshot));
+}
+
+export function loadDuplicateMinOffsetSec(storage?: Storage): number {
+  const st = storage ?? (typeof localStorage !== 'undefined' ? localStorage : undefined);
+  if (!st) return DUPLICATE_MIN_OFFSET_DEFAULT_SEC;
+  try {
+    const text = st.getItem(DUPLICATE_MIN_OFFSET_KEY);
+    if (text == null || text === '') return DUPLICATE_MIN_OFFSET_DEFAULT_SEC;
+    return clampDuplicateMinOffsetSec(Number(text));
+  } catch {
+    return DUPLICATE_MIN_OFFSET_DEFAULT_SEC;
+  }
+}
+
+export function saveDuplicateMinOffsetSec(
+  sec: number,
+  storage?: Storage,
+): void {
+  const st = storage ?? (typeof localStorage !== 'undefined' ? localStorage : undefined);
+  if (!st) return;
+  try {
+    st.setItem(
+      DUPLICATE_MIN_OFFSET_KEY,
+      String(clampDuplicateMinOffsetSec(sec)),
+    );
+  } catch {
+    /* private mode / quota */
+  }
 }
 
 export function createPresetId(): string {

@@ -26,6 +26,8 @@ export class SamplePlayer {
   private nextIndex = 0;
   private t0 = 0;
   private stopped = true;
+  /** Buffer read offset for the first segment / native start (seconds). */
+  private offsetSec = 0;
 
   constructor(
     ctx: AudioContext,
@@ -42,9 +44,21 @@ export class SamplePlayer {
     this.inputGain.connect(dest);
   }
 
-  start(): void {
+  /**
+   * @param offsetSec Optional start position into the buffer (for decorrelating
+   *   duplicate layers of the same asset). Clamped to a safe range.
+   */
+  start(offsetSec = 0): void {
     this.stop();
     this.stopped = false;
+    const D = this.buffer.duration;
+    if (!(D > 0) || !Number.isFinite(offsetSec) || offsetSec <= 0) {
+      this.offsetSec = 0;
+    } else {
+      // Leave a little room so crossfade first-segment still has content.
+      const maxOff = Math.max(0, D - 0.05);
+      this.offsetSec = Math.min(Math.max(0, offsetSec), maxOff);
+    }
     if (this.opts.loopMode === 'native') {
       this.startNative();
     } else {
@@ -87,6 +101,7 @@ export class SamplePlayer {
     }
     this.active = [];
     this.nextIndex = 0;
+    this.offsetSec = 0;
   }
 
   private startNative(): void {
@@ -95,7 +110,12 @@ export class SamplePlayer {
     src.loop = true;
     src.playbackRate.value = this.opts.playbackRate;
     src.connect(this.inputGain);
-    src.start();
+    // start(when, offset) keeps loop phase offset for the life of the node.
+    if (this.offsetSec > 0) {
+      src.start(0, this.offsetSec);
+    } else {
+      src.start();
+    }
     this.nativeSource = src;
   }
 
@@ -113,12 +133,33 @@ export class SamplePlayer {
     return loopPeriodSec(D, overlap, this.opts.playbackRate);
   }
 
+  /**
+   * Wall-clock delay from t0 until the second segment when the first starts
+   * mid-buffer. Subsequent gaps use {@link period}.
+   */
+  private firstPeriodSec(): number {
+    if (this.offsetSec <= 0) return this.period();
+    const D = this.buffer.duration;
+    const rate = Math.max(0.01, this.opts.playbackRate);
+    const overlap = clampCrossfadeSec(this.opts.crossfadeMs, D);
+    const remaining = Math.max(overlap + 0.05, D - this.offsetSec);
+    return Math.max(0.01, (remaining - overlap) / rate);
+  }
+
+  private segmentStartAt(n: number): number {
+    if (n <= 0) return this.t0;
+    if (this.offsetSec <= 0) {
+      return this.t0 + n * this.period();
+    }
+    return this.t0 + this.firstPeriodSec() + (n - 1) * this.period();
+  }
+
   private pump(): void {
     if (this.stopped) return;
     const period = this.period();
     const now = this.ctx.currentTime;
     // Schedule until we have ~0.35s+ lookahead beyond next needed start
-    while (this.t0 + this.nextIndex * period < now + 0.4 + period) {
+    while (this.segmentStartAt(this.nextIndex) < now + 0.4 + period) {
       this.scheduleSegment(this.nextIndex);
     }
     // Prune old nodes
@@ -145,9 +186,9 @@ export class SamplePlayer {
     const D = this.buffer.duration;
     const rate = Math.max(0.01, this.opts.playbackRate);
     const overlap = clampCrossfadeSec(this.opts.crossfadeMs, D);
-    const period = loopPeriodSec(D, overlap, rate);
-    const startAt = this.t0 + n * period;
+    const startAt = this.segmentStartAt(n);
     const overlapDur = Math.max(0.01, overlap / rate);
+    const bufferOffset = n === 0 ? this.offsetSec : 0;
 
     const source = this.ctx.createBufferSource();
     source.buffer = this.buffer;
@@ -193,10 +234,18 @@ export class SamplePlayer {
     }
 
     try {
-      source.start(startAt);
+      if (bufferOffset > 0) {
+        source.start(startAt, bufferOffset);
+      } else {
+        source.start(startAt);
+      }
     } catch {
       try {
-        source.start();
+        if (bufferOffset > 0) {
+          source.start(0, bufferOffset);
+        } else {
+          source.start();
+        }
       } catch {
         /* */
       }

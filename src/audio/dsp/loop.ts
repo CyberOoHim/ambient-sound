@@ -32,3 +32,66 @@ export function buildEqualPowerCurves(n: number): {
   }
   return { fadeIn, fadeOut };
 }
+
+/** Default / bounds for user-editable min start offset of duplicate sample layers. */
+export const DUPLICATE_MIN_OFFSET_DEFAULT_SEC = 2;
+export const DUPLICATE_MIN_OFFSET_MIN_SEC = 0.5;
+export const DUPLICATE_MIN_OFFSET_MAX_SEC = 60;
+
+/** Clamp the user preference into the allowed UI range. */
+export function clampDuplicateMinOffsetSec(sec: number): number {
+  if (!Number.isFinite(sec)) return DUPLICATE_MIN_OFFSET_DEFAULT_SEC;
+  return Math.max(
+    DUPLICATE_MIN_OFFSET_MIN_SEC,
+    Math.min(DUPLICATE_MIN_OFFSET_MAX_SEC, sec),
+  );
+}
+
+/**
+ * Effective minimum buffer offset for a given clip duration.
+ * Caps the user min so short buffers still leave room to start mid-loop.
+ */
+export function effectiveMinOffsetSec(
+  durationSec: number,
+  userMinSec: number,
+): number {
+  const D = Math.max(0, durationSec);
+  if (D <= 0.15) return 0;
+  const user = clampDuplicateMinOffsetSec(userMinSec);
+  const cap = Math.max(0.05, 0.4 * D);
+  return Math.min(user, cap);
+}
+
+/**
+ * Start offset (seconds into the buffer) for a sample layer that shares an asset
+ * with other layers. Index 0 always returns 0; later siblings are spread across
+ * the loop with light jitter, each at least `minOffsetSec` from the start when
+ * duration allows.
+ */
+export function pickDuplicateStartOffset(
+  durationSec: number,
+  siblingIndex: number,
+  siblingCount: number,
+  minOffsetSec: number,
+  rng: () => number = Math.random,
+): number {
+  const D = Math.max(0, durationSec);
+  if (siblingIndex <= 0 || D <= 0.15) return 0;
+
+  const N = Math.max(2, siblingCount, siblingIndex + 1);
+  const effMin = effectiveMinOffsetSec(D, minOffsetSec);
+  if (effMin <= 0) return 0;
+
+  const eps = Math.min(0.05, D * 0.01);
+  const maxOff = Math.max(effMin, D - Math.max(eps, 0.1));
+
+  // Even phase spread: i/N of the loop (e.g. N=3 → ~0, D/3, 2D/3).
+  const slot = D / N;
+  let offset = (siblingIndex / N) * D + (rng() - 0.5) * slot * 0.35;
+  offset = ((offset % D) + D) % D;
+
+  if (offset < effMin) offset = effMin;
+  if (offset > maxOff) offset = maxOff;
+  if (offset < 0.01) return 0;
+  return offset;
+}

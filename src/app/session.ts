@@ -15,9 +15,11 @@ import {
 import {
   createPresetId,
   deletePreset,
+  loadDuplicateMinOffsetSec,
   loadLastSession,
   loadPresetsFromStorage,
   parsePreset,
+  saveDuplicateMinOffsetSec,
   saveLastSession,
   savePresetsToStorage,
   snapshotFromSession,
@@ -26,6 +28,10 @@ import {
   type PresetTimerConfig,
   type PresetV1,
 } from './presets';
+import {
+  clampDuplicateMinOffsetSec,
+  DUPLICATE_MIN_OFFSET_DEFAULT_SEC,
+} from '../audio/dsp/loop';
 import {
   assetUrl,
   findAsset,
@@ -86,6 +92,12 @@ export class Session {
 
   presets: PresetV1[] = [];
 
+  /**
+   * Min buffer start offset (seconds) for the 2nd+ copy of the same sample.
+   * Persisted in localStorage; first copy always starts at 0.
+   */
+  duplicateMinOffsetSec = DUPLICATE_MIN_OFFSET_DEFAULT_SEC;
+
   private pollId: ReturnType<typeof setInterval> | null = null;
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
   private listeners = new Set<() => void>();
@@ -97,6 +109,7 @@ export class Session {
 
   constructor() {
     this.presets = loadPresetsFromStorage().presets;
+    this.duplicateMinOffsetSec = loadDuplicateMinOffsetSec();
     const last = loadLastSession();
     if (last) {
       this.applyPresetData(last);
@@ -109,6 +122,12 @@ export class Session {
     }
     this.ensureMediaSession();
     this.bindPageLifecycle();
+  }
+
+  setDuplicateMinOffsetSec(sec: number): void {
+    this.duplicateMinOffsetSec = clampDuplicateMinOffsetSec(sec);
+    saveDuplicateMinOffsetSec(this.duplicateMinOffsetSec);
+    this.notify();
   }
 
   private ensureMediaSession(): void {
@@ -765,6 +784,27 @@ export class Session {
   }
 
   /**
+   * Rank of this sample among layers sharing the same assetId (mix order).
+   * Used to decorrelate start positions of duplicate sounds.
+   */
+  private sampleSiblingInfo(layer: MixerLayer): {
+    siblingIndex: number;
+    siblingCount: number;
+  } {
+    if (layer.kind !== 'sample') {
+      return { siblingIndex: 0, siblingCount: 1 };
+    }
+    const same = this.layers.filter(
+      (l) => l.kind === 'sample' && l.params.assetId === layer.params.assetId,
+    );
+    const siblingIndex = Math.max(
+      0,
+      same.findIndex((l) => l.params.id === layer.params.id),
+    );
+    return { siblingIndex, siblingCount: same.length };
+  }
+
+  /**
    * Start a sample layer in the engine if still present in the mix.
    * Discards the engine node if the user removed/cleared the layer mid-download.
    * On fetch/decode failure, auto-removes the layer and sets {@link loadNotice}.
@@ -784,11 +824,20 @@ export class Session {
       this.setLayerLoading(id, true);
       this.notify();
     }
+    const { siblingIndex, siblingCount } = this.sampleSiblingInfo(layer);
     try {
-      await audioEngine.addLayer(layer, (p) => {
-        if (!this.hasLayer(id)) return;
-        this.updateLayerProgress(id, p.ratio, p.determinate);
-      });
+      await audioEngine.addLayer(
+        layer,
+        (p) => {
+          if (!this.hasLayer(id)) return;
+          this.updateLayerProgress(id, p.ratio, p.determinate);
+        },
+        {
+          siblingIndex,
+          siblingCount,
+          minOffsetSec: this.duplicateMinOffsetSec,
+        },
+      );
     } catch (err) {
       // Only auto-remove if the layer is still in the mix (user may have deleted it).
       if (this.hasLayer(id)) {

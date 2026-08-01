@@ -1,15 +1,27 @@
 <script lang="ts">
   import { session } from '../app/session';
   import type { PresetV1 } from '../app/presets';
+  import {
+    DUPLICATE_MIN_OFFSET_MAX_SEC,
+    DUPLICATE_MIN_OFFSET_MIN_SEC,
+  } from '../audio/dsp/loop';
 
   let presets = $state<PresetV1[]>(session.presets);
   let name = $state('');
   let selectedId = $state<string | null>(null);
   let message = $state<string | null>(null);
   let busy = $state(false);
+  let minOffsetSec = $state(session.duplicateMinOffsetSec);
 
   export function sync() {
     presets = session.presets;
+    minOffsetSec = session.duplicateMinOffsetSec;
+  }
+
+  function onMinOffsetInput(e: Event) {
+    const raw = Number((e.target as HTMLInputElement).value);
+    session.setDuplicateMinOffsetSec(raw);
+    minOffsetSec = session.duplicateMinOffsetSec;
   }
 
   async function load(id: string) {
@@ -131,6 +143,29 @@
   {#if message}
     <p class="msg" role="status">{message}</p>
   {/if}
+
+  <div class="dup-offset">
+    <label class="dup-label" for="dup-min-offset">
+      Min offset (same sound)
+    </label>
+    <div class="dup-row">
+      <input
+        id="dup-min-offset"
+        class="dup-input"
+        type="number"
+        min={DUPLICATE_MIN_OFFSET_MIN_SEC}
+        max={DUPLICATE_MIN_OFFSET_MAX_SEC}
+        step="0.5"
+        value={minOffsetSec}
+        onchange={onMinOffsetInput}
+        title="Later copies of the same sound start at least this far into the loop"
+      />
+      <span class="dup-unit">s</span>
+    </div>
+    <p class="dup-hint">
+      Extra copies start later in the loop so they thicken the mix, not only the volume.
+    </p>
+  </div>
 </section>
 
 <style>
@@ -318,5 +353,56 @@
     margin: 0.4rem 0 0;
     font-size: 0.72rem;
     color: var(--accent);
+  }
+
+  .dup-offset {
+    margin-top: 0.65rem;
+    padding-top: 0.55rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .dup-label {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--muted-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.25rem;
+  }
+
+  .dup-row {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .dup-input {
+    width: 4.5rem;
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.28rem 0.4rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  .dup-input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .dup-unit {
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  .dup-hint {
+    margin: 0.3rem 0 0;
+    font-size: 0.65rem;
+    line-height: 1.35;
+    color: var(--muted-soft);
   }
 </style>
