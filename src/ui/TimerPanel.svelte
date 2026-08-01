@@ -3,9 +3,10 @@
   import { formatDurationLabel, formatRemaining } from './format';
 
   let durationSec = $state(session.timerDefaults.durationSec);
+  let activeDurationSec = $state(session.timer.durationSec);
   let fadeSec = $state(session.timerDefaults.fadeSec);
   let status = $state(session.timer.status);
-  let remainingMs = $state<number | null>(null);
+  let remainingMs = $state<number | null>(session.remainingMs());
   let busy = $state(false);
 
   const presets = [
@@ -27,6 +28,7 @@
 
   export function sync() {
     durationSec = session.timerDefaults.durationSec;
+    activeDurationSec = session.timer.durationSec;
     fadeSec = session.timerDefaults.fadeSec;
     status = session.timer.status;
     remainingMs = session.remainingMs();
@@ -61,18 +63,51 @@
   const running = $derived(status === 'running' || status === 'fading');
 </script>
 
-<section class="panel timer">
+<section class="panel timer" class:is-fading={status === 'fading'}>
   <header class="panel-head">
     <h2>Sleep timer</h2>
     {#if running}
       <span class="countdown" class:fading={status === 'fading'}>
         {remainingMs != null ? formatRemaining(remainingMs) : '—'}
-        {status === 'fading' ? ' · fade' : ''}
+        {status === 'fading' ? ' · fading' : ''}
       </span>
     {:else if status === 'done'}
       <span class="countdown done">Ended</span>
     {/if}
   </header>
+
+  {#if running && remainingMs != null && activeDurationSec > 0}
+    {@const totalMs = activeDurationSec * 1000}
+    {@const ratio = Math.max(0, Math.min(1, remainingMs / totalMs))}
+    {@const percent = Math.round(ratio * 100)}
+    <div
+      class="timer-indicator"
+      class:fading={status === 'fading'}
+      role="progressbar"
+      aria-label="Sleep timer countdown progress"
+      aria-valuenow={percent}
+      aria-valuemin={0}
+      aria-valuemax={100}
+    >
+      <div class="indicator-track">
+        <div
+          class="indicator-fill"
+          style="width: {percent}%"
+        ></div>
+      </div>
+      <div class="indicator-meta">
+        <span class="status-tag">
+          <span class="dot"></span>
+          {#if status === 'fading'}
+            Fading out ({session.timer.fadeSec}s)
+          {:else}
+            Timer active
+          {/if}
+        </span>
+        <span class="pct-text">{percent}% left</span>
+      </div>
+    </div>
+  {/if}
 
   <div class="chips" role="group" aria-label="Duration">
     {#each presets as p}
@@ -142,6 +177,12 @@
     border-radius: var(--radius);
     padding: 0.65rem 0.75rem 0.7rem;
     box-shadow: var(--shadow-card);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .panel.timer.is-fading {
+    border-color: color-mix(in srgb, var(--solo) 40%, var(--border));
+    box-shadow: 0 0 14px rgba(251, 191, 36, 0.1), var(--shadow-card);
   }
 
   .panel-head {
@@ -166,6 +207,7 @@
     font-weight: 650;
     color: var(--accent);
     font-size: 0.85rem;
+    transition: color 0.2s ease;
   }
 
   .countdown.fading {
@@ -175,6 +217,98 @@
   .countdown.done {
     color: var(--muted);
     font-weight: 500;
+  }
+
+  /* ── Timer Visual Countdown Indicator ── */
+  .timer-indicator {
+    margin-bottom: 0.65rem;
+    padding: 0.45rem 0.55rem;
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+    transition: all 0.25s ease;
+  }
+
+  .timer-indicator.fading {
+    background: var(--solo-dim);
+    border-color: color-mix(in srgb, var(--solo) 55%, transparent);
+    box-shadow: 0 0 12px rgba(251, 191, 36, 0.15);
+  }
+
+  .indicator-track {
+    height: 0.45rem;
+    border-radius: var(--radius-pill);
+    background: color-mix(in srgb, var(--card) 80%, black);
+    overflow: hidden;
+    margin-bottom: 0.35rem;
+    position: relative;
+  }
+
+  .indicator-fill {
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 80%, #fff));
+    box-shadow: 0 0 8px var(--accent-glow);
+    transition: width 0.1s linear, background 0.25s ease, box-shadow 0.25s ease;
+  }
+
+  .timer-indicator.fading .indicator-fill {
+    background: linear-gradient(90deg, var(--solo), #f59e0b);
+    box-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
+  }
+
+  .indicator-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+
+  .status-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    color: var(--accent);
+    transition: color 0.25s ease;
+  }
+
+  .timer-indicator.fading .status-tag {
+    color: var(--solo);
+  }
+
+  .dot {
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 50%;
+    background: var(--accent);
+    transition: background 0.25s ease;
+  }
+
+  .timer-indicator.fading .dot {
+    background: var(--solo);
+    animation: fade-dot-pulse 1s ease-in-out infinite alternate;
+  }
+
+  @keyframes fade-dot-pulse {
+    0% {
+      opacity: 0.45;
+      transform: scale(0.85);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1.2);
+    }
+  }
+
+  .pct-text {
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    transition: color 0.25s ease;
+  }
+
+  .timer-indicator.fading .pct-text {
+    color: var(--solo);
   }
 
   .chips {

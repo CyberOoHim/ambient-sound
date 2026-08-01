@@ -122,3 +122,67 @@ describe('Session sample download / loading UI state', () => {
     expect(session.loadNotice).toBeNull();
   });
 });
+
+describe('Session timer countdown and fade state', () => {
+  let session: Session;
+
+  beforeEach(() => {
+    session = new Session();
+    session.layers = [
+      {
+        kind: 'noise',
+        params: { id: 'l1', type: 'white', volumeLinear: 0.5, stereoWidth: 1, pan: 0, muted: false, solo: false },
+      },
+    ];
+    session.playing = true;
+  });
+
+  it('sets timer parameters and calculates remainingMs', () => {
+    session.setTimerDefaults(60, 15);
+    session.timer = {
+      status: 'running',
+      endAtMs: Date.now() + 60_000,
+      durationSec: 60,
+      fadeSec: 15,
+    };
+    expect(session.timer.status).toBe('running');
+    expect(session.timer.durationSec).toBe(60);
+    expect(session.timer.fadeSec).toBe(15);
+    expect(session.remainingMs()).toBeGreaterThan(0);
+  });
+
+  it('transitions timer status to fading when remaining time is within fadeSec window', async () => {
+    const { audioEngine } = await import('../audio/engine');
+    const origFade = audioEngine.startFadeOut;
+    audioEngine.startFadeOut = async () => false;
+
+    session.timer = {
+      status: 'running',
+      endAtMs: Date.now() + 10_000,
+      durationSec: 60,
+      fadeSec: 15,
+    };
+
+    try {
+      await session.tickTimer();
+      expect(session.timer.status).toBe('fading');
+    } finally {
+      audioEngine.startFadeOut = origFade;
+    }
+  });
+
+  it('cancels timer and resets status and endAtMs', () => {
+    session.timer = {
+      status: 'running',
+      endAtMs: Date.now() + 60_000,
+      durationSec: 60,
+      fadeSec: 15,
+    };
+    expect(session.timer.status).toBe('running');
+
+    session.cancelTimer();
+    expect(session.timer.status).toBe('idle');
+    expect(session.timer.endAtMs).toBeNull();
+    expect(session.remainingMs()).toBeNull();
+  });
+});

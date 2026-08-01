@@ -7,6 +7,7 @@
   import TimerPanel from './TimerPanel.svelte';
   import PresetsPanel from './PresetsPanel.svelte';
   import LibraryPanel from './LibraryPanel.svelte';
+  import { formatRemaining } from './format';
 
   let layers = $state<MixerLayer[]>(session.layers);
   let playing = $state(session.playing);
@@ -21,6 +22,8 @@
     Record<string, { ratio: number; determinate: boolean }>
   >({});
   let loadNotice = $state<string | null>(null);
+  let timerStatus = $state(session.timer.status);
+  let timerRemainingMs = $state<number | null>(session.remainingMs());
 
   let timerPanel: TimerPanel | undefined = $state();
   let presetsPanel: PresetsPanel | undefined = $state();
@@ -40,6 +43,8 @@
     }
     loadProgress = prog;
     loadNotice = session.loadNotice;
+    timerStatus = session.timer.status;
+    timerRemainingMs = session.remainingMs();
     timerPanel?.sync();
     presetsPanel?.sync();
     libraryPanel?.sync();
@@ -146,7 +151,12 @@
         peak *= 0.9;
       }
       if (session.timer.status === 'running' || session.timer.status === 'fading') {
+        timerStatus = session.timer.status;
+        timerRemainingMs = session.remainingMs();
         timerPanel?.sync();
+      } else if (timerStatus !== 'idle' && timerStatus !== 'done') {
+        timerStatus = session.timer.status;
+        timerRemainingMs = null;
       }
       meterRaf = requestAnimationFrame(tick);
     };
@@ -193,6 +203,20 @@
         {/if}
       </button>
       <kbd class="hint-kbd" title="Keyboard shortcut">Space</kbd>
+
+      {#if (timerStatus === 'running' || timerStatus === 'fading') && timerRemainingMs != null}
+        <div
+          class="header-timer-badge"
+          class:fading={timerStatus === 'fading'}
+          title="Sleep timer active"
+        >
+          <span class="timer-badge-icon" aria-hidden="true">⏱</span>
+          <span>{formatRemaining(timerRemainingMs)}</span>
+          {#if timerStatus === 'fading'}
+            <span class="fade-tag">fade</span>
+          {/if}
+        </div>
+      {/if}
     </div>
 
     <div class="master">
@@ -529,6 +553,52 @@
     padding: 0.1rem 0.35rem;
     background: var(--bg);
     color: var(--muted);
+  }
+
+  .header-timer-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.65rem;
+    border-radius: var(--radius-pill);
+    background: var(--accent-dim);
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+    color: var(--accent);
+    font-size: 0.75rem;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+    transition: all 0.25s ease;
+  }
+
+  .header-timer-badge.fading {
+    background: var(--solo-dim);
+    border-color: color-mix(in srgb, var(--solo) 55%, transparent);
+    color: var(--solo);
+    box-shadow: 0 0 10px rgba(251, 191, 36, 0.25);
+    animation: fade-badge-pulse 1.5s ease-in-out infinite alternate;
+  }
+
+  .timer-badge-icon {
+    font-size: 0.8rem;
+    line-height: 1;
+  }
+
+  .fade-tag {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: color-mix(in srgb, var(--solo) 25%, transparent);
+    padding: 0.05rem 0.3rem;
+    border-radius: var(--radius-sm);
+  }
+
+  @keyframes fade-badge-pulse {
+    0% {
+      border-color: color-mix(in srgb, var(--solo) 40%, transparent);
+    }
+    100% {
+      border-color: var(--solo);
+    }
   }
 
   .master {
