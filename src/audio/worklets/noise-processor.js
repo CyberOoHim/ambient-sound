@@ -21,7 +21,7 @@ const CALIBRATION = {
   violet: 0.32,
   rain: 0.55,
   fan: 0.7,
-  static: 0.38,
+  static: 0.32,
 };
 
 const BROWN_C = 0.03;
@@ -41,6 +41,9 @@ function createChannel() {
     prevPink: 0,
     amPhase: Math.random(),
     amState: 0,
+    holdLeft: 0,
+    held: 0,
+    crackle: 0,
   };
 }
 
@@ -74,6 +77,28 @@ function brownFromWhite(s, white) {
   return s.brown;
 }
 
+/** Harsh TV/radio static — mirrors colored-noise.ts staticFromUniform */
+function staticFromUniform(s, white) {
+  if (s.holdLeft <= 0) {
+    s.held = white;
+    s.holdLeft = 3 + Math.floor(Math.random() * 4); // 3..6
+  }
+  s.holdLeft -= 1;
+
+  const levels = 16;
+  let y = Math.round(s.held * levels) / levels;
+
+  if (Math.random() < 0.0012) {
+    s.crackle = (Math.random() * 2 - 1) * (0.55 + Math.random() * 0.45);
+  }
+  y += s.crackle;
+  s.crackle *= 0.82;
+
+  if (y > 1) y = 1;
+  if (y < -1) y = -1;
+  return y;
+}
+
 function sampleChannel(type, s, sampleRate) {
   const white = type === 'static' ? uniform() : gaussian();
   let y;
@@ -83,7 +108,7 @@ function sampleChannel(type, s, sampleRate) {
       y = white;
       break;
     case 'static':
-      y = white;
+      y = staticFromUniform(s, white);
       break;
     case 'pink':
       y = pinkFromWhite(s, white);

@@ -32,265 +32,6 @@
       }
     },
     {
-      "id": "ocean_shore",
-      "title": "Ocean shore",
-      "category": "ocean",
-      "file": "core/ocean_shore.ogg",
-      "tags": [
-        "ocean",
-        "waves",
-        "ambient",
-        "freesound"
-      ],
-      "loop": {
-        "mode": "crossfade",
-        "crossfadeMs": 120
-      },
-      "license": {
-        "spdx": "CC0-1.0",
-        "author": "florianreichelt",
-        "sourceUrl": "https://freesound.org/people/florianreichelt/sounds/450755/",
-        "attribution": "\"Waves of Hawaii\" by florianreichelt (https://freesound.org/people/florianreichelt/sounds/450755/) — CC0-1.0",
-        "notes": "Freesound #450755. Packaged from public HQ preview; trimmed/normalized for ambient looping."
-      },
-      "freesound": {
-        "id": 450755,
-        "username": "florianreichelt",
-        "originalTitle": "Waves of Hawaii"
-      }
-    },
-    {
-      "id": "wind_trees",
-      "title": "Wind in trees",
-      "category": "wind",
-      "file": "core/wind_trees.ogg",
-      "tags": [
-        "wind",
-        "forest",
-        "ambient",
-        "freesound"
-      ],
-      "loop": {
-        "mode": "crossfade",
-        "crossfadeMs": 100
-      },
-      "license": {
-        "spdx": "CC0-1.0",
-        "author": "Cinetony",
-        "sourceUrl": "https://freesound.org/people/Cinetony/sounds/563571/",
-        "attribution": "\"Wind in forest with creaking tree\" by Cinetony (https://freesound.org/people/Cinetony/sounds/563571/) — CC0-1.0",
-        "notes": "Freesound #563571. Packaged from public HQ preview; trimmed/normalized for ambient looping."
-      },
-      "freesound": {
-        "id": 563571,
-        "username": "Cinetony",
-        "originalTitle": "Wind in forest with creaking tree"
-      }
-    },
-    {
-      "id": "fire_camp",
-      "title": "Campfire",
-      "category": "fire",
-      "file": "core/fire_camp.ogg",
-      "tags": [
-        "fire",
-        "campfire",
-        "crackling",
-        "loop",
-        "freesound"
-      ],
-      "loop": {
-        "mode": "native",
-        "crossfadeMs": 80
-      },
-      "license": {
-        "spdx": "CC0-1.0",
-        "author": "NickTayloe",
-        "sourceUrl": "https://freesound.org/people/NickTayloe/sounds/813328/",
-        "attribution": "\"Crackling Flames (loop)\" by NickTayloe (https://freesound.org/people/NickTayloe/sounds/813328/) — CC0-1.0",
-        "notes": "Freesound #813328. Packaged from public HQ preview; trimmed/normalized for ambient looping."
-      },
-      "freesound": {
-        "id": 813328,
-        "username": "NickTayloe",
-        "originalTitle": "Crackling Flames (loop)"
-      }
-    },
-    {
-      "id": "stream_small",
-      "title": "Small stream",
-      "category": "stream",
-      "file": "core/stream_small.ogg",
-      "tags": [
-        "stream",
-        "river",
-        "water",
-        "ambient",
-        "freesound"
-      ],
-      "loop": {
-        "mode": "crossfade",
-        "crossfadeMs": 100
-      },
-      "license": {
-        "spdx": "CC0-1.0",
-        "author": "sonicalypse",
-        "sourceUrl": "https://freesound.org/people/sonicalypse/sounds/733004/",
-        "attribution": "\"Water Stream River Creek with crickets\" by sonicalypse (https://freesound.org/people/sonicalypse/sounds/733004/) — CC0-1.0",
-        "notes": "Freesound #733004. Packaged from public HQ preview; trimmed/normalized for ambient looping."
-      },
-      "freesound": {
-        "id": 733004,
-        "username": "sonicalypse",
-        "originalTitle": "Water Stream River Creek with crickets"
-      }
-    },
-    {
-      "id": "crickets_night",
-      "title": "Night crickets",
-      "category": "insects",
-      "file": "core/crickets_night.ogg",
-      "tags": [
-        "crickets",
-        "night",
-        "insects",
-        "ambient",
-        "freesound"
-      ],
-      "loop": {
-        "mode": "crossfade",
-        "crossfadeMs": 100
-      },
-      "license": {
-        "spdx": "CC0-1.0",
-        "author": "Defelozedd94",
-        "sourceUrl": "https://freesound.org/people/Defelozedd94/sounds/522299/",
-        "attribution": "\"Crickets At Night - Raw sound\" by Defelozedd94 (https://freesound.org/people/Defelozedd94/sounds/522299/) — CC0-1.0",
-        "notes": "Freesound #522299. Packaged from public HQ preview; trimmed/normalized for ambient looping."
-      },
-      "freesound": {
-        "id": 522299,
-        "username": "Defelozedd94",
-        "originalTitle": "Crickets At Night - Raw sound"
-      }
-    },
-    {
-      "id": "birds_morning",
-      "title": "Morning birds",
-      "category": "birds",
-      "file": "core/birds_morning.ogg",
-      "tags": [
-        "birds",
-        "morning",
-        "forest",
-        "ambient",
-        "freesound"
-      ],
-      "loop": {
-        "mode": "crossfade",
-        "crossfadeMs": 120
-      },
-      "license": {
-        "spdx": "CC0-1.0",
-        "author": "trezz77",
-        "sourceUrl": "https://freesound.org/people/trezz77/sounds/546521/",
-        "attribution": "\"birds on morning\" by trezz77 (https://freesound.org/people/trezz77/sounds/546521/) — CC0-1.0",
-        "notes": "Freesound #546521. Packaged from public HQ preview; trimmed/normalized for ambient looping."
-      },
-      "freesound": {
-        "id": 546521,
-        "username": "trezz77",
-        "originalTitle": "birds on morning"
-      }
-    },
-    {
-      "id": "thunder_distant",
-      "title": "Distant thunder",
-      "category": "thunder",
-      "file": "core/thunder_distant.ogg",
-      "tags": [
-        "thunder",
-        "storm",
-        "rolling",
-        "ambient",
-        "freesound"
-      ],
-      "loop": {
-        "mode": "crossfade",
-        "crossfadeMs": 150
-      },
-      "license": {
-        "spdx": "CC0-1.0",
-        "author": "SholeColtis",
-        "sourceUrl": "https://freesound.org/people/SholeColtis/sounds/683419/",
-        "attribution": "\"Rolling_Thunder_Deep.wav\" by SholeColtis (https://freesound.org/people/SholeColtis/sounds/683419/) — CC0-1.0",
-        "notes": "Freesound #683419. Packaged from public HQ preview; trimmed/normalized for ambient looping."
-      },
-      "freesound": {
-        "id": 683419,
-        "username": "SholeColtis",
-        "originalTitle": "Rolling_Thunder_Deep.wav"
-      }
-    },
-    {
-      "id": "waterfall",
-      "title": "Waterfall",
-      "category": "waterfall",
-      "file": "core/waterfall.ogg",
-      "tags": [
-        "waterfall",
-        "water",
-        "nature",
-        "ambient",
-        "freesound"
-      ],
-      "loop": {
-        "mode": "crossfade",
-        "crossfadeMs": 100
-      },
-      "license": {
-        "spdx": "CC0-1.0",
-        "author": "BassmanJourney",
-        "sourceUrl": "https://freesound.org/people/BassmanJourney/sounds/632107/",
-        "attribution": "\"Hidden waterfall.WAV\" by BassmanJourney (https://freesound.org/people/BassmanJourney/sounds/632107/) — CC0-1.0",
-        "notes": "Freesound #632107. Packaged from public HQ preview; trimmed/normalized for ambient looping."
-      },
-      "freesound": {
-        "id": 632107,
-        "username": "BassmanJourney",
-        "originalTitle": "Hidden waterfall.WAV"
-      }
-    },
-    {
-      "id": "frogs_pond",
-      "title": "Pond frogs",
-      "category": "frogs",
-      "file": "core/frogs_pond.ogg",
-      "tags": [
-        "frogs",
-        "pond",
-        "night",
-        "ambient",
-        "freesound"
-      ],
-      "loop": {
-        "mode": "crossfade",
-        "crossfadeMs": 100
-      },
-      "license": {
-        "spdx": "CC0-1.0",
-        "author": "felix.blume",
-        "sourceUrl": "https://freesound.org/people/felix.blume/sounds/135561/",
-        "attribution": "\"Toads and frogs are singing at night in the pond, in the center of the small village of Diafarabe, in Mali\" by felix.blume (https://freesound.org/people/felix.blume/sounds/135561/) — CC0-1.0",
-        "notes": "Freesound #135561. Packaged from public HQ preview; trimmed/normalized for ambient looping."
-      },
-      "freesound": {
-        "id": 135561,
-        "username": "felix.blume",
-        "originalTitle": "Toads and frogs are singing at night in the pond, in the center of the small village of Diafarabe, in Mali"
-      }
-    },
-    {
       "id": "rain_roof",
       "title": "Rain on roofs",
       "category": "rain",
@@ -350,6 +91,273 @@
       }
     },
     {
+      "id": "thunder_distant",
+      "title": "Distant thunder",
+      "category": "thunder",
+      "file": "core/thunder_distant.ogg",
+      "tags": [
+        "thunder",
+        "storm",
+        "rolling",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 150
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "SholeColtis",
+        "sourceUrl": "https://freesound.org/people/SholeColtis/sounds/683419/",
+        "attribution": "\"Rolling_Thunder_Deep.wav\" by SholeColtis (https://freesound.org/people/SholeColtis/sounds/683419/) — CC0-1.0",
+        "notes": "Freesound #683419. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 683419,
+        "username": "SholeColtis",
+        "originalTitle": "Rolling_Thunder_Deep.wav"
+      }
+    },
+    {
+      "id": "thunder_storm",
+      "title": "Thunder storm",
+      "category": "thunder",
+      "file": "core/thunder_storm.ogg",
+      "tags": [
+        "thunder",
+        "storm",
+        "rain",
+        "thunderstorm",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 150
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "felix.blume",
+        "sourceUrl": "https://freesound.org/people/felix.blume/sounds/237242/",
+        "attribution": "\"Thunderstorm and rain in a field in Illinois, USA\" by felix.blume (https://freesound.org/people/felix.blume/sounds/237242/) — CC0-1.0",
+        "notes": "Freesound #237242. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 237242,
+        "username": "felix.blume",
+        "originalTitle": "Thunderstorm and rain in a field in Illinois, USA"
+      }
+    },
+    {
+      "id": "ocean_shore",
+      "title": "Ocean shore",
+      "category": "ocean",
+      "file": "core/ocean_shore.ogg",
+      "tags": [
+        "ocean",
+        "waves",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 120
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "florianreichelt",
+        "sourceUrl": "https://freesound.org/people/florianreichelt/sounds/450755/",
+        "attribution": "\"Waves of Hawaii\" by florianreichelt (https://freesound.org/people/florianreichelt/sounds/450755/) — CC0-1.0",
+        "notes": "Freesound #450755. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 450755,
+        "username": "florianreichelt",
+        "originalTitle": "Waves of Hawaii"
+      }
+    },
+    {
+      "id": "pebble_beach",
+      "title": "Pebble beach",
+      "category": "ocean",
+      "file": "core/pebble_beach.ogg",
+      "tags": [
+        "pebbles",
+        "beach",
+        "waves",
+        "ocean",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 100
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "kyles",
+        "sourceUrl": "https://freesound.org/people/kyles/sounds/450637/",
+        "attribution": "\"waves pebble beach frothy close2.flac\" by kyles (https://freesound.org/people/kyles/sounds/450637/) — CC0-1.0",
+        "notes": "Freesound #450637. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 450637,
+        "username": "kyles",
+        "originalTitle": "waves pebble beach frothy close2.flac"
+      }
+    },
+    {
+      "id": "sea_stormy",
+      "title": "Stormy wavy sea",
+      "category": "ocean",
+      "file": "core/sea_stormy.ogg",
+      "tags": [
+        "ocean",
+        "sea",
+        "waves",
+        "stormy",
+        "rough",
+        "surf",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 100
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "Ali_6868",
+        "sourceUrl": "https://freesound.org/people/Ali_6868/sounds/384360/",
+        "attribution": "\"Waves Crashing Against Wall/Break Water 2\" by Ali_6868 (https://freesound.org/people/Ali_6868/sounds/384360/) — CC0-1.0",
+        "notes": "Freesound #384360. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 384360,
+        "username": "Ali_6868",
+        "originalTitle": "Waves Crashing Against Wall/Break Water 2"
+      }
+    },
+    {
+      "id": "lake_shore",
+      "title": "Lake shore",
+      "category": "water",
+      "file": "core/lake_shore.ogg",
+      "tags": [
+        "lake",
+        "shore",
+        "waves",
+        "water",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 100
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "kyles",
+        "sourceUrl": "https://freesound.org/people/kyles/sounds/451630/",
+        "attribution": "\"water medium gentle lake waves splash on shore close.flac\" by kyles (https://freesound.org/people/kyles/sounds/451630/) — CC0-1.0",
+        "notes": "Freesound #451630. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 451630,
+        "username": "kyles",
+        "originalTitle": "water medium gentle lake waves splash on shore close.flac"
+      }
+    },
+    {
+      "id": "stream_small",
+      "title": "Small stream",
+      "category": "stream",
+      "file": "core/stream_small.ogg",
+      "tags": [
+        "stream",
+        "river",
+        "water",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 100
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "sonicalypse",
+        "sourceUrl": "https://freesound.org/people/sonicalypse/sounds/733004/",
+        "attribution": "\"Water Stream River Creek with crickets\" by sonicalypse (https://freesound.org/people/sonicalypse/sounds/733004/) — CC0-1.0",
+        "notes": "Freesound #733004. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 733004,
+        "username": "sonicalypse",
+        "originalTitle": "Water Stream River Creek with crickets"
+      }
+    },
+    {
+      "id": "waterfall",
+      "title": "Waterfall",
+      "category": "waterfall",
+      "file": "core/waterfall.ogg",
+      "tags": [
+        "waterfall",
+        "water",
+        "nature",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 100
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "BassmanJourney",
+        "sourceUrl": "https://freesound.org/people/BassmanJourney/sounds/632107/",
+        "attribution": "\"Hidden waterfall.WAV\" by BassmanJourney (https://freesound.org/people/BassmanJourney/sounds/632107/) — CC0-1.0",
+        "notes": "Freesound #632107. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 632107,
+        "username": "BassmanJourney",
+        "originalTitle": "Hidden waterfall.WAV"
+      }
+    },
+    {
+      "id": "underwater",
+      "title": "Underwater",
+      "category": "water",
+      "file": "core/underwater.ogg",
+      "tags": [
+        "underwater",
+        "bubbles",
+        "ocean",
+        "submerged",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 100
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "Kinoton",
+        "sourceUrl": "https://freesound.org/people/Kinoton/sounds/393819/",
+        "attribution": "\"Underwater Ambience\" by Kinoton (https://freesound.org/people/Kinoton/sounds/393819/) — CC0-1.0",
+        "notes": "Freesound #393819. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 393819,
+        "username": "Kinoton",
+        "originalTitle": "Underwater Ambience"
+      }
+    },
+    {
       "id": "cave_drips",
       "title": "Cave drips",
       "category": "cave",
@@ -380,73 +388,13 @@
       }
     },
     {
-      "id": "cicadas_summer",
-      "title": "Summer cicadas",
-      "category": "insects",
-      "file": "core/cicadas_summer.ogg",
+      "id": "wind_trees",
+      "title": "Wind in trees",
+      "category": "wind",
+      "file": "core/wind_trees.ogg",
       "tags": [
-        "cicadas",
-        "summer",
-        "insects",
-        "ambient",
-        "freesound"
-      ],
-      "loop": {
-        "mode": "crossfade",
-        "crossfadeMs": 100
-      },
-      "license": {
-        "spdx": "CC0-1.0",
-        "author": "beansqueso31",
-        "sourceUrl": "https://freesound.org/people/beansqueso31/sounds/243438/",
-        "attribution": "\"Cicada summer.wav\" by beansqueso31 (https://freesound.org/people/beansqueso31/sounds/243438/) — CC0-1.0",
-        "notes": "Freesound #243438. Packaged from public HQ preview; trimmed/normalized for ambient looping."
-      },
-      "freesound": {
-        "id": 243438,
-        "username": "beansqueso31",
-        "originalTitle": "Cicada summer.wav"
-      }
-    },
-    {
-      "id": "owls_forest",
-      "title": "Forest owls",
-      "category": "birds",
-      "file": "core/owls_forest.ogg",
-      "tags": [
-        "owls",
-        "night",
+        "wind",
         "forest",
-        "birds",
-        "ambient",
-        "freesound"
-      ],
-      "loop": {
-        "mode": "crossfade",
-        "crossfadeMs": 150
-      },
-      "license": {
-        "spdx": "CC0-1.0",
-        "author": "kvgarlic",
-        "sourceUrl": "https://freesound.org/people/kvgarlic/sounds/151241/",
-        "attribution": "\"OwlsForestApril82012.wav\" by kvgarlic (https://freesound.org/people/kvgarlic/sounds/151241/) — CC0-1.0",
-        "notes": "Freesound #151241. Packaged from public HQ preview; trimmed/normalized for ambient looping."
-      },
-      "freesound": {
-        "id": 151241,
-        "username": "kvgarlic",
-        "originalTitle": "OwlsForestApril82012.wav"
-      }
-    },
-    {
-      "id": "bees_buzzing",
-      "title": "Bees buzzing",
-      "category": "insects",
-      "file": "core/bees_buzzing.ogg",
-      "tags": [
-        "bees",
-        "insects",
-        "meadow",
         "ambient",
         "freesound"
       ],
@@ -457,14 +405,74 @@
       "license": {
         "spdx": "CC0-1.0",
         "author": "Cinetony",
-        "sourceUrl": "https://freesound.org/people/Cinetony/sounds/566112/",
-        "attribution": "\"Bees buzzing around tree\" by Cinetony (https://freesound.org/people/Cinetony/sounds/566112/) — CC0-1.0",
-        "notes": "Freesound #566112. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+        "sourceUrl": "https://freesound.org/people/Cinetony/sounds/563571/",
+        "attribution": "\"Wind in forest with creaking tree\" by Cinetony (https://freesound.org/people/Cinetony/sounds/563571/) — CC0-1.0",
+        "notes": "Freesound #563571. Packaged from public HQ preview; trimmed/normalized for ambient looping."
       },
       "freesound": {
-        "id": 566112,
+        "id": 563571,
         "username": "Cinetony",
-        "originalTitle": "Bees buzzing around tree"
+        "originalTitle": "Wind in forest with creaking tree"
+      }
+    },
+    {
+      "id": "leaves_rustle",
+      "title": "Rustling leaves",
+      "category": "wind",
+      "file": "core/leaves_rustle.ogg",
+      "tags": [
+        "leaves",
+        "rustle",
+        "wind",
+        "forest",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 90
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "Garuda1982",
+        "sourceUrl": "https://freesound.org/people/Garuda1982/sounds/575645/",
+        "attribution": "\"large leaves rustle in the wind sound effect\" by Garuda1982 (https://freesound.org/people/Garuda1982/sounds/575645/) — CC0-1.0",
+        "notes": "Freesound #575645. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 575645,
+        "username": "Garuda1982",
+        "originalTitle": "large leaves rustle in the wind sound effect"
+      }
+    },
+    {
+      "id": "desert_wind",
+      "title": "Desert wind",
+      "category": "wind",
+      "file": "core/desert_wind.ogg",
+      "tags": [
+        "desert",
+        "wind",
+        "sand",
+        "arid",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 120
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "Benbojangles",
+        "sourceUrl": "https://freesound.org/people/Benbojangles/sounds/457159/",
+        "attribution": "\"Desert binaural Wind.WAV\" by Benbojangles (https://freesound.org/people/Benbojangles/sounds/457159/) — CC0-1.0",
+        "notes": "Freesound #457159. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 457159,
+        "username": "Benbojangles",
+        "originalTitle": "Desert binaural Wind.WAV"
       }
     },
     {
@@ -495,6 +503,68 @@
         "id": 505999,
         "username": "DBlover",
         "originalTitle": "Howling winter storm ambient sounds"
+      }
+    },
+    {
+      "id": "bamboo_forest",
+      "title": "Bamboo forest",
+      "category": "forest",
+      "file": "core/bamboo_forest.ogg",
+      "tags": [
+        "bamboo",
+        "forest",
+        "wind",
+        "nature",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 110
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "Codly",
+        "sourceUrl": "https://freesound.org/people/Codly/sounds/546986/",
+        "attribution": "\"bamboo forest (2).wav\" by Codly (https://freesound.org/people/Codly/sounds/546986/) — CC0-1.0",
+        "notes": "Freesound #546986. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 546986,
+        "username": "Codly",
+        "originalTitle": "bamboo forest (2).wav"
+      }
+    },
+    {
+      "id": "amazon_forest",
+      "title": "Amazon forest",
+      "category": "forest",
+      "file": "core/amazon_forest.ogg",
+      "tags": [
+        "amazon",
+        "forest",
+        "rainforest",
+        "jungle",
+        "birds",
+        "insects",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 120
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "alberto_cendra_woodman",
+        "sourceUrl": "https://freesound.org/people/alberto_cendra_woodman/sounds/737513/",
+        "attribution": "\"Amazon Jungle in the Morning at Rainforest Tambopata National Reserve\" by alberto_cendra_woodman (https://freesound.org/people/alberto_cendra_woodman/sounds/737513/) — CC0-1.0",
+        "notes": "Freesound #737513. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 737513,
+        "username": "alberto_cendra_woodman",
+        "originalTitle": "Amazon Jungle in the Morning at Rainforest Tambopata National Reserve"
       }
     },
     {
@@ -529,75 +599,14 @@
       }
     },
     {
-      "id": "leaves_rustle",
-      "title": "Rustling leaves",
-      "category": "wind",
-      "file": "core/leaves_rustle.ogg",
+      "id": "birds_morning",
+      "title": "Morning birds",
+      "category": "birds",
+      "file": "core/birds_morning.ogg",
       "tags": [
-        "leaves",
-        "rustle",
-        "wind",
+        "birds",
+        "morning",
         "forest",
-        "ambient",
-        "freesound"
-      ],
-      "loop": {
-        "mode": "crossfade",
-        "crossfadeMs": 90
-      },
-      "license": {
-        "spdx": "CC0-1.0",
-        "author": "Garuda1982",
-        "sourceUrl": "https://freesound.org/people/Garuda1982/sounds/575645/",
-        "attribution": "\"large leaves rustle in the wind sound effect\" by Garuda1982 (https://freesound.org/people/Garuda1982/sounds/575645/) — CC0-1.0",
-        "notes": "Freesound #575645. Packaged from public HQ preview; trimmed/normalized for ambient looping."
-      },
-      "freesound": {
-        "id": 575645,
-        "username": "Garuda1982",
-        "originalTitle": "large leaves rustle in the wind sound effect"
-      }
-    },
-    {
-      "id": "lake_shore",
-      "title": "Lake shore",
-      "category": "water",
-      "file": "core/lake_shore.ogg",
-      "tags": [
-        "lake",
-        "shore",
-        "waves",
-        "water",
-        "ambient",
-        "freesound"
-      ],
-      "loop": {
-        "mode": "crossfade",
-        "crossfadeMs": 100
-      },
-      "license": {
-        "spdx": "CC0-1.0",
-        "author": "kyles",
-        "sourceUrl": "https://freesound.org/people/kyles/sounds/451630/",
-        "attribution": "\"water medium gentle lake waves splash on shore close.flac\" by kyles (https://freesound.org/people/kyles/sounds/451630/) — CC0-1.0",
-        "notes": "Freesound #451630. Packaged from public HQ preview; trimmed/normalized for ambient looping."
-      },
-      "freesound": {
-        "id": 451630,
-        "username": "kyles",
-        "originalTitle": "water medium gentle lake waves splash on shore close.flac"
-      }
-    },
-    {
-      "id": "desert_wind",
-      "title": "Desert wind",
-      "category": "wind",
-      "file": "core/desert_wind.ogg",
-      "tags": [
-        "desert",
-        "wind",
-        "sand",
-        "arid",
         "ambient",
         "freesound"
       ],
@@ -607,105 +616,76 @@
       },
       "license": {
         "spdx": "CC0-1.0",
-        "author": "Benbojangles",
-        "sourceUrl": "https://freesound.org/people/Benbojangles/sounds/457159/",
-        "attribution": "\"Desert binaural Wind.WAV\" by Benbojangles (https://freesound.org/people/Benbojangles/sounds/457159/) — CC0-1.0",
-        "notes": "Freesound #457159. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+        "author": "trezz77",
+        "sourceUrl": "https://freesound.org/people/trezz77/sounds/546521/",
+        "attribution": "\"birds on morning\" by trezz77 (https://freesound.org/people/trezz77/sounds/546521/) — CC0-1.0",
+        "notes": "Freesound #546521. Packaged from public HQ preview; trimmed/normalized for ambient looping."
       },
       "freesound": {
-        "id": 457159,
-        "username": "Benbojangles",
-        "originalTitle": "Desert binaural Wind.WAV"
+        "id": 546521,
+        "username": "trezz77",
+        "originalTitle": "birds on morning"
       }
     },
     {
-      "id": "pebble_beach",
-      "title": "Pebble beach",
-      "category": "ocean",
-      "file": "core/pebble_beach.ogg",
+      "id": "owls_forest",
+      "title": "Forest owls",
+      "category": "birds",
+      "file": "core/owls_forest.ogg",
       "tags": [
-        "pebbles",
-        "beach",
-        "waves",
-        "ocean",
-        "ambient",
-        "freesound"
-      ],
-      "loop": {
-        "mode": "crossfade",
-        "crossfadeMs": 100
-      },
-      "license": {
-        "spdx": "CC0-1.0",
-        "author": "kyles",
-        "sourceUrl": "https://freesound.org/people/kyles/sounds/450637/",
-        "attribution": "\"waves pebble beach frothy close2.flac\" by kyles (https://freesound.org/people/kyles/sounds/450637/) — CC0-1.0",
-        "notes": "Freesound #450637. Packaged from public HQ preview; trimmed/normalized for ambient looping."
-      },
-      "freesound": {
-        "id": 450637,
-        "username": "kyles",
-        "originalTitle": "waves pebble beach frothy close2.flac"
-      }
-    },
-    {
-      "id": "underwater",
-      "title": "Underwater",
-      "category": "water",
-      "file": "core/underwater.ogg",
-      "tags": [
-        "underwater",
-        "bubbles",
-        "ocean",
-        "submerged",
-        "ambient",
-        "freesound"
-      ],
-      "loop": {
-        "mode": "crossfade",
-        "crossfadeMs": 100
-      },
-      "license": {
-        "spdx": "CC0-1.0",
-        "author": "Kinoton",
-        "sourceUrl": "https://freesound.org/people/Kinoton/sounds/393819/",
-        "attribution": "\"Underwater Ambience\" by Kinoton (https://freesound.org/people/Kinoton/sounds/393819/) — CC0-1.0",
-        "notes": "Freesound #393819. Packaged from public HQ preview; trimmed/normalized for ambient looping."
-      },
-      "freesound": {
-        "id": 393819,
-        "username": "Kinoton",
-        "originalTitle": "Underwater Ambience"
-      }
-    },
-    {
-      "id": "bamboo_forest",
-      "title": "Bamboo forest",
-      "category": "forest",
-      "file": "core/bamboo_forest.ogg",
-      "tags": [
-        "bamboo",
+        "owls",
+        "night",
         "forest",
-        "wind",
-        "nature",
+        "birds",
         "ambient",
         "freesound"
       ],
       "loop": {
         "mode": "crossfade",
-        "crossfadeMs": 110
+        "crossfadeMs": 150
       },
       "license": {
         "spdx": "CC0-1.0",
-        "author": "Codly",
-        "sourceUrl": "https://freesound.org/people/Codly/sounds/546986/",
-        "attribution": "\"bamboo forest (2).wav\" by Codly (https://freesound.org/people/Codly/sounds/546986/) — CC0-1.0",
-        "notes": "Freesound #546986. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+        "author": "kvgarlic",
+        "sourceUrl": "https://freesound.org/people/kvgarlic/sounds/151241/",
+        "attribution": "\"OwlsForestApril82012.wav\" by kvgarlic (https://freesound.org/people/kvgarlic/sounds/151241/) — CC0-1.0",
+        "notes": "Freesound #151241. Packaged from public HQ preview; trimmed/normalized for ambient looping."
       },
       "freesound": {
-        "id": 546986,
-        "username": "Codly",
-        "originalTitle": "bamboo forest (2).wav"
+        "id": 151241,
+        "username": "kvgarlic",
+        "originalTitle": "OwlsForestApril82012.wav"
+      }
+    },
+    {
+      "id": "seagulls",
+      "title": "Seagulls",
+      "category": "birds",
+      "file": "core/seagulls.ogg",
+      "tags": [
+        "seagulls",
+        "beach",
+        "coastal",
+        "birds",
+        "ocean",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 120
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "felix.blume",
+        "sourceUrl": "https://freesound.org/people/felix.blume/sounds/155747/",
+        "attribution": "\"Seagulls screeching on the beach, on the peruvian shore.\" by felix.blume (https://freesound.org/people/felix.blume/sounds/155747/) — CC0-1.0",
+        "notes": "Freesound #155747. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 155747,
+        "username": "felix.blume",
+        "originalTitle": "Seagulls screeching on the beach, on the peruvian shore."
       }
     },
     {
@@ -737,6 +717,246 @@
         "id": 201284,
         "username": "rayjensen",
         "originalTitle": "surf waves seagulls australia"
+      }
+    },
+    {
+      "id": "crickets_night",
+      "title": "Night crickets",
+      "category": "insects",
+      "file": "core/crickets_night.ogg",
+      "tags": [
+        "crickets",
+        "night",
+        "insects",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 100
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "Defelozedd94",
+        "sourceUrl": "https://freesound.org/people/Defelozedd94/sounds/522299/",
+        "attribution": "\"Crickets At Night - Raw sound\" by Defelozedd94 (https://freesound.org/people/Defelozedd94/sounds/522299/) — CC0-1.0",
+        "notes": "Freesound #522299. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 522299,
+        "username": "Defelozedd94",
+        "originalTitle": "Crickets At Night - Raw sound"
+      }
+    },
+    {
+      "id": "summer_night_insects",
+      "title": "Summer night insects",
+      "category": "insects",
+      "file": "core/summer_night_insects.ogg",
+      "tags": [
+        "insects",
+        "crickets",
+        "summer",
+        "night",
+        "field",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 100
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "TRP",
+        "sourceUrl": "https://freesound.org/people/TRP/sounds/570994/",
+        "attribution": "\"18090 Night summer insects thick crickets field clean PEC.mp3\" by TRP (https://freesound.org/people/TRP/sounds/570994/) — CC0-1.0",
+        "notes": "Freesound #570994. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 570994,
+        "username": "TRP",
+        "originalTitle": "18090 Night summer insects thick crickets field clean PEC.mp3"
+      }
+    },
+    {
+      "id": "cicadas_summer",
+      "title": "Summer cicadas",
+      "category": "insects",
+      "file": "core/cicadas_summer.ogg",
+      "tags": [
+        "cicadas",
+        "summer",
+        "insects",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 100
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "beansqueso31",
+        "sourceUrl": "https://freesound.org/people/beansqueso31/sounds/243438/",
+        "attribution": "\"Cicada summer.wav\" by beansqueso31 (https://freesound.org/people/beansqueso31/sounds/243438/) — CC0-1.0",
+        "notes": "Freesound #243438. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 243438,
+        "username": "beansqueso31",
+        "originalTitle": "Cicada summer.wav"
+      }
+    },
+    {
+      "id": "cicadas_thick",
+      "title": "Thick summer cicadas",
+      "category": "insects",
+      "file": "core/cicadas_thick.ogg",
+      "tags": [
+        "cicadas",
+        "summer",
+        "insects",
+        "thick",
+        "continuous",
+        "drone",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 80
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "laughatlantic",
+        "sourceUrl": "https://freesound.org/people/laughatlantic/sounds/320113/",
+        "attribution": "\"cicadas.wav\" by laughatlantic (https://freesound.org/people/laughatlantic/sounds/320113/) — CC0-1.0",
+        "notes": "Freesound #320113. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 320113,
+        "username": "laughatlantic",
+        "originalTitle": "cicadas.wav"
+      }
+    },
+    {
+      "id": "bees_buzzing",
+      "title": "Bees buzzing",
+      "category": "insects",
+      "file": "core/bees_buzzing.ogg",
+      "tags": [
+        "bees",
+        "insects",
+        "meadow",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 100
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "Cinetony",
+        "sourceUrl": "https://freesound.org/people/Cinetony/sounds/566112/",
+        "attribution": "\"Bees buzzing around tree\" by Cinetony (https://freesound.org/people/Cinetony/sounds/566112/) — CC0-1.0",
+        "notes": "Freesound #566112. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 566112,
+        "username": "Cinetony",
+        "originalTitle": "Bees buzzing around tree"
+      }
+    },
+    {
+      "id": "frogs_pond",
+      "title": "Pond frogs",
+      "category": "frogs",
+      "file": "core/frogs_pond.ogg",
+      "tags": [
+        "frogs",
+        "pond",
+        "night",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 100
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "felix.blume",
+        "sourceUrl": "https://freesound.org/people/felix.blume/sounds/135561/",
+        "attribution": "\"Toads and frogs are singing at night in the pond, in the center of the small village of Diafarabe, in Mali\" by felix.blume (https://freesound.org/people/felix.blume/sounds/135561/) — CC0-1.0",
+        "notes": "Freesound #135561. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 135561,
+        "username": "felix.blume",
+        "originalTitle": "Toads and frogs are singing at night in the pond, in the center of the small village of Diafarabe, in Mali"
+      }
+    },
+    {
+      "id": "fire_camp",
+      "title": "Campfire",
+      "category": "fire",
+      "file": "core/fire_camp.ogg",
+      "tags": [
+        "fire",
+        "campfire",
+        "crackling",
+        "loop",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "native",
+        "crossfadeMs": 80
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "NickTayloe",
+        "sourceUrl": "https://freesound.org/people/NickTayloe/sounds/813328/",
+        "attribution": "\"Crackling Flames (loop)\" by NickTayloe (https://freesound.org/people/NickTayloe/sounds/813328/) — CC0-1.0",
+        "notes": "Freesound #813328. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 813328,
+        "username": "NickTayloe",
+        "originalTitle": "Crackling Flames (loop)"
+      }
+    },
+    {
+      "id": "jet_airliner",
+      "title": "Jet airliner",
+      "category": "transport",
+      "file": "core/jet_airliner.ogg",
+      "tags": [
+        "jet",
+        "airplane",
+        "airliner",
+        "cabin",
+        "engine",
+        "flight",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 150
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "fassaria",
+        "sourceUrl": "https://freesound.org/people/fassaria/sounds/433005/",
+        "attribution": "\"Boeing 737 Lot ambiance .wav\" by fassaria (https://freesound.org/people/fassaria/sounds/433005/) — CC0-1.0",
+        "notes": "Freesound #433005. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 433005,
+        "username": "fassaria",
+        "originalTitle": "Boeing 737 Lot ambiance .wav"
       }
     }
   ]

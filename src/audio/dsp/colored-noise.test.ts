@@ -78,6 +78,45 @@ describe('colored-noise processBlock', () => {
     const blue = bandEnergy('blue');
     expect(blue.ratio).toBeGreaterThan(pink.ratio);
   });
+
+  it('static differs from white: longer sample runs (sample-hold) and discrete levels', () => {
+    function analyze(type: NoiseType) {
+      const state = createNoiseState(type);
+      const n = 24000;
+      const buf = new Float32Array(n);
+      const r = new Float32Array(n);
+      processBlock(type, state, buf, r, 0, makeRng(123), 48000);
+
+      // Mean run length of nearly-equal consecutive samples (sample-hold proxy)
+      let runs = 0;
+      let runLen = 1;
+      let totalRun = 0;
+      // Count unique quantized bins (bitcrush proxy)
+      const bins = new Set<number>();
+      for (let i = 0; i < n; i++) {
+        bins.add(Math.round(buf[i] * 1e4));
+        if (i > 0) {
+          if (Math.abs(buf[i] - buf[i - 1]) < 1e-9) {
+            runLen += 1;
+          } else {
+            totalRun += runLen;
+            runs += 1;
+            runLen = 1;
+          }
+        }
+      }
+      totalRun += runLen;
+      runs += 1;
+      return { meanRun: totalRun / runs, uniqueBins: bins.size };
+    }
+
+    const white = analyze('white');
+    const staticNoise = analyze('static');
+    // Sample-hold: static holds values across multiple samples
+    expect(staticNoise.meanRun).toBeGreaterThan(white.meanRun * 2);
+    // Bitcrush: fewer distinct amplitude levels than continuous Gaussian white
+    expect(staticNoise.uniqueBins).toBeLessThan(white.uniqueBins * 0.5);
+  });
 });
 
 describe('effectiveMuteSolo', () => {

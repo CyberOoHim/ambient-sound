@@ -36,7 +36,8 @@ export const CALIBRATION_GAIN: Record<NoiseType, number> = {
   violet: 0.32,
   rain: 0.55,
   fan: 0.7,
-  static: 0.38,
+  // Slightly lower: sample-hold + crackle peaks read louder than smooth white
+  static: 0.32,
 };
 
 export interface ChannelNoiseState {
@@ -56,6 +57,10 @@ export interface ChannelNoiseState {
   // Rain slow AM
   amPhase: number;
   amState: number;
+  // Static: sample-hold + crackle envelope
+  holdLeft: number;
+  held: number;
+  crackle: number;
 }
 
 export interface NoiseState {
@@ -77,6 +82,9 @@ function createChannelState(): ChannelNoiseState {
     prevPink: 0,
     amPhase: 0,
     amState: 0,
+    holdLeft: 0,
+    held: 0,
+    crackle: 0,
   };
 }
 
@@ -121,6 +129,35 @@ export function brownFromWhite(s: ChannelNoiseState, white: number): number {
   return s.brown;
 }
 
+/**
+ * Harsh TV/radio static: uniform white + sample-hold + light bitcrush + sparse crackle.
+ * Distinct from smooth Gaussian white — stepped grit and occasional pops.
+ */
+function staticFromUniform(s: ChannelNoiseState, white: number, rng: () => number): number {
+  // Sample-hold: re-sample every 3–6 samples → aliasing grit / reduced bandwidth feel
+  if (s.holdLeft <= 0) {
+    s.held = white;
+    s.holdLeft = 3 + Math.floor(rng() * 4); // 3..6
+  }
+  s.holdLeft -= 1;
+
+  // Light bitcrush (~5-bit) for digital harshness
+  const levels = 16;
+  let y = Math.round(s.held * levels) / levels;
+
+  // Sparse crackle impulses (TV snow / radio static pops)
+  if (rng() < 0.0012) {
+    s.crackle = (rng() * 2 - 1) * (0.55 + rng() * 0.45);
+  }
+  y += s.crackle;
+  s.crackle *= 0.82; // short exponential decay
+
+  // Soft clamp after crackle peaks
+  if (y > 1) y = 1;
+  if (y < -1) y = -1;
+  return y;
+}
+
 function sampleChannel(
   type: NoiseType,
   s: ChannelNoiseState,
@@ -135,7 +172,7 @@ function sampleChannel(
       y = white;
       break;
     case 'static':
-      y = white;
+      y = staticFromUniform(s, white, rng);
       break;
     case 'pink':
       y = pinkFromWhite(s, white);

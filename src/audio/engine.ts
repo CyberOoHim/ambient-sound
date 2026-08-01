@@ -353,9 +353,10 @@ export class AudioEngine {
         filter.Q.value = 0.5;
         break;
       case 'static':
+        // Cut low rumble so sample-hold grit reads as brighter TV/radio static
         filter.type = 'highpass';
-        filter.frequency.value = 200;
-        filter.Q.value = 0.5;
+        filter.frequency.value = 450;
+        filter.Q.value = 0.6;
         break;
       default:
         filter.type = 'allpass';
