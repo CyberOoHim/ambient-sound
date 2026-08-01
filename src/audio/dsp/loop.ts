@@ -34,7 +34,7 @@ export function buildEqualPowerCurves(n: number): {
 }
 
 /** Default / bounds for user-editable min start offset of duplicate sample layers. */
-export const DUPLICATE_MIN_OFFSET_DEFAULT_SEC = 2;
+export const DUPLICATE_MIN_OFFSET_DEFAULT_SEC = 5;
 export const DUPLICATE_MIN_OFFSET_MIN_SEC = 0.5;
 export const DUPLICATE_MIN_OFFSET_MAX_SEC = 60;
 
