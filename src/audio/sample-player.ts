@@ -133,6 +133,8 @@ export class SamplePlayer {
         }
       }
     }
+    // Re-check after work — stop() may have been called during scheduling.
+    if (this.stopped) return;
     this.scheduleTimer = setTimeout(() => this.pump(), 80);
   }
 

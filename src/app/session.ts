@@ -90,7 +90,7 @@ export class Session {
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
   private listeners = new Set<() => void>();
   private fadeInFlight = false;
-  private catalogReady: Promise<void>;
+  private catalogPromise: Promise<void> | null = null;
   private mediaSessionInstalled = false;
   private pageLifecycleBound = false;
   private lastProgressNotifyMs = 0;
@@ -107,7 +107,6 @@ export class Session {
         { kind: 'noise', params: createDefaultNoiseLayer(uid('noise'), 'pink') },
       ];
     }
-    this.catalogReady = this.initCatalog();
     this.ensureMediaSession();
     this.bindPageLifecycle();
   }
@@ -166,8 +165,20 @@ export class Session {
     this.notify();
   }
 
+  /**
+   * Lazily initialize the sound catalog.
+   * Deferred so that importing session.ts (e.g. in tests) does not
+   * trigger a network fetch as a side effect.
+   */
+  private ensureCatalogReady(): Promise<void> {
+    if (!this.catalogPromise) {
+      this.catalogPromise = this.initCatalog();
+    }
+    return this.catalogPromise;
+  }
+
   whenCatalogReady(): Promise<void> {
-    return this.catalogReady;
+    return this.ensureCatalogReady();
   }
 
   subscribe(fn: () => void): () => void {
@@ -206,7 +217,7 @@ export class Session {
       this.notify();
       return;
     }
-    await this.catalogReady;
+    await this.ensureCatalogReady();
     await audioEngine.resume();
     audioEngine.restoreMasterGain();
     audioEngine.setMasterVolumeLinear(this.masterVolumeLinear);
@@ -283,7 +294,7 @@ export class Session {
    * @returns layer id (still valid after return only if the layer was not removed mid-download)
    */
   async addSampleFromAsset(asset: CatalogAsset): Promise<string> {
-    await this.catalogReady;
+    await this.ensureCatalogReady();
     if (!this.catalog) throw new Error(this.catalogError ?? 'Catalog unavailable');
 
     const layer: MixerLayer = {
@@ -458,6 +469,10 @@ export class Session {
 
   private ensurePoll(): void {
     if (this.pollId != null) return;
+    // NOTE: Browsers throttle setInterval to ~1/min in background tabs.
+    // The visibilitychange + focus listeners below compensate by forcing
+    // a tick when the user returns, and tickTimer() uses Date.now() so
+    // elapsed time is always correct even if polls are missed.
     this.pollId = setInterval(() => {
       void this.tickTimer();
     }, 1000);

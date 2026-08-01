@@ -94,3 +94,17 @@ describe('effectiveMuteSolo', () => {
     expect(effectiveMuteSolo(false, true, true)).toBe(1);
   });
 });
+
+describe('worklet sync', () => {
+  it('noise-processor.js CALIBRATION matches CALIBRATION_GAIN exactly', async () => {
+    const workletModule = await import('../worklets/noise-processor.js?raw');
+    const content = workletModule.default;
+    const { CALIBRATION_GAIN } = await import('./colored-noise');
+
+    const match = content.match(/const CALIBRATION = (\{[\s\S]*?\});/);
+    expect(match).not.toBeNull();
+
+    const jsCalibration = eval(`(${match![1]})`);
+    expect(jsCalibration).toEqual(CALIBRATION_GAIN);
+  });
+});

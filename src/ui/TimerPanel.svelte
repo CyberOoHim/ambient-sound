@@ -226,7 +226,7 @@
     border-radius: var(--radius-sm);
     background: var(--bg);
     border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
-    transition: all 0.25s ease;
+    transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
   }
 
   .timer-indicator.fading {

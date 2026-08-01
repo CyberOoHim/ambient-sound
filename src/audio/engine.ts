@@ -51,6 +51,7 @@ export class AudioEngine {
   private fading = false;
   private catalog: SoundCatalog | null = null;
   private mediaOutput = new MediaOutput();
+  private peakBuf: Float32Array<ArrayBuffer> | null = null;
   /** User wants audio running (used to re-resume after iOS interrupt). */
   private wantRunning = false;
   private stateChangeBound = false;
@@ -399,11 +400,13 @@ export class AudioEngine {
 
   getPeakLevel(): number {
     if (!this.analyser) return 0;
-    const buf = new Float32Array(this.analyser.fftSize);
-    this.analyser.getFloatTimeDomainData(buf);
+    if (!this.peakBuf || this.peakBuf.length !== this.analyser.fftSize) {
+      this.peakBuf = new Float32Array(this.analyser.fftSize);
+    }
+    this.analyser.getFloatTimeDomainData(this.peakBuf);
     let peak = 0;
-    for (let i = 0; i < buf.length; i++) {
-      const a = Math.abs(buf[i]);
+    for (let i = 0; i < this.peakBuf.length; i++) {
+      const a = Math.abs(this.peakBuf[i]);
       if (a > peak) peak = a;
     }
     return peak;

@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from 'vitest';
+import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { Session } from './session';
 
 describe('Session empty mix layer behavior', () => {
@@ -153,8 +153,7 @@ describe('Session timer countdown and fade state', () => {
 
   it('transitions timer status to fading when remaining time is within fadeSec window', async () => {
     const { audioEngine } = await import('../audio/engine');
-    const origFade = audioEngine.startFadeOut;
-    audioEngine.startFadeOut = async () => false;
+    const spy = vi.spyOn(audioEngine, 'startFadeOut').mockResolvedValue(false);
 
     session.timer = {
       status: 'running',
@@ -167,7 +166,7 @@ describe('Session timer countdown and fade state', () => {
       await session.tickTimer();
       expect(session.timer.status).toBe('fading');
     } finally {
-      audioEngine.startFadeOut = origFade;
+      spy.mockRestore();
     }
   });
 

@@ -196,9 +196,6 @@ export class DecodeCache {
       this.cache.set(url, buffer);
       return buffer;
     })()
-      .catch((err) => {
-        throw err;
-      })
       .finally(() => {
         this.inflight.delete(url);
         this.progressListeners.delete(url);
