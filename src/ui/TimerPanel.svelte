@@ -104,7 +104,6 @@
             Timer active
           {/if}
         </span>
-        <span class="pct-text">{percent}% left</span>
       </div>
     </div>
   {/if}
@@ -299,16 +298,6 @@
       opacity: 1;
       transform: scale(1.2);
     }
-  }
-
-  .pct-text {
-    color: var(--muted);
-    font-variant-numeric: tabular-nums;
-    transition: color 0.25s ease;
-  }
-
-  .timer-indicator.fading .pct-text {
-    color: var(--solo);
   }
 
   .chips {
