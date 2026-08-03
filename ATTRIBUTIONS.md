@@ -150,7 +150,7 @@ Audio files in this repository are derived from Freesound **HQ previews** (publi
 - **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
 - **Attribution text:** "bamboo forest (2).wav" by Codly (https://freesound.org/people/Codly/sounds/546986/) — CC0-1.0
 
-### Amazon forest (`amazon_forest`)
+### Amazon morning forest (`amazon_forest`)
 
 - **Original:** Amazon Jungle in the Morning at Rainforest Tambopata National Reserve
 - **Author:** [alberto_cendra_woodman](https://freesound.org/people/alberto_cendra_woodman/)
@@ -261,6 +261,30 @@ Audio files in this repository are derived from Freesound **HQ previews** (publi
 - **Freesound:** [#433005](https://freesound.org/people/fassaria/sounds/433005/)
 - **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
 - **Attribution text:** "Boeing 737 Lot ambiance .wav" by fassaria (https://freesound.org/people/fassaria/sounds/433005/) — CC0-1.0
+
+### Train ride (`train_ride`)
+
+- **Original:** train_ride_inside.wav
+- **Author:** [fbtz](https://freesound.org/people/fbtz/)
+- **Freesound:** [#237600](https://freesound.org/people/fbtz/sounds/237600/)
+- **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **Attribution text:** "train_ride_inside.wav" by fbtz (https://freesound.org/people/fbtz/sounds/237600/) — CC0-1.0
+
+### Bus ride (`bus_ride`)
+
+- **Original:** city bus ride with engine sound and people atmo
+- **Author:** [Garuda1982](https://freesound.org/people/Garuda1982/)
+- **Freesound:** [#632224](https://freesound.org/people/Garuda1982/sounds/632224/)
+- **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **Attribution text:** "city bus ride with engine sound and people atmo" by Garuda1982 (https://freesound.org/people/Garuda1982/sounds/632224/) — CC0-1.0
+
+### Sailboat (`boat_sailboat`)
+
+- **Original:** Moored sailboat interior in strong breeze
+- **Author:** [AugustSandberg](https://freesound.org/people/AugustSandberg/)
+- **Freesound:** [#265553](https://freesound.org/people/AugustSandberg/sounds/265553/)
+- **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **Attribution text:** "Moored sailboat interior in strong breeze" by AugustSandberg (https://freesound.org/people/AugustSandberg/sounds/265553/) — CC0-1.0
 
 ## License note
 

@@ -7,6 +7,7 @@
   let catalogError = $state<string | null>(null);
   let busy = $state(false);
   let message = $state<string | null>(null);
+  let filterGroup = $state<string>('all');
 
   export function sync() {
     assets = session.catalog?.assets ?? [];
@@ -56,7 +57,28 @@
     }
   }
 
-  /** Friendly short labels for ambient categories / titles */
+  interface GroupDef {
+    id: string;
+    label: string;
+    categories: string[];
+  }
+
+  const CATEGORY_GROUPS: GroupDef[] = [
+    { id: 'transport', label: 'Transport', categories: ['transport'] },
+    { id: 'rain', label: 'Rain & Thunder', categories: ['rain', 'thunder'] },
+    { id: 'water', label: 'Water & Ocean', categories: ['ocean', 'water', 'stream', 'waterfall', 'cave'] },
+    { id: 'wind', label: 'Wind & Forest', categories: ['wind', 'forest'] },
+    { id: 'wildlife', label: 'Wildlife', categories: ['birds', 'insects', 'frogs'] },
+    { id: 'fire', label: 'Fire', categories: ['fire'] },
+  ];
+
+  function matchesFilter(asset: CatalogAsset, filterId: string): boolean {
+    if (filterId === 'all') return true;
+    const g = CATEGORY_GROUPS.find((group) => group.id === filterId);
+    if (!g) return asset.category === filterId;
+    return g.categories.includes(asset.category);
+  }
+
   function shortTitle(title: string): string {
     return title;
   }
@@ -80,7 +102,34 @@
   </div>
 
   <div class="section">
-    <h3>Nature</h3>
+    <h3>Categories</h3>
+    <div class="chips filter-chips">
+      <button
+        type="button"
+        class="chip filter-chip"
+        class:active={filterGroup === 'all'}
+        onclick={() => (filterGroup = 'all')}
+      >
+        All ({assets.length})
+      </button>
+      {#each CATEGORY_GROUPS as g}
+        {@const count = assets.filter((a) => g.categories.includes(a.category)).length}
+        {#if count > 0}
+          <button
+            type="button"
+            class="chip filter-chip"
+            class:active={filterGroup === g.id}
+            onclick={() => (filterGroup = g.id)}
+          >
+            {g.label} ({count})
+          </button>
+        {/if}
+      {/each}
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>Ambience</h3>
     {#if catalogError}
       <p class="err">{catalogError}</p>
     {:else if assets.length === 0}
@@ -88,16 +137,18 @@
     {:else}
       <div class="sound-grid">
         {#each assets as a (a.id)}
-          <button
-            type="button"
-            class="sound-tile"
-            disabled={busy}
-            title="{a.title} · {a.category}"
-            onclick={() => void addSample(a)}
-          >
-            <span class="tile-title">{shortTitle(a.title)}</span>
-            <span class="tile-cat">{a.category}</span>
-          </button>
+          {#if matchesFilter(a, filterGroup)}
+            <button
+              type="button"
+              class="sound-tile"
+              disabled={busy}
+              title="{a.title} · {a.category}"
+              onclick={() => void addSample(a)}
+            >
+              <span class="tile-title">{shortTitle(a.title)}</span>
+              <span class="tile-cat">{a.category}</span>
+            </button>
+          {/if}
         {/each}
       </div>
     {/if}
@@ -179,6 +230,12 @@
     border-color: var(--accent);
     background: var(--accent-dim);
     color: var(--accent);
+  }
+
+  .chip.active {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: #fff;
   }
 
   .chip:disabled {

@@ -253,7 +253,7 @@
   },
   {
     "id": "amazon_forest",
-    "title": "Amazon forest",
+    "title": "Amazon morning forest",
     "category": "forest",
     "tags": ["amazon", "forest", "rainforest", "jungle", "birds", "insects", "ambient", "freesound"],
     "freesoundId": 737513,
@@ -447,5 +447,47 @@
     "pageUrl": "https://freesound.org/people/fassaria/sounds/433005/",
     "maxSec": 90,
     "crossfadeMs": 150
+  },
+  {
+    "id": "train_ride",
+    "title": "Train ride",
+    "category": "transport",
+    "tags": ["train", "transport", "rail", "interior", "ambient", "freesound"],
+    "freesoundId": 237600,
+    "username": "fbtz",
+    "originalTitle": "train_ride_inside.wav",
+    "license": "CC0-1.0",
+    "previewPath": "previews/237/237600_4163465-hq.mp3",
+    "pageUrl": "https://freesound.org/people/fbtz/sounds/237600/",
+    "maxSec": 60,
+    "crossfadeMs": 120
+  },
+  {
+    "id": "bus_ride",
+    "title": "Bus ride",
+    "category": "transport",
+    "tags": ["bus", "transport", "engine", "urban", "ambient", "freesound"],
+    "freesoundId": 632224,
+    "username": "Garuda1982",
+    "originalTitle": "city bus ride with engine sound and people atmo",
+    "license": "CC0-1.0",
+    "previewPath": "previews/632/632224_2061858-hq.mp3",
+    "pageUrl": "https://freesound.org/people/Garuda1982/sounds/632224/",
+    "maxSec": 60,
+    "crossfadeMs": 120
+  },
+  {
+    "id": "boat_sailboat",
+    "title": "Sailboat",
+    "category": "transport",
+    "tags": ["boat", "sailboat", "nautical", "water", "ambient", "freesound"],
+    "freesoundId": 265553,
+    "username": "AugustSandberg",
+    "originalTitle": "Moored sailboat interior in strong breeze",
+    "license": "CC0-1.0",
+    "previewPath": "previews/265/265553_1934171-hq.mp3",
+    "pageUrl": "https://freesound.org/people/AugustSandberg/sounds/265553/",
+    "maxSec": 60,
+    "crossfadeMs": 120
   }
 ]

@@ -537,7 +537,7 @@
     },
     {
       "id": "amazon_forest",
-      "title": "Amazon forest",
+      "title": "Amazon morning forest",
       "category": "forest",
       "file": "core/amazon_forest.ogg",
       "tags": [
@@ -957,6 +957,96 @@
         "id": 433005,
         "username": "fassaria",
         "originalTitle": "Boeing 737 Lot ambiance .wav"
+      }
+    },
+    {
+      "id": "train_ride",
+      "title": "Train ride",
+      "category": "transport",
+      "file": "core/train_ride.ogg",
+      "tags": [
+        "train",
+        "transport",
+        "rail",
+        "interior",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 120
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "fbtz",
+        "sourceUrl": "https://freesound.org/people/fbtz/sounds/237600/",
+        "attribution": "\"train_ride_inside.wav\" by fbtz (https://freesound.org/people/fbtz/sounds/237600/) — CC0-1.0",
+        "notes": "Freesound #237600. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 237600,
+        "username": "fbtz",
+        "originalTitle": "train_ride_inside.wav"
+      }
+    },
+    {
+      "id": "bus_ride",
+      "title": "Bus ride",
+      "category": "transport",
+      "file": "core/bus_ride.ogg",
+      "tags": [
+        "bus",
+        "transport",
+        "engine",
+        "urban",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 120
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "Garuda1982",
+        "sourceUrl": "https://freesound.org/people/Garuda1982/sounds/632224/",
+        "attribution": "\"city bus ride with engine sound and people atmo\" by Garuda1982 (https://freesound.org/people/Garuda1982/sounds/632224/) — CC0-1.0",
+        "notes": "Freesound #632224. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 632224,
+        "username": "Garuda1982",
+        "originalTitle": "city bus ride with engine sound and people atmo"
+      }
+    },
+    {
+      "id": "boat_sailboat",
+      "title": "Sailboat",
+      "category": "transport",
+      "file": "core/boat_sailboat.ogg",
+      "tags": [
+        "boat",
+        "sailboat",
+        "nautical",
+        "water",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 120
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "AugustSandberg",
+        "sourceUrl": "https://freesound.org/people/AugustSandberg/sounds/265553/",
+        "attribution": "\"Moored sailboat interior in strong breeze\" by AugustSandberg (https://freesound.org/people/AugustSandberg/sounds/265553/) — CC0-1.0",
+        "notes": "Freesound #265553. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 265553,
+        "username": "AugustSandberg",
+        "originalTitle": "Moored sailboat interior in strong breeze"
       }
     }
   ]
