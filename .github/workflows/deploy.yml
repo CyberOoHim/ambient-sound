@@ -42,24 +42,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      # paths-filter needs a push/PR base; skip on workflow_dispatch (use input only)
-      - name: Detect sound-pack changes
-        id: filter
-        if: github.event_name == 'push'
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            sounds:
-              - 'config/sounds.json'
-              - 'scripts/generate-core-pack.mjs'
-              - 'scripts/fetch-freesound-core.mjs'
-              - 'assets-masters/**'
-
       - name: Decide whether to rebuild sounds
         id: sounds
         run: |
-          # .ogg binaries are gitignored (see .gitignore). CI checkouts only have
-          # catalog.json unless we rebuild — so missing files must force a rebuild.
+          # Committed .ogg binaries are present in public/sounds/core/*.ogg.
+          # Skip rebuild on push when committed binaries are present.
           HAS_BINARIES=false
           if [ -f public/sounds/core/rain_light.ogg ]; then
             HAS_BINARIES=true
@@ -70,13 +57,10 @@ jobs:
             echo "Rebuilding sounds: forced via workflow_dispatch"
           elif [ "$HAS_BINARIES" = "false" ]; then
             echo "rebuild=true" >> "$GITHUB_OUTPUT"
-            echo "Rebuilding sounds: binary assets not in checkout (gitignored)"
-          elif [ "${{ github.event_name }}" = "push" ] && [ "${{ steps.filter.outputs.sounds }}" = "true" ]; then
-            echo "rebuild=true" >> "$GITHUB_OUTPUT"
-            echo "Rebuilding sounds: sound pack inputs changed"
+            echo "Rebuilding sounds: binary assets missing from checkout"
           else
             echo "rebuild=false" >> "$GITHUB_OUTPUT"
-            echo "Skipping sound rebuild (binaries already present)"
+            echo "Skipping sound rebuild (committed .ogg binaries present)"
           fi
 
       - name: Install ffmpeg
