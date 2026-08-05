@@ -111,7 +111,11 @@ for (const s of SOUNDS) {
   } else {
     console.log('  cached master source:', src);
   }
-  processAudio(src, ogg, s.maxSec);
+  if (!existsSync(ogg) || process.argv.includes('--force')) {
+    processAudio(src, ogg, s.maxSec);
+  } else {
+    console.log('  cached ogg:', ogg);
+  }
 
   assets.push({
     id: s.id,
@@ -159,10 +163,17 @@ const catalogPath = join(root, 'public', 'sounds', 'catalog.json');
 writeFileSync(catalogPath, JSON.stringify(catalog, null, 2) + '\n');
 console.log('\nWrote', catalogPath);
 
+const LICENSE_URLS = {
+  'CC0-1.0': 'https://creativecommons.org/publicdomain/zero/1.0/',
+  'CC-BY-4.0': 'https://creativecommons.org/licenses/by/4.0/',
+  'CC-BY-3.0': 'https://creativecommons.org/licenses/by/3.0/',
+  'CC-BY-NC-4.0': 'https://creativecommons.org/licenses/by-nc/4.0/',
+};
+
 const lines = [
   '# Attributions',
   '',
-  'Core ambient pack sourced from **[Freesound](https://freesound.org)** under **CC0-1.0**.',
+  'Core ambient pack sourced from **[Freesound](https://freesound.org)** under Creative Commons licenses.',
   '',
   'Audio files in this repository are derived from Freesound **HQ previews** (publicly accessible), then trimmed and loudness-normalized for looping. Full-resolution originals remain available on each Freesound page for logged-in users.',
   '',
@@ -176,7 +187,7 @@ for (const a of assets) {
   lines.push(`- **Original:** ${a.freesound.originalTitle}`);
   lines.push(`- **Author:** [${a.license.author}](https://freesound.org/people/${a.license.author}/)`);
   lines.push(`- **Freesound:** [#${a.freesound.id}](${a.license.sourceUrl})`);
-  lines.push(`- **License:** [${a.license.spdx}](https://creativecommons.org/publicdomain/zero/1.0/)`);
+  lines.push(`- **License:** [${a.license.spdx}](${LICENSE_URLS[a.license.spdx] || 'https://creativecommons.org/'})`);
   lines.push(`- **Attribution text:** ${a.license.attribution}`);
   lines.push('');
 }

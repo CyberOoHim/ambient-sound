@@ -1,6 +1,6 @@
 # Attributions
 
-Core ambient pack sourced from **[Freesound](https://freesound.org)** under **CC0-1.0**.
+Core ambient pack sourced from **[Freesound](https://freesound.org)** under Creative Commons licenses.
 
 Audio files in this repository are derived from Freesound **HQ previews** (publicly accessible), then trimmed and loudness-normalized for looping. Full-resolution originals remain available on each Freesound page for logged-in users.
 
@@ -269,6 +269,22 @@ Audio files in this repository are derived from Freesound **HQ previews** (publi
 - **Freesound:** [#237600](https://freesound.org/people/fbtz/sounds/237600/)
 - **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
 - **Attribution text:** "train_ride_inside.wav" by fbtz (https://freesound.org/people/fbtz/sounds/237600/) — CC0-1.0
+
+### Slow moving steam train (`train_steam_clickety`)
+
+- **Original:** Slow Moving Steam Train Onboard Clickety Clack.wav
+- **Author:** [kangaroovindaloo](https://freesound.org/people/kangaroovindaloo/)
+- **Freesound:** [#442211](https://freesound.org/people/kangaroovindaloo/sounds/442211/)
+- **License:** [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/)
+- **Attribution text:** "Slow Moving Steam Train Onboard Clickety Clack.wav" by kangaroovindaloo (https://freesound.org/people/kangaroovindaloo/sounds/442211/) — CC-BY-4.0
+
+### Romanian train (`train_romanian`)
+
+- **Original:** Romanian Train 6
+- **Author:** [AntonioZozobra](https://freesound.org/people/AntonioZozobra/)
+- **Freesound:** [#468955](https://freesound.org/people/AntonioZozobra/sounds/468955/)
+- **License:** [CC-BY-NC-4.0](https://creativecommons.org/licenses/by-nc/4.0/)
+- **Attribution text:** "Romanian Train 6" by AntonioZozobra (https://freesound.org/people/AntonioZozobra/sounds/468955/) — CC-BY-NC-4.0
 
 ### Bus ride (`bus_ride`)
 

@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
 const catalogPath = join(root, 'public', 'sounds', 'catalog.json');
-const ALLOWED = new Set(['CC0-1.0', 'CC-BY-3.0', 'CC-BY-4.0', 'PD']);
+const ALLOWED = new Set(['CC0-1.0', 'CC-BY-3.0', 'CC-BY-4.0', 'CC-BY-NC-4.0', 'PD']);
 
 let failed = 0;
 

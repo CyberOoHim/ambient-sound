@@ -463,6 +463,34 @@
     "crossfadeMs": 120
   },
   {
+    "id": "train_steam_clickety",
+    "title": "Slow moving steam train",
+    "category": "transport",
+    "tags": ["train", "steam", "passenger-train", "rail-road", "rail-way", "wheels", "transport", "ambient", "freesound"],
+    "freesoundId": 442211,
+    "username": "kangaroovindaloo",
+    "originalTitle": "Slow Moving Steam Train Onboard Clickety Clack.wav",
+    "license": "CC-BY-4.0",
+    "previewPath": "previews/442/442211_1728127-hq.mp3",
+    "pageUrl": "https://freesound.org/people/kangaroovindaloo/sounds/442211/",
+    "maxSec": 60,
+    "crossfadeMs": 120
+  },
+  {
+    "id": "train_romanian",
+    "title": "Romanian train",
+    "category": "transport",
+    "tags": ["train", "romania", "romanian", "railway", "transport", "ambient", "freesound"],
+    "freesoundId": 468955,
+    "username": "AntonioZozobra",
+    "originalTitle": "Romanian Train 6",
+    "license": "CC-BY-NC-4.0",
+    "previewPath": "previews/468/468955_9763271-hq.mp3",
+    "pageUrl": "https://freesound.org/people/AntonioZozobra/sounds/468955/",
+    "maxSec": 60,
+    "crossfadeMs": 120
+  },
+  {
     "id": "bus_ride",
     "title": "Bus ride",
     "category": "transport",

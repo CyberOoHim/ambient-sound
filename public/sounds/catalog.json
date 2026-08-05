@@ -990,6 +990,70 @@
       }
     },
     {
+      "id": "train_steam_clickety",
+      "title": "Slow moving steam train",
+      "category": "transport",
+      "file": "core/train_steam_clickety.ogg",
+      "tags": [
+        "train",
+        "steam",
+        "passenger-train",
+        "rail-road",
+        "rail-way",
+        "wheels",
+        "transport",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 120
+      },
+      "license": {
+        "spdx": "CC-BY-4.0",
+        "author": "kangaroovindaloo",
+        "sourceUrl": "https://freesound.org/people/kangaroovindaloo/sounds/442211/",
+        "attribution": "\"Slow Moving Steam Train Onboard Clickety Clack.wav\" by kangaroovindaloo (https://freesound.org/people/kangaroovindaloo/sounds/442211/) — CC-BY-4.0",
+        "notes": "Freesound #442211. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 442211,
+        "username": "kangaroovindaloo",
+        "originalTitle": "Slow Moving Steam Train Onboard Clickety Clack.wav"
+      }
+    },
+    {
+      "id": "train_romanian",
+      "title": "Romanian train",
+      "category": "transport",
+      "file": "core/train_romanian.ogg",
+      "tags": [
+        "train",
+        "romania",
+        "romanian",
+        "railway",
+        "transport",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 120
+      },
+      "license": {
+        "spdx": "CC-BY-NC-4.0",
+        "author": "AntonioZozobra",
+        "sourceUrl": "https://freesound.org/people/AntonioZozobra/sounds/468955/",
+        "attribution": "\"Romanian Train 6\" by AntonioZozobra (https://freesound.org/people/AntonioZozobra/sounds/468955/) — CC-BY-NC-4.0",
+        "notes": "Freesound #468955. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 468955,
+        "username": "AntonioZozobra",
+        "originalTitle": "Romanian Train 6"
+      }
+    },
+    {
       "id": "bus_ride",
       "title": "Bus ride",
       "category": "transport",
