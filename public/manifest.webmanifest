@@ -3,10 +3,13 @@
   "short_name": "Ambient",
   "description": "Offline-first noise and ambient sound mixer built for desktop and mobile.",
   "start_url": "./",
+  "scope": "./",
+  "id": "./",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#14100c",
   "theme_color": "#14100c",
+  "categories": ["utilities", "lifestyle", "music"],
   "icons": [
     {
       "src": "icon-192.png",
