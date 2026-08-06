@@ -45,6 +45,11 @@ import {
   saveOneShotConfigToStorage,
   type OneShotConfig,
 } from './one-shot';
+import {
+  loadBinauralConfigFromStorage,
+  saveBinauralConfigToStorage,
+  type BinauralConfig,
+} from './binaural';
 import type { OneShotTriggerEvent } from '../audio/one-shot-engine';
 
 let nextId = 1;
@@ -106,6 +111,7 @@ export class Session {
 
   oneShotConfig: OneShotConfig = audioEngine.oneShotEngine.getConfig();
   lastOneShotTrigger: OneShotTriggerEvent | null = null;
+  binauralConfig: BinauralConfig = loadBinauralConfigFromStorage();
 
   private pollId: ReturnType<typeof setInterval> | null = null;
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -137,6 +143,13 @@ export class Session {
         this.notify();
       }
     });
+  }
+
+  updateBinauralConfig(partial: Partial<BinauralConfig>): void {
+    this.binauralConfig = { ...this.binauralConfig, ...partial };
+    saveBinauralConfigToStorage(this.binauralConfig);
+    audioEngine.binauralEngine.updateConfig(this.binauralConfig);
+    this.notify();
   }
 
   updateOneShotConfig(partial: Partial<OneShotConfig>): void {

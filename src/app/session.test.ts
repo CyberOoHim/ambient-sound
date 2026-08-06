@@ -185,3 +185,32 @@ describe('Session timer countdown and fade state', () => {
     expect(session.remainingMs()).toBeNull();
   });
 });
+
+describe('Session binaural configuration state', () => {
+  let session: Session;
+
+  beforeEach(() => {
+    session = new Session();
+  });
+
+  it('updates binaural config and notifies listeners', () => {
+    const listener = vi.fn();
+    session.subscribe(listener);
+
+    session.updateBinauralConfig({
+      enabled: true,
+      mode: 'isochronic',
+      preset: 'theta',
+      carrierFreq: 220,
+      beatFreq: 6,
+    });
+
+    expect(session.binauralConfig.enabled).toBe(true);
+    expect(session.binauralConfig.mode).toBe('isochronic');
+    expect(session.binauralConfig.preset).toBe('theta');
+    expect(session.binauralConfig.carrierFreq).toBe(220);
+    expect(session.binauralConfig.beatFreq).toBe(6);
+    expect(listener).toHaveBeenCalled();
+  });
+});
+

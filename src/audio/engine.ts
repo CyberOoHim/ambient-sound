@@ -23,6 +23,8 @@ import { assetUrl, findAsset, type SoundCatalog } from '../assets/catalog';
 import { MediaOutput } from './media-output';
 import { OneShotEngine } from './one-shot-engine';
 import { loadOneShotConfigFromStorage } from '../app/one-shot';
+import { BinauralEngine } from './binaural-engine';
+import { loadBinauralConfigFromStorage } from '../app/binaural';
 
 interface NoiseNodes {
   kind: 'noise';
@@ -81,9 +83,11 @@ export class AudioEngine {
   private inflightLoads = new Set<string>();
 
   public oneShotEngine: OneShotEngine;
+  public binauralEngine: BinauralEngine;
 
   constructor() {
     this.oneShotEngine = new OneShotEngine(loadOneShotConfigFromStorage());
+    this.binauralEngine = new BinauralEngine(loadBinauralConfigFromStorage());
   }
 
   get context(): AudioContext | null {
@@ -119,6 +123,7 @@ export class AudioEngine {
       this.mediaOutput.connectDestination(this.ctx, this.analyser);
       this.bindStateChange(this.ctx);
       this.oneShotEngine.setAudioTarget(this.ctx, this.master, this.catalog);
+      this.binauralEngine.setAudioTarget(this.ctx, this.master);
     }
     if (!this.workletReady) {
       await this.ctx.audioWorklet.addModule(workletUrl);
@@ -150,11 +155,13 @@ export class AudioEngine {
     }
     await this.mediaOutput.play();
     this.oneShotEngine.start();
+    this.binauralEngine.start();
   }
 
   async suspend(): Promise<void> {
     this.wantRunning = false;
     this.oneShotEngine.stop();
+    this.binauralEngine.stop();
     this.mediaOutput.pause();
     if (this.ctx && this.ctx.state === 'running') {
       await this.ctx.suspend();
@@ -451,6 +458,7 @@ export class AudioEngine {
 
   stopAll(): void {
     this.oneShotEngine.stop();
+    this.binauralEngine.stop();
     // Cancel every sample still downloading, not only layers already wired.
     for (const id of this.inflightLoads) {
       this.cancelledLoads.add(id);
@@ -463,6 +471,7 @@ export class AudioEngine {
   async dispose(): Promise<void> {
     this.wantRunning = false;
     this.oneShotEngine.stop();
+    this.binauralEngine.stop();
     this.stopAll();
     this.mediaOutput.dispose();
     decodeCache.clear();
