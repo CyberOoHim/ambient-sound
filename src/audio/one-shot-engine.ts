@@ -1,5 +1,5 @@
-import type { OneShotConfig, OneShotDensity } from '../app/one-shot';
-import { ONE_SHOT_PACKS } from '../app/one-shot';
+import type { OneShotConfig, OneShotDensity, CustomOneShotPack } from '../app/one-shot';
+import { ONE_SHOT_PACKS, getAllOneShotPacks } from '../app/one-shot';
 import { decodeCache } from './decode-cache';
 import { assetUrl, findAsset, type SoundCatalog } from '../assets/catalog';
 
@@ -9,6 +9,10 @@ export interface OneShotTriggerEvent {
   assetId: string;
   assetLabel: string;
   timestamp: number;
+  pan: number;
+  pitch: number;
+  distanceFilterCutoff: number;
+  burstCount: number;
 }
 
 export interface OneShotDelayRange {
@@ -17,7 +21,7 @@ export interface OneShotDelayRange {
   maxMs: number;
 }
 
-export const DENSITY_RANGES: Record<OneShotDensity, OneShotDelayRange> = {
+export const DENSITY_RANGES: Record<Exclude<OneShotDensity, 'custom'>, OneShotDelayRange> = {
   subtle: { meanMs: 180_000, minMs: 90_000, maxMs: 300_000 },   // 1.5m - 5m
   balanced: { meanMs: 75_000, minMs: 35_000, maxMs: 120_000 },  // 35s - 2m
   lively: { meanMs: 25_000, minMs: 10_000, maxMs: 45_000 },     // 10s - 45s
@@ -26,7 +30,14 @@ export const DENSITY_RANGES: Record<OneShotDensity, OneShotDelayRange> = {
 /**
  * Calculates stochastic delay based on Poisson exponential distribution.
  */
-export function calculateNextDelayMs(density: OneShotDensity): number {
+export function calculateNextDelayMs(density: OneShotDensity, customIntervalMs = 60_000): number {
+  if (density === 'custom') {
+    const mean = Math.max(5_000, Math.min(600_000, customIntervalMs));
+    const u = Math.random();
+    const raw = -Math.log(Math.max(0.0001, 1 - u)) * mean;
+    return Math.round(Math.max(mean * 0.4, Math.min(mean * 2.2, raw)));
+  }
+
   const range = DENSITY_RANGES[density] ?? DENSITY_RANGES.balanced;
   const u = Math.random();
   // Exponential distribution formula: -ln(1 - u) * mean
@@ -34,14 +45,38 @@ export function calculateNextDelayMs(density: OneShotDensity): number {
   return Math.round(Math.max(range.minMs, Math.min(range.maxMs, raw)));
 }
 
+let cachedReverbImpulse: AudioBuffer | null = null;
+
+function getOrCreateReverbImpulse(ctx: AudioContext): AudioBuffer {
+  if (cachedReverbImpulse && cachedReverbImpulse.sampleRate === ctx.sampleRate) {
+    return cachedReverbImpulse;
+  }
+  const durationSec = 1.5;
+  const decay = 2.8;
+  const sampleRate = ctx.sampleRate;
+  const length = Math.floor(sampleRate * durationSec);
+  const buffer = ctx.createBuffer(2, length, sampleRate);
+  for (let channel = 0; channel < 2; channel++) {
+    const data = buffer.getChannelData(channel);
+    for (let i = 0; i < length; i++) {
+      const t = i / length;
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, decay);
+    }
+  }
+  cachedReverbImpulse = buffer;
+  return buffer;
+}
+
 export class OneShotEngine {
   private ctx: AudioContext | null = null;
   private destination: AudioNode | null = null;
   private catalog: SoundCatalog | null = null;
   private config: OneShotConfig;
+  private customPacks: CustomOneShotPack[] = [];
   private timerId: ReturnType<typeof setTimeout> | null = null;
   private running = false;
   private lastTriggerEvent: OneShotTriggerEvent | null = null;
+  private eventHistory: OneShotTriggerEvent[] = [];
   private listeners = new Set<(event: OneShotTriggerEvent) => void>();
 
   constructor(config: OneShotConfig) {
@@ -51,15 +86,20 @@ export class OneShotEngine {
   setConfig(config: OneShotConfig): void {
     const wasEnabled = this.config.enabled;
     const oldDensity = this.config.density;
+    const oldCustomInterval = this.config.customIntervalMs;
     this.config = { ...config };
 
     if (!this.config.enabled) {
       this.stop();
     } else if (this.running) {
-      if (!wasEnabled || oldDensity !== this.config.density) {
+      if (!wasEnabled || oldDensity !== this.config.density || oldCustomInterval !== this.config.customIntervalMs) {
         this.reschedule();
       }
     }
+  }
+
+  setCustomPacks(customPacks: CustomOneShotPack[]): void {
+    this.customPacks = [...customPacks];
   }
 
   getConfig(): OneShotConfig {
@@ -99,6 +139,10 @@ export class OneShotEngine {
     return this.lastTriggerEvent;
   }
 
+  getEventHistory(): OneShotTriggerEvent[] {
+    return [...this.eventHistory];
+  }
+
   private reschedule(): void {
     if (this.timerId !== null) {
       clearTimeout(this.timerId);
@@ -106,7 +150,7 @@ export class OneShotEngine {
     }
     if (!this.running || !this.config.enabled) return;
 
-    const delayMs = calculateNextDelayMs(this.config.density);
+    const delayMs = calculateNextDelayMs(this.config.density, this.config.customIntervalMs);
     this.timerId = setTimeout(() => {
       this.timerId = null;
       void this.triggerRandomEvent().finally(() => {
@@ -120,7 +164,7 @@ export class OneShotEngine {
   /**
    * Immediately trigger a one-shot audio event (useful for UI testing and manual triggering).
    */
-  async triggerRandomEvent(): Promise<OneShotTriggerEvent | null> {
+  async triggerRandomEvent(specificAssetId?: string): Promise<OneShotTriggerEvent | null> {
     if (!this.ctx || !this.destination || !this.catalog) {
       return null;
     }
@@ -128,13 +172,31 @@ export class OneShotEngine {
       return null;
     }
 
-    // Pick random enabled pack
-    const activePacks = ONE_SHOT_PACKS.filter(p => this.config.selectedPacks.includes(p.id));
-    if (activePacks.length === 0) return null;
-    const pack = activePacks[Math.floor(Math.random() * activePacks.length)];
+    const allPacks = getAllOneShotPacks(this.customPacks);
+    let pack = allPacks.find(p => this.config.selectedPacks.includes(p.id));
+    let assetId = specificAssetId;
 
-    // Pick random asset from pack
-    const assetId = pack.assetIds[Math.floor(Math.random() * pack.assetIds.length)];
+    if (assetId) {
+      // Find matching pack for specific asset
+      const foundPack = allPacks.find(p => p.assetIds.includes(assetId!));
+      if (foundPack) pack = foundPack;
+    } else {
+      // Pick random active pack
+      const activePacks = allPacks.filter(p => this.config.selectedPacks.includes(p.id));
+      if (activePacks.length === 0) return null;
+      pack = activePacks[Math.floor(Math.random() * activePacks.length)];
+
+      // Filter assets by selectedAssets if configured
+      const candidateAssetIds = pack.assetIds.filter(id =>
+        !this.config.selectedAssets || this.config.selectedAssets.includes(id)
+      );
+
+      const availableAssets = candidateAssetIds.length > 0 ? candidateAssetIds : pack.assetIds;
+      assetId = availableAssets[Math.floor(Math.random() * availableAssets.length)];
+    }
+
+    if (!pack || !assetId) return null;
+
     const asset = findAsset(this.catalog, assetId);
     if (!asset) return null;
 
@@ -143,7 +205,7 @@ export class OneShotEngine {
       const buffer = await decodeCache.get(this.ctx, url);
       if (!buffer) return null;
 
-      this.playOneShotBuffer(buffer);
+      const meta = this.playOneShotBuffer(buffer, asset.id);
 
       const triggerEvent: OneShotTriggerEvent = {
         packId: pack.id,
@@ -151,9 +213,14 @@ export class OneShotEngine {
         assetId: asset.id,
         assetLabel: asset.title,
         timestamp: Date.now(),
+        pan: meta.pan,
+        pitch: meta.pitch,
+        distanceFilterCutoff: meta.filterCutoff,
+        burstCount: meta.burstCount,
       };
 
       this.lastTriggerEvent = triggerEvent;
+      this.eventHistory = [triggerEvent, ...this.eventHistory].slice(0, 10);
       this.notifyListeners(triggerEvent);
       return triggerEvent;
     } catch (e) {
@@ -162,71 +229,122 @@ export class OneShotEngine {
     }
   }
 
-  private playOneShotBuffer(buffer: AudioBuffer): void {
-    if (!this.ctx || !this.destination) return;
+  private playOneShotBuffer(buffer: AudioBuffer, assetId: string): { pan: number; pitch: number; filterCutoff: number; burstCount: number } {
+    if (!this.ctx || !this.destination) {
+      return { pan: 0, pitch: 1, filterCutoff: 14000, burstCount: 1 };
+    }
 
     const ctx = this.ctx;
     const now = ctx.currentTime;
 
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-
-    // 1. Micro Pitch Jitter (±5% .. 10%)
+    // Calculate acoustic micro-variations
+    let pitch = 1.0;
     if (this.config.pitchJitter) {
-      const jitter = (Math.random() * 0.16) - 0.08;
-      source.playbackRate.value = Math.max(0.5, Math.min(1.5, 1 + jitter));
+      pitch = 1.0 + (Math.random() * 0.16 - 0.08);
     }
 
-    let lastNode: AudioNode = source;
+    let pan = 0;
+    if (this.config.spatialPan) {
+      pan = (Math.random() * 1.7) - 0.85;
+    }
 
-    // 2. Distance Atmospheric Low-pass Filter
+    let filterCutoff = 14000;
     if (this.config.distanceFilter) {
-      const filter = ctx.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.frequency.value = 1200 + Math.random() * 12800; // 1.2kHz - 14kHz
-      filter.Q.value = 0.7;
-      source.connect(filter);
-      lastNode = filter;
+      filterCutoff = Math.round(1200 + Math.random() * 12800);
     }
 
-    // 3. Spatial Stereo Panning (-0.85 .. +0.85)
-    if (this.config.spatialPan && 'createStereoPanner' in ctx) {
-      const panner = ctx.createStereoPanner();
-      panner.pan.value = (Math.random() * 1.7) - 0.85;
-      lastNode.connect(panner);
-      lastNode = panner;
+    // Determine Burst Sequence parameters
+    const isBirdOrAnimal = assetId.startsWith('birds') || assetId.startsWith('owls') || assetId.startsWith('seagulls') || assetId.startsWith('cave_drips');
+    const isThunder = assetId.startsWith('thunder');
+
+    let burstCount = 1;
+    if (this.config.burstSequence && isBirdOrAnimal) {
+      burstCount = Math.floor(Math.random() * 3) + 2; // 2 to 4 bursts
+    } else if (this.config.burstSequence && isThunder) {
+      burstCount = 2; // Initial crack + rolling echo
     }
 
-    // 4. Gain Node & Dynamic Distance Volume Attenuation
+    // Setup master Gain Node for this event
     const gainNode = ctx.createGain();
     const distanceGain = 0.45 + Math.random() * 0.55;
     const targetGain = Math.max(0, Math.min(1, this.config.volumeLinear * distanceGain));
 
-    lastNode.connect(gainNode);
-    gainNode.connect(this.destination);
+    let lastNode: AudioNode = gainNode;
 
-    // Dynamic Slicing & Envelope
-    const totalDuration = buffer.duration;
-    let startOffset = 0;
-    let playDuration = totalDuration;
-
-    if (totalDuration > 8) {
-      // Pick an organic 2.5s - 5.5s slice from the asset
-      playDuration = 2.5 + Math.random() * 3.0;
-      const maxOffset = Math.max(0, totalDuration - playDuration - 0.5);
-      startOffset = Math.random() * maxOffset;
+    // Acoustic Reverb Tail Convolver Node
+    if (this.config.acousticTail && 'createConvolver' in ctx) {
+      try {
+        const convolver = ctx.createConvolver();
+        convolver.buffer = getOrCreateReverbImpulse(ctx);
+        const wetGain = ctx.createGain();
+        wetGain.gain.value = 0.22;
+        gainNode.connect(convolver);
+        convolver.connect(wetGain);
+        wetGain.connect(this.destination);
+      } catch (e) {
+        console.warn('Convolver tail setup error:', e);
+      }
     }
 
-    const fadeIn = 0.08;
-    const fadeOut = Math.min(0.5, playDuration * 0.25);
+    gainNode.connect(this.destination);
 
-    gainNode.gain.setValueAtTime(0.0001, now);
-    gainNode.gain.exponentialRampToValueAtTime(Math.max(0.001, targetGain), now + fadeIn);
-    gainNode.gain.setValueAtTime(Math.max(0.001, targetGain), now + playDuration - fadeOut);
-    gainNode.gain.exponentialRampToValueAtTime(0.0001, now + playDuration);
+    // Play bursts
+    for (let i = 0; i < burstCount; i++) {
+      const burstDelay = i === 0 ? 0 : isThunder ? 0.42 + i * 0.15 : i * (0.24 + Math.random() * 0.22);
+      const burstNow = now + burstDelay;
 
-    source.start(now, startOffset, playDuration);
-    source.stop(now + playDuration + 0.1);
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      const burstPitch = pitch + (i > 0 ? (Math.random() * 0.08 - 0.04) : 0);
+      source.playbackRate.value = Math.max(0.5, Math.min(1.6, burstPitch));
+
+      let burstLastNode: AudioNode = source;
+
+      if (this.config.distanceFilter) {
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = isThunder && i > 0 ? 450 : filterCutoff; // lower rumbling tail for thunder
+        filter.Q.value = 0.7;
+        source.connect(filter);
+        burstLastNode = filter;
+      }
+
+      if (this.config.spatialPan && 'createStereoPanner' in ctx) {
+        const panner = ctx.createStereoPanner();
+        panner.pan.value = Math.max(-1, Math.min(1, pan + (Math.random() * 0.1 - 0.05)));
+        burstLastNode.connect(panner);
+        burstLastNode = panner;
+      }
+
+      const burstGainNode = ctx.createGain();
+      const burstGainVal = i === 0 ? targetGain : isThunder ? targetGain * 0.65 : targetGain * (0.75 + Math.random() * 0.2);
+
+      burstLastNode.connect(burstGainNode);
+      burstGainNode.connect(gainNode);
+
+      const totalDuration = buffer.duration;
+      let startOffset = 0;
+      let playDuration = totalDuration;
+
+      if (totalDuration > 8) {
+        playDuration = 2.5 + Math.random() * 3.0;
+        const maxOffset = Math.max(0, totalDuration - playDuration - 0.5);
+        startOffset = Math.random() * maxOffset;
+      }
+
+      const fadeIn = 0.08;
+      const fadeOut = Math.min(0.5, playDuration * 0.25);
+
+      burstGainNode.gain.setValueAtTime(0.0001, burstNow);
+      burstGainNode.gain.exponentialRampToValueAtTime(Math.max(0.001, burstGainVal), burstNow + fadeIn);
+      burstGainNode.gain.setValueAtTime(Math.max(0.001, burstGainVal), burstNow + playDuration - fadeOut);
+      burstGainNode.gain.exponentialRampToValueAtTime(0.0001, burstNow + playDuration);
+
+      source.start(burstNow, startOffset, playDuration);
+      source.stop(burstNow + playDuration + 0.1);
+    }
+
+    return { pan, pitch, filterCutoff, burstCount };
   }
 
   private notifyListeners(event: OneShotTriggerEvent): void {
@@ -239,3 +357,4 @@ export class OneShotEngine {
     }
   }
 }
+

@@ -43,7 +43,10 @@ import { decodeCache } from '../audio/decode-cache';
 import {
   loadOneShotConfigFromStorage,
   saveOneShotConfigToStorage,
+  loadCustomOneShotPacksFromStorage,
+  saveCustomOneShotPacksToStorage,
   type OneShotConfig,
+  type CustomOneShotPack,
 } from './one-shot';
 import {
   loadBinauralConfigFromStorage,
@@ -109,7 +112,8 @@ export class Session {
    */
   duplicateMinOffsetSec = DUPLICATE_MIN_OFFSET_DEFAULT_SEC;
 
-  oneShotConfig: OneShotConfig = audioEngine.oneShotEngine.getConfig();
+  customOneShotPacks: CustomOneShotPack[] = loadCustomOneShotPacksFromStorage();
+  oneShotConfig: OneShotConfig = loadOneShotConfigFromStorage(this.customOneShotPacks);
   lastOneShotTrigger: OneShotTriggerEvent | null = null;
   binauralConfig: BinauralConfig = loadBinauralConfigFromStorage();
 
@@ -135,6 +139,11 @@ export class Session {
         { kind: 'noise', params: createDefaultNoiseLayer(uid('noise'), 'pink') },
       ];
     }
+    this.customOneShotPacks = loadCustomOneShotPacksFromStorage();
+    this.oneShotConfig = loadOneShotConfigFromStorage(this.customOneShotPacks);
+    audioEngine.oneShotEngine.setCustomPacks(this.customOneShotPacks);
+    audioEngine.oneShotEngine.setConfig(this.oneShotConfig);
+
     this.ensureMediaSession();
     this.bindPageLifecycle();
     audioEngine.oneShotEngine.addListener((evt) => {
@@ -159,15 +168,75 @@ export class Session {
     this.notify();
   }
 
-  async triggerOneShotNow(): Promise<OneShotTriggerEvent | null> {
+  createCustomOneShotPack(
+    label: string,
+    icon = '📦',
+    description = 'User defined sound pack',
+    assetIds: string[] = []
+  ): CustomOneShotPack {
+    const id = `custom-pack-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const newPack: CustomOneShotPack = {
+      id,
+      label: label.trim() || 'Custom Pack',
+      icon: icon || '📦',
+      description,
+      assetIds: [...assetIds],
+      isCustom: true,
+    };
+    this.customOneShotPacks = [...this.customOneShotPacks, newPack];
+    saveCustomOneShotPacksToStorage(this.customOneShotPacks);
+    audioEngine.oneShotEngine.setCustomPacks(this.customOneShotPacks);
+
+    if (!this.oneShotConfig.selectedPacks.includes(id)) {
+      this.updateOneShotConfig({ selectedPacks: [...this.oneShotConfig.selectedPacks, id] });
+    } else {
+      this.notify();
+    }
+    return newPack;
+  }
+
+  renameCustomOneShotPack(packId: string, newLabel: string): void {
+    this.customOneShotPacks = this.customOneShotPacks.map((p) =>
+      p.id === packId ? { ...p, label: newLabel.trim() || p.label } : p
+    );
+    saveCustomOneShotPacksToStorage(this.customOneShotPacks);
+    audioEngine.oneShotEngine.setCustomPacks(this.customOneShotPacks);
+    this.notify();
+  }
+
+  deleteCustomOneShotPack(packId: string): void {
+    this.customOneShotPacks = this.customOneShotPacks.filter((p) => p.id !== packId);
+    saveCustomOneShotPacksToStorage(this.customOneShotPacks);
+    audioEngine.oneShotEngine.setCustomPacks(this.customOneShotPacks);
+
+    const updatedSelectedPacks = this.oneShotConfig.selectedPacks.filter((id) => id !== packId);
+    this.updateOneShotConfig({
+      selectedPacks: updatedSelectedPacks.length > 0 ? updatedSelectedPacks : ['storm'],
+    });
+  }
+
+  updateCustomOneShotPackAssets(packId: string, assetIds: string[]): void {
+    this.customOneShotPacks = this.customOneShotPacks.map((p) =>
+      p.id === packId ? { ...p, assetIds: [...assetIds] } : p
+    );
+    saveCustomOneShotPacksToStorage(this.customOneShotPacks);
+    audioEngine.oneShotEngine.setCustomPacks(this.customOneShotPacks);
+    this.notify();
+  }
+
+  async triggerOneShotNow(specificAssetId?: string): Promise<OneShotTriggerEvent | null> {
     await this.ensureCatalogReady();
     await audioEngine.resume();
-    const evt = await audioEngine.oneShotEngine.triggerRandomEvent();
+    const evt = await audioEngine.oneShotEngine.triggerRandomEvent(specificAssetId);
     if (evt) {
       this.lastOneShotTrigger = evt;
       this.notify();
     }
     return evt;
+  }
+
+  getOneShotHistory(): OneShotTriggerEvent[] {
+    return audioEngine.oneShotEngine.getEventHistory();
   }
 
   setDuplicateMinOffsetSec(sec: number): void {

@@ -2,16 +2,22 @@ import { describe, expect, it, beforeEach } from 'vitest';
 import {
   DEFAULT_ONE_SHOT_CONFIG,
   loadOneShotConfigFromStorage,
+  loadCustomOneShotPacksFromStorage,
+  saveCustomOneShotPacksToStorage,
+  getAllOneShotPacks,
   ONE_SHOT_PACKS,
   ONE_SHOT_STORAGE_KEY,
+  CUSTOM_ONE_SHOT_PACKS_STORAGE_KEY,
   saveOneShotConfigToStorage,
   type OneShotConfig,
+  type CustomOneShotPack,
 } from '../app/one-shot';
 import {
   calculateNextDelayMs,
   DENSITY_RANGES,
   OneShotEngine,
 } from './one-shot-engine';
+import { Session } from '../app/session';
 
 function createMemoryStorage(): Storage {
   const map = new Map<string, string>();
@@ -51,11 +57,15 @@ describe('One-Shot Configuration & LocalStorage', () => {
     const customConfig: OneShotConfig = {
       enabled: true,
       density: 'lively',
+      customIntervalMs: 45_000,
       selectedPacks: ['storm', 'forest'],
+      selectedAssets: ['thunder_distant', 'birds_morning'],
       volumeLinear: 0.85,
       spatialPan: false,
       pitchJitter: true,
       distanceFilter: false,
+      burstSequence: true,
+      acousticTail: false,
     };
 
     saveOneShotConfigToStorage(customConfig);
@@ -87,6 +97,72 @@ describe('One-Shot Configuration & LocalStorage', () => {
   });
 });
 
+describe('Custom One-Shot Sound Packs & Pack Manager', () => {
+  beforeEach(() => {
+    globalThis.localStorage = createMemoryStorage();
+  });
+
+  it('saves and loads custom packs from localStorage', () => {
+    const packs: CustomOneShotPack[] = [
+      {
+        id: 'custom-night',
+        label: 'Night Canopy',
+        icon: '🦉',
+        description: 'Owls and cave drips',
+        assetIds: ['owls_forest', 'cave_drips'],
+        isCustom: true,
+      },
+    ];
+
+    saveCustomOneShotPacksToStorage(packs);
+    const loaded = loadCustomOneShotPacksFromStorage();
+    expect(loaded).toHaveLength(1);
+    expect(loaded[0].label).toBe('Night Canopy');
+    expect(loaded[0].isCustom).toBe(true);
+  });
+
+  it('merges built-in packs with custom packs', () => {
+    const customPack: CustomOneShotPack = {
+      id: 'custom-ocean',
+      label: 'Ocean Waves',
+      icon: '🌊',
+      description: 'Surf and seagulls',
+      assetIds: ['seagulls_surf'],
+      isCustom: true,
+    };
+    const all = getAllOneShotPacks([customPack]);
+    expect(all).toHaveLength(ONE_SHOT_PACKS.length + 1);
+    expect(all.some((p) => p.id === 'custom-ocean')).toBe(true);
+  });
+
+  it('manages custom packs via Session (create, rename, updateAssets, delete)', () => {
+    const session = new Session();
+    const created = session.createCustomOneShotPack(
+      'Deep Forest',
+      '🌲',
+      'Quiet woodland sounds',
+      ['wind_trees', 'leaves_rustle']
+    );
+
+    expect(created.label).toBe('Deep Forest');
+    expect(session.customOneShotPacks).toHaveLength(1);
+    expect(session.oneShotConfig.selectedPacks).toContain(created.id);
+
+    // Rename
+    session.renameCustomOneShotPack(created.id, 'Enchanted Forest');
+    expect(session.customOneShotPacks[0].label).toBe('Enchanted Forest');
+
+    // Update assets
+    session.updateCustomOneShotPackAssets(created.id, ['birds_morning']);
+    expect(session.customOneShotPacks[0].assetIds).toEqual(['birds_morning']);
+
+    // Delete
+    session.deleteCustomOneShotPack(created.id);
+    expect(session.customOneShotPacks).toHaveLength(0);
+    expect(session.oneShotConfig.selectedPacks).not.toContain(created.id);
+  });
+});
+
 describe('One-Shot Engine Stochastic Scheduler', () => {
   it('calculates bounded delay ranges for all density settings', () => {
     const densities = ['subtle', 'balanced', 'lively'] as const;
@@ -101,12 +177,32 @@ describe('One-Shot Engine Stochastic Scheduler', () => {
     }
   });
 
-  it('updates configuration dynamically', () => {
+  it('calculates bounded custom Poisson delay ranges when custom density is active', () => {
+    const customMs = 30_000;
+    for (let i = 0; i < 50; i++) {
+      const delay = calculateNextDelayMs('custom', customMs);
+      expect(delay).toBeGreaterThanOrEqual(12_000); // min 40% of mean
+      expect(delay).toBeLessThanOrEqual(66_000);   // max 220% of mean
+    }
+  });
+
+  it('updates configuration dynamically and tracks event history', () => {
     const engine = new OneShotEngine({ ...DEFAULT_ONE_SHOT_CONFIG });
     expect(engine.getConfig().enabled).toBe(false);
+    expect(engine.getEventHistory()).toEqual([]);
 
-    engine.setConfig({ ...DEFAULT_ONE_SHOT_CONFIG, enabled: true, density: 'lively' });
+    engine.setConfig({
+      ...DEFAULT_ONE_SHOT_CONFIG,
+      enabled: true,
+      density: 'custom',
+      customIntervalMs: 15_000,
+      burstSequence: true,
+      acousticTail: true,
+    });
     expect(engine.getConfig().enabled).toBe(true);
-    expect(engine.getConfig().density).toBe('lively');
+    expect(engine.getConfig().density).toBe('custom');
+    expect(engine.getConfig().customIntervalMs).toBe(15_000);
+    expect(engine.getConfig().burstSequence).toBe(true);
+    expect(engine.getConfig().acousticTail).toBe(true);
   });
 });
