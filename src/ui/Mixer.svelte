@@ -7,6 +7,7 @@
   import TimerPanel from './TimerPanel.svelte';
   import PresetsPanel from './PresetsPanel.svelte';
   import LibraryPanel from './LibraryPanel.svelte';
+  import OneShotPanel from './OneShotPanel.svelte';
   import { formatRemaining } from './format';
 
   let layers = $state<MixerLayer[]>(session.layers);
@@ -28,6 +29,7 @@
   let timerPanel: TimerPanel | undefined = $state();
   let presetsPanel: PresetsPanel | undefined = $state();
   let libraryPanel: LibraryPanel | undefined = $state();
+  let oneShotPanel: OneShotPanel | undefined = $state();
 
   let meterRaf = 0;
   let unsub: (() => void) | undefined;
@@ -48,6 +50,7 @@
     timerPanel?.sync();
     presetsPanel?.sync();
     libraryPanel?.sync();
+    oneShotPanel?.sync();
   }
 
   function isLayerLoading(id: string): boolean {
@@ -415,6 +418,7 @@
     <div class="side-stack">
       <TimerPanel bind:this={timerPanel} />
       <PresetsPanel bind:this={presetsPanel} />
+      <OneShotPanel bind:this={oneShotPanel} />
     </div>
   </div>
 

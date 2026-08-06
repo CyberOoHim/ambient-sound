@@ -21,6 +21,8 @@ import {
 } from './decode-cache';
 import { assetUrl, findAsset, type SoundCatalog } from '../assets/catalog';
 import { MediaOutput } from './media-output';
+import { OneShotEngine } from './one-shot-engine';
+import { loadOneShotConfigFromStorage } from '../app/one-shot';
 
 interface NoiseNodes {
   kind: 'noise';
@@ -78,6 +80,12 @@ export class AudioEngine {
   /** Sample layer ids currently awaiting fetch/decode. */
   private inflightLoads = new Set<string>();
 
+  public oneShotEngine: OneShotEngine;
+
+  constructor() {
+    this.oneShotEngine = new OneShotEngine(loadOneShotConfigFromStorage());
+  }
+
   get context(): AudioContext | null {
     return this.ctx;
   }
@@ -92,6 +100,9 @@ export class AudioEngine {
 
   setCatalog(catalog: SoundCatalog): void {
     this.catalog = catalog;
+    if (this.ctx && this.master) {
+      this.oneShotEngine.setAudioTarget(this.ctx, this.master, catalog);
+    }
   }
 
   async ensureContext(): Promise<AudioContext> {
@@ -107,6 +118,7 @@ export class AudioEngine {
       this.mediaOutput.attach(this.ctx, this.analyser);
       this.mediaOutput.connectDestination(this.ctx, this.analyser);
       this.bindStateChange(this.ctx);
+      this.oneShotEngine.setAudioTarget(this.ctx, this.master, this.catalog);
     }
     if (!this.workletReady) {
       await this.ctx.audioWorklet.addModule(workletUrl);
@@ -137,10 +149,12 @@ export class AudioEngine {
       await ctx.resume();
     }
     await this.mediaOutput.play();
+    this.oneShotEngine.start();
   }
 
   async suspend(): Promise<void> {
     this.wantRunning = false;
+    this.oneShotEngine.stop();
     this.mediaOutput.pause();
     if (this.ctx && this.ctx.state === 'running') {
       await this.ctx.suspend();
@@ -436,6 +450,7 @@ export class AudioEngine {
   }
 
   stopAll(): void {
+    this.oneShotEngine.stop();
     // Cancel every sample still downloading, not only layers already wired.
     for (const id of this.inflightLoads) {
       this.cancelledLoads.add(id);
@@ -447,6 +462,7 @@ export class AudioEngine {
 
   async dispose(): Promise<void> {
     this.wantRunning = false;
+    this.oneShotEngine.stop();
     this.stopAll();
     this.mediaOutput.dispose();
     decodeCache.clear();

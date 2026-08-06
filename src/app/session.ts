@@ -40,6 +40,12 @@ import {
   type SoundCatalog,
 } from '../assets/catalog';
 import { decodeCache } from '../audio/decode-cache';
+import {
+  loadOneShotConfigFromStorage,
+  saveOneShotConfigToStorage,
+  type OneShotConfig,
+} from './one-shot';
+import type { OneShotTriggerEvent } from '../audio/one-shot-engine';
 
 let nextId = 1;
 
@@ -98,6 +104,9 @@ export class Session {
    */
   duplicateMinOffsetSec = DUPLICATE_MIN_OFFSET_DEFAULT_SEC;
 
+  oneShotConfig: OneShotConfig = audioEngine.oneShotEngine.getConfig();
+  lastOneShotTrigger: OneShotTriggerEvent | null = null;
+
   private pollId: ReturnType<typeof setInterval> | null = null;
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
   private listeners = new Set<() => void>();
@@ -122,6 +131,30 @@ export class Session {
     }
     this.ensureMediaSession();
     this.bindPageLifecycle();
+    audioEngine.oneShotEngine.addListener((evt) => {
+      if (evt) {
+        this.lastOneShotTrigger = evt;
+        this.notify();
+      }
+    });
+  }
+
+  updateOneShotConfig(partial: Partial<OneShotConfig>): void {
+    this.oneShotConfig = { ...this.oneShotConfig, ...partial };
+    saveOneShotConfigToStorage(this.oneShotConfig);
+    audioEngine.oneShotEngine.setConfig(this.oneShotConfig);
+    this.notify();
+  }
+
+  async triggerOneShotNow(): Promise<OneShotTriggerEvent | null> {
+    await this.ensureCatalogReady();
+    await audioEngine.resume();
+    const evt = await audioEngine.oneShotEngine.triggerRandomEvent();
+    if (evt) {
+      this.lastOneShotTrigger = evt;
+      this.notify();
+    }
+    return evt;
   }
 
   setDuplicateMinOffsetSec(sec: number): void {

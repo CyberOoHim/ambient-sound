@@ -24,7 +24,40 @@ This document outlines proposed feature enhancements and enrichment ideas for **
 - **Use Case:** Muffling a rain track to create an "indoor/window rain" effect, or brightening wind and procedural noise tracks.
 
 ### 1.4 Organic Random One-Shot Audio Events
-- **Concept:** A background event scheduler that triggers occasional non-looping audio clips (e.g., a distant thunderclap every 2–5 minutes, randomized bird calls, or train whistles) to break loop monotony.
+- **Concept:** A background event scheduler that triggers occasional non-looping audio clips (e.g., distant thunderclaps, randomized bird calls, rustling leaves, or train whistles) to break ambient loop monotony and closely mimic the unpredictable acoustic rhythm of real-world environments.
+
+#### Key Design & Realism Mechanics
+1. **Stochastic Timing (Poisson Process / Exponential Jitter)**
+   - Replaces fixed metronomic timers with variable time distributions based on a Poisson process.
+   - Prevents predictable intervals so the human ear cannot anticipate when an event will occur.
+
+2. **Acoustic Micro-Variations (Per-Trigger Randomization)**
+   - **Dynamic Pitch Jitter:** Randomly alters playback rate/pitch by ±5–10% on every trigger so repeated samples (e.g., bird chirps) sound naturally distinct.
+   - **Spatial Stereo Panning:** Randomizes left/right positioning across the soundstage using `StereoPannerNode` to simulate distant events coming from different directions.
+   - **Distance & Atmosphere Simulation:** Pairs gain attenuation with a dynamic `BiquadFilterNode` (low-pass filter). Farther events sound quieter and muffier; nearer events sound louder and brighter.
+   - **Acoustic Tail / Wet Reverb:** Adjusts decay and wet mix for reverberant events like thunder or foghorns.
+
+3. **Natural Burst & Call-Response Patterns**
+   - **Call Sequences:** Simulates realistic animal behavior (e.g. a bird calling 2–4 times in rapid succession with 200–500ms micro-pauses before falling silent).
+   - **Multi-Phase Events:** Simulates rolling thunder strikes composed of an initial sharp crack followed by low-frequency rumbling echoes.
+
+4. **Categorized Sound Packs**
+   - 🌩️ **Storm & Sky:** Low distant thunder, sharp lightning cracks, sudden wind gusts.
+   - 🌲 **Wild Forest:** Woodland songbirds, night owl hoots, branch snaps, rustling canopy leaves.
+   - 🌊 **Coastal & Ocean:** Distant seagull cries, rogue crashing wave accents, ship foghorns.
+   - ☕ **Cozy & Urban:** Distant train whistles, grandfather clock chimes, rain window strikes, fireplace pops.
+
+5. **User-Configurable Density & Controls**
+   - **Sparse / Subtle:** Triggers every 3–8 minutes (ideal for deep focus).
+   - **Natural / Balanced:** Triggers every 1–3 minutes (default ambiance).
+   - **Lively / Dynamic:** Triggers every 15–45 seconds (rich, interactive feel).
+   - **Per-Event Frequency Weighting:** Allows users to toggle or weight specific sound triggers within active themes.
+
+6. **Technical Implementation Strategy**
+   - Built as an `EventScheduler` module in the Web Audio graph (`src/audio/engine.ts`).
+   - Uses light, pre-decoded `AudioBuffer` assets loaded into memory.
+   - Instantiates a short-lived node pipeline for each trigger:
+     `AudioBufferSourceNode` ➔ `BiquadFilterNode` ➔ `StereoPannerNode` ➔ `GainNode` ➔ `Destination`.
 
 ---
 
