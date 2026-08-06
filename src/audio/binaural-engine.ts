@@ -1,4 +1,5 @@
-import type { BinauralConfig } from '../app/binaural';
+// src/audio/binaural-engine.ts (Line 1)
+import type { BinauralConfig, BinauralMode } from '../app/binaural';
 import { clampLinear } from './dsp/curves';
 
 interface BinauralNodes {
