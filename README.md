@@ -9,6 +9,7 @@ An offline-first noise and ambient sound mixer built for desktop and web.
 
 - **Procedural Noise Generators:** Custom Web Audio API DSP noise synth (White, Pink, Brown, etc.).
 - **Ambient Sample Layers:** High-quality natural field recordings (Rain, Ocean, Wind, Fire, Stream, Crickets, Birds, Thunder, Waterfall, Frogs).
+- **Stochastic One-Shot Events:** Natural, non-repetitive background audio accents (bird chirps, owl hoots, distant thunder, etc.) using Poisson-process timing, pitch jitter, stereo panning, and distance low-pass filtering.
 - **Sleep Timer:** Flexible duration with customizable fade-out curves.
 - **Custom Presets & Session Storage:** Save layer combinations and volume settings locally or export/import JSON presets.
 - **Offline-First:** Runs entirely in the browser without remote servers or track streaming dependencies.
@@ -56,6 +57,12 @@ Open the local server URL provided by Vite (typically `http://localhost:5173`). 
 3. The timer counts down; during the final fade window, master volume smoothly decreases to zero before stopping playback.
 4. Click **Cancel timer** at any time to abort the countdown and restore full volume.
 
+### Stochastic One-Shot Events
+
+- **Natural Randomization:** Triggers random sample accents based on an exponential Poisson timing distribution to prevent predictable patterns.
+- **Dynamic Acoustic Variation:** Applies dynamic pitch/rate jitter, randomized stereo positioning (`StereoPannerNode`), and distance-based low-pass filtering.
+- **Configurable Density:** Adjust event frequency presets (Sparse, Natural, Dynamic) or test triggers instantly with **Trigger Now**.
+
 ### Presets & State
 
 - **Save Presets:** Save active layer combinations, gain settings, and timer defaults to `localStorage`.
@@ -74,19 +81,24 @@ Open the local server URL provided by Vite (typically `http://localhost:5173`). 
 ## Architecture
 
 - **UI Framework:** Svelte 5 + TypeScript + Vite
-- **Audio Engine:** Web Audio API graph + custom `AudioWorklet` (`src/audio/worklets/noise-processor.js`)
+- **Audio Engine:** Web Audio API graph + custom `AudioWorklet` (`src/audio/worklets/noise-processor.js`) + `OneShotEngine`
 - **Gain & Volume:** Linear internal gain with logarithmic dB control curves (`src/audio/dsp/curves.ts`)
 - **Session Matrix:** State management owning per-layer volume, mute/solo gates, and routing.
 
 ```
 src/
 ├── audio/
-│   ├── dsp/          # Pure DSP calculations & unit tests
-│   ├── worklets/     # AudioWorklet processor implementation
-│   ├── engine.ts     # Web AudioContext node graph & lifecycle
-│   └── types.ts      # Audio engine TypeScript definitions
-├── app/session.ts    # Application state, presets & layer matrix
-└── ui/Mixer.svelte   # Main mixer user interface component
+│   ├── dsp/              # Pure DSP calculations & unit tests
+│   ├── worklets/         # AudioWorklet processor implementation
+│   ├── engine.ts         # Web AudioContext node graph & lifecycle
+│   ├── one-shot-engine.ts# Stochastic event scheduler & spatial audio graph
+│   └── types.ts          # Audio engine TypeScript definitions
+├── app/
+│   ├── session.ts        # Application state, presets & layer matrix
+│   └── one-shot.ts       # One-shot density & trigger configurations
+└── ui/
+    ├── Mixer.svelte      # Main mixer user interface component
+    └── OneShotPanel.svelte# Stochastic accent sound settings & trigger panel
 ```
 
 For full product specs and design decisions, see [Design Document](docs/design-ambient-sound-app.md).
