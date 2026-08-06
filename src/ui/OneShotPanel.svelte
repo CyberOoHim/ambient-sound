@@ -141,7 +141,7 @@
     sync();
   }
 
-  function startEditPack(pack: CustomOneShotPack, event: MouseEvent) {
+  function startEditPack(pack: OneShotPack, event: MouseEvent) {
     event.stopPropagation();
     editingPackId = pack.id;
     editingPackTitle = pack.label;
