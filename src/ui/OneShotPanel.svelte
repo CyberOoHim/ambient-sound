@@ -6,6 +6,7 @@
     getAllOneShotPacks,
     type OneShotDensity,
     type OneShotPack,
+    type CustomOneShotPack,
   } from '../app/one-shot';
   import { dbToLinear, linearToDb } from '../audio/dsp/curves';
   import { findAsset } from '../assets/catalog';
@@ -370,7 +371,7 @@
           <span class="sub-label">Select Included Audio Events:</span>
           <div class="asset-grid">
             {#each ALL_ONE_SHOT_ASSETS as assetId}
-              {@const asset = findAsset(session.catalog, assetId)}
+              {@const asset = session.getAsset(assetId)}
               {@const isChecked = newPackSelectedAssets.includes(assetId)}
               <label class="asset-chip" class:active={isChecked}>
                 <input
@@ -471,7 +472,7 @@
               <span class="sub-label">Included assets in this pack:</span>
               <div class="asset-grid">
                 {#each ALL_ONE_SHOT_ASSETS as assetId}
-                  {@const asset = findAsset(session.catalog, assetId)}
+                  {@const asset = session.getAsset(assetId)}
                   {@const inPack = editingPackAssets.includes(assetId)}
                   <label class="asset-chip" class:active={inPack}>
                     <input
@@ -505,7 +506,7 @@
           {#if isExpanded}
             <div class="asset-checklist">
               {#each pack.assetIds as assetId}
-                {@const asset = findAsset(session.catalog, assetId)}
+                {@const asset = session.getAsset(assetId)}
                 {@const assetSelected = (config.selectedAssets ?? ALL_ONE_SHOT_ASSETS).includes(assetId)}
                 <div class="asset-item">
                   <label class="asset-label">
