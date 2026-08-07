@@ -279,6 +279,168 @@
           "playbackRate": 1
         }
       }
-    ]
+    ],
+    "binaural": {
+      "enabled": true,
+      "mode": "binaural",
+      "preset": "delta",
+      "carrierFreq": 150,
+      "beatFreq": 2.5,
+      "volumeLinear": 0.35,
+      "waveform": "sine"
+    },
+    "oneShot": {
+      "enabled": false,
+      "density": "subtle",
+      "customIntervalMs": 120000,
+      "selectedPacks": ["cozy"],
+      "selectedAssets": ["cave_drips", "rain_roof", "fire_camp", "stream_small"],
+      "volumeLinear": 0.5,
+      "spatialPan": true,
+      "pitchJitter": true,
+      "distanceFilter": true,
+      "burstSequence": false,
+      "acousticTail": true
+    }
+  },
+  {
+    "version": 1,
+    "id": "night_forest",
+    "name": "Night Forest",
+    "createdAt": "2026-08-07T08:00:00.000Z",
+    "updatedAt": "2026-08-07T08:00:00.000Z",
+    "master": {
+      "volumeLinear": 0.82
+    },
+    "layers": [
+      {
+        "kind": "sample",
+        "params": {
+          "id": "sample-crickets",
+          "assetId": "crickets_night",
+          "label": "Night crickets",
+          "volumeLinear": 0.55,
+          "muted": false,
+          "solo": false,
+          "pan": -0.15,
+          "loopMode": "crossfade",
+          "crossfadeMs": 100,
+          "playbackRate": 1
+        }
+      },
+      {
+        "kind": "sample",
+        "params": {
+          "id": "sample-owls",
+          "assetId": "owls_forest",
+          "label": "Forest owls",
+          "volumeLinear": 0.4,
+          "muted": false,
+          "solo": false,
+          "pan": 0.2,
+          "loopMode": "crossfade",
+          "crossfadeMs": 100,
+          "playbackRate": 1
+        }
+      },
+      {
+        "kind": "sample",
+        "params": {
+          "id": "sample-fire",
+          "assetId": "fire_camp",
+          "label": "Campfire",
+          "volumeLinear": 0.5,
+          "muted": false,
+          "solo": false,
+          "pan": 0,
+          "loopMode": "native",
+          "crossfadeMs": 80,
+          "playbackRate": 1
+        }
+      }
+    ],
+    "binaural": {
+      "enabled": true,
+      "mode": "binaural",
+      "preset": "theta",
+      "carrierFreq": 180,
+      "beatFreq": 6,
+      "volumeLinear": 0.3,
+      "waveform": "sine"
+    },
+    "oneShot": {
+      "enabled": true,
+      "density": "subtle",
+      "customIntervalMs": 90000,
+      "selectedPacks": ["forest"],
+      "selectedAssets": ["birds_morning", "owls_forest", "leaves_rustle", "wind_trees"],
+      "volumeLinear": 0.55,
+      "spatialPan": true,
+      "pitchJitter": true,
+      "distanceFilter": true,
+      "burstSequence": true,
+      "acousticTail": true
+    }
+  },
+  {
+    "version": 1,
+    "id": "deep_focus_alpha",
+    "name": "Deep Focus",
+    "createdAt": "2026-08-07T08:00:00.000Z",
+    "updatedAt": "2026-08-07T08:00:00.000Z",
+    "master": {
+      "volumeLinear": 0.78
+    },
+    "layers": [
+      {
+        "kind": "noise",
+        "params": {
+          "id": "noise-pink",
+          "type": "pink",
+          "volumeLinear": 0.5,
+          "muted": false,
+          "solo": false,
+          "stereoWidth": 0.7,
+          "pan": 0
+        }
+      },
+      {
+        "kind": "sample",
+        "params": {
+          "id": "sample-ocean",
+          "assetId": "ocean_shore",
+          "label": "Ocean shore",
+          "volumeLinear": 0.35,
+          "muted": false,
+          "solo": false,
+          "pan": 0,
+          "loopMode": "crossfade",
+          "crossfadeMs": 120,
+          "playbackRate": 1
+        }
+      }
+    ],
+    "binaural": {
+      "enabled": true,
+      "mode": "binaural",
+      "preset": "alpha",
+      "carrierFreq": 200,
+      "beatFreq": 10,
+      "volumeLinear": 0.4,
+      "waveform": "sine"
+    },
+    "oneShot": {
+      "enabled": false,
+      "density": "subtle",
+      "customIntervalMs": 180000,
+      "selectedPacks": ["coastal"],
+      "selectedAssets": ["seagulls", "seagulls_surf", "lake_shore", "pebble_beach"],
+      "volumeLinear": 0.4,
+      "spatialPan": true,
+      "pitchJitter": true,
+      "distanceFilter": true,
+      "burstSequence": false,
+      "acousticTail": false
+    }
   }
 ]

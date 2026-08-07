@@ -11,6 +11,14 @@ import {
   DUPLICATE_MIN_OFFSET_DEFAULT_SEC,
 } from '../audio/dsp/loop';
 import defaultPresetsRaw from '../../config/default-presets.json';
+import {
+  parseBinauralConfig,
+  type BinauralConfig,
+} from './binaural';
+import {
+  parseOneShotConfig,
+  type OneShotConfig,
+} from './one-shot';
 
 export const PRESETS_STORAGE_KEY = 'ambient-sound:presets';
 export const LAST_SESSION_KEY = 'ambient-sound:last-session';
@@ -22,6 +30,11 @@ export interface PresetTimerConfig {
   fadeSec: number;
 }
 
+/**
+ * Scene preset: mixer layers + optional tone generator and one-shot accents.
+ * Older presets omit binaural/oneShot; loaders leave current session values
+ * unchanged when those fields are absent.
+ */
 export interface PresetV1 {
   version: 1;
   id: string;
@@ -33,6 +46,10 @@ export interface PresetV1 {
   };
   layers: MixerLayer[];
   timer?: PresetTimerConfig | null;
+  /** Present when the preset captures tone-generator state. */
+  binaural?: BinauralConfig | null;
+  /** Present when the preset captures stochastic one-shot state. */
+  oneShot?: OneShotConfig | null;
 }
 
 export interface PresetStoreFile {
@@ -124,6 +141,20 @@ export function parsePreset(raw: unknown): PresetV1 | null {
     }
   }
 
+  let binaural: BinauralConfig | null | undefined;
+  if (o.binaural === null) {
+    binaural = null;
+  } else if (o.binaural !== undefined) {
+    binaural = parseBinauralConfig(o.binaural);
+  }
+
+  let oneShot: OneShotConfig | null | undefined;
+  if (o.oneShot === null) {
+    oneShot = null;
+  } else if (o.oneShot !== undefined) {
+    oneShot = parseOneShotConfig(o.oneShot);
+  }
+
   const now = new Date().toISOString();
   return {
     version: 1,
@@ -136,6 +167,8 @@ export function parsePreset(raw: unknown): PresetV1 | null {
     },
     layers,
     timer: timer ?? null,
+    ...(binaural !== undefined ? { binaural } : {}),
+    ...(oneShot !== undefined ? { oneShot } : {}),
   };
 }
 
@@ -247,6 +280,8 @@ export interface SessionSnapshotInput {
   layers: MixerLayer[];
   masterVolumeLinear: number;
   timerDefaults?: PresetTimerConfig | null;
+  binaural?: BinauralConfig | null;
+  oneShot?: OneShotConfig | null;
   name?: string;
   id?: string;
 }
@@ -269,6 +304,16 @@ export function snapshotFromSession(input: SessionSnapshotInput): PresetV1 {
       return { kind: 'sample' as const, params: { ...layer.params } };
     }),
     timer: input.timerDefaults ?? null,
+    binaural: input.binaural
+      ? parseBinauralConfig(input.binaural)
+      : input.binaural === null
+        ? null
+        : undefined,
+    oneShot: input.oneShot
+      ? parseOneShotConfig(input.oneShot)
+      : input.oneShot === null
+        ? null
+        : undefined,
   };
 }
 

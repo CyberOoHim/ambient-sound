@@ -93,6 +93,71 @@ export const DEFAULT_BINAURAL_CONFIG: BinauralConfig = {
 };
 
 /**
+ * Normalize unknown/partial input into a valid BinauralConfig.
+ * Used by localStorage, presets, and share links.
+ */
+export function parseBinauralConfig(raw: unknown): BinauralConfig {
+  if (!raw || typeof raw !== 'object') {
+    return { ...DEFAULT_BINAURAL_CONFIG };
+  }
+  const parsed = raw as Partial<BinauralConfig>;
+
+  const validModes: BinauralMode[] = ['binaural', 'isochronic'];
+  const mode: BinauralMode = validModes.includes(parsed.mode as BinauralMode)
+    ? (parsed.mode as BinauralMode)
+    : DEFAULT_BINAURAL_CONFIG.mode;
+
+  const validPresets: BrainwavePresetId[] = [
+    'delta',
+    'theta',
+    'alpha',
+    'beta',
+    'gamma',
+    'custom',
+  ];
+  const preset: BrainwavePresetId = validPresets.includes(
+    parsed.preset as BrainwavePresetId,
+  )
+    ? (parsed.preset as BrainwavePresetId)
+    : DEFAULT_BINAURAL_CONFIG.preset;
+
+  const validWaveforms: WaveformType[] = ['sine', 'triangle'];
+  const waveform: WaveformType = validWaveforms.includes(
+    parsed.waveform as WaveformType,
+  )
+    ? (parsed.waveform as WaveformType)
+    : DEFAULT_BINAURAL_CONFIG.waveform;
+
+  const carrierFreq =
+    typeof parsed.carrierFreq === 'number' && !isNaN(parsed.carrierFreq)
+      ? Math.max(40, Math.min(1000, parsed.carrierFreq))
+      : DEFAULT_BINAURAL_CONFIG.carrierFreq;
+
+  const beatFreq =
+    typeof parsed.beatFreq === 'number' && !isNaN(parsed.beatFreq)
+      ? Math.max(0.5, Math.min(50, parsed.beatFreq))
+      : DEFAULT_BINAURAL_CONFIG.beatFreq;
+
+  const volumeLinear =
+    typeof parsed.volumeLinear === 'number' && !isNaN(parsed.volumeLinear)
+      ? Math.max(0, Math.min(1, parsed.volumeLinear))
+      : DEFAULT_BINAURAL_CONFIG.volumeLinear;
+
+  return {
+    enabled:
+      typeof parsed.enabled === 'boolean'
+        ? parsed.enabled
+        : DEFAULT_BINAURAL_CONFIG.enabled,
+    mode,
+    preset,
+    carrierFreq,
+    beatFreq,
+    volumeLinear,
+    waveform,
+  };
+}
+
+/**
  * Load Binaural configuration from browser LocalStorage with fallback defaults.
  */
 export function loadBinauralConfigFromStorage(): BinauralConfig {
@@ -102,61 +167,7 @@ export function loadBinauralConfigFromStorage(): BinauralConfig {
   try {
     const raw = localStorage.getItem(BINAURAL_STORAGE_KEY);
     if (!raw) return { ...DEFAULT_BINAURAL_CONFIG };
-    const parsed = JSON.parse(raw) as Partial<BinauralConfig>;
-
-    const validModes: BinauralMode[] = ['binaural', 'isochronic'];
-    const mode: BinauralMode = validModes.includes(parsed.mode as BinauralMode)
-      ? (parsed.mode as BinauralMode)
-      : DEFAULT_BINAURAL_CONFIG.mode;
-
-    const validPresets: BrainwavePresetId[] = [
-      'delta',
-      'theta',
-      'alpha',
-      'beta',
-      'gamma',
-      'custom',
-    ];
-    const preset: BrainwavePresetId = validPresets.includes(
-      parsed.preset as BrainwavePresetId,
-    )
-      ? (parsed.preset as BrainwavePresetId)
-      : DEFAULT_BINAURAL_CONFIG.preset;
-
-    const validWaveforms: WaveformType[] = ['sine', 'triangle'];
-    const waveform: WaveformType = validWaveforms.includes(
-      parsed.waveform as WaveformType,
-    )
-      ? (parsed.waveform as WaveformType)
-      : DEFAULT_BINAURAL_CONFIG.waveform;
-
-    const carrierFreq =
-      typeof parsed.carrierFreq === 'number' && !isNaN(parsed.carrierFreq)
-        ? Math.max(40, Math.min(1000, parsed.carrierFreq))
-        : DEFAULT_BINAURAL_CONFIG.carrierFreq;
-
-    const beatFreq =
-      typeof parsed.beatFreq === 'number' && !isNaN(parsed.beatFreq)
-        ? Math.max(0.5, Math.min(50, parsed.beatFreq))
-        : DEFAULT_BINAURAL_CONFIG.beatFreq;
-
-    const volumeLinear =
-      typeof parsed.volumeLinear === 'number' && !isNaN(parsed.volumeLinear)
-        ? Math.max(0, Math.min(1, parsed.volumeLinear))
-        : DEFAULT_BINAURAL_CONFIG.volumeLinear;
-
-    return {
-      enabled:
-        typeof parsed.enabled === 'boolean'
-          ? parsed.enabled
-          : DEFAULT_BINAURAL_CONFIG.enabled,
-      mode,
-      preset,
-      carrierFreq,
-      beatFreq,
-      volumeLinear,
-      waveform,
-    };
+    return parseBinauralConfig(JSON.parse(raw) as unknown);
   } catch (e) {
     console.warn('Failed to load binaural config from localStorage:', e);
     return { ...DEFAULT_BINAURAL_CONFIG };

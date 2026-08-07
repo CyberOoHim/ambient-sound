@@ -65,10 +65,12 @@ Open the local server URL provided by Vite (typically `http://localhost:5173`). 
 
 ### Presets & State
 
-- **Save Presets:** Save active layer combinations, gain settings, and timer defaults to `localStorage`.
+- **Save Presets:** Save the full **scene** — layers, gains, timer defaults, binaural/isochronic tones, and one-shot settings — to `localStorage`.
 - **Load Presets:** Click any saved preset to apply its configuration immediately.
 - **Session Persistence:** Automatically saves your active state on reload.
-- **Import / Export:** Use **Copy JSON** and **Paste JSON** to back up or share custom mix presets.
+- **Share link:** Use **Copy link** to put a URL with `#mix=…` on the clipboard; opening the link restores the scene (no account/backend).
+- **Import / Export:** Use **Copy JSON** and **Paste JSON** to back up or share custom mix presets as JSON.
+- **Attributions:** Footer → **Attributions** lists every Freesound credit from the catalog (also `#attributions`).
 
 ### Ambient Sound Library
 

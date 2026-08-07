@@ -121,55 +121,108 @@ export function getAllOneShotPacks(customPacks: CustomOneShotPack[] = []): OneSh
 }
 
 /**
+ * Normalize unknown/partial input into a valid OneShotConfig.
+ * Used by localStorage, presets, and share links.
+ * Unknown pack/asset ids are kept when they appear as strings so shared
+ * scenes still round-trip; the engine skips missing assets at trigger time.
+ */
+export function parseOneShotConfig(
+  raw: unknown,
+  customPacks: CustomOneShotPack[] = [],
+): OneShotConfig {
+  if (!raw || typeof raw !== 'object') {
+    return { ...DEFAULT_ONE_SHOT_CONFIG, selectedAssets: [...ALL_ONE_SHOT_ASSETS] };
+  }
+  const parsed = raw as Partial<OneShotConfig>;
+
+  const validDensities: OneShotDensity[] = ['subtle', 'balanced', 'lively', 'custom'];
+  const density: OneShotDensity = validDensities.includes(parsed.density as OneShotDensity)
+    ? (parsed.density as OneShotDensity)
+    : DEFAULT_ONE_SHOT_CONFIG.density;
+
+  const allPacks = getAllOneShotPacks(customPacks);
+  const validPackIds = new Set(allPacks.map((p) => p.id));
+  const selectedPacks = Array.isArray(parsed.selectedPacks)
+    ? parsed.selectedPacks.filter((id): id is string => typeof id === 'string' && id.length > 0)
+    : [...DEFAULT_ONE_SHOT_CONFIG.selectedPacks];
+
+  // Prefer known packs; if none remain known, keep raw ids for share round-trip.
+  const knownPacks = selectedPacks.filter((id) => validPackIds.has(id));
+  const resolvedPacks =
+    knownPacks.length > 0
+      ? knownPacks
+      : selectedPacks.length > 0
+        ? selectedPacks
+        : [...DEFAULT_ONE_SHOT_CONFIG.selectedPacks];
+
+  const allAvailableAssets = Array.from(new Set(allPacks.flatMap((p) => p.assetIds)));
+  const selectedAssets = Array.isArray(parsed.selectedAssets)
+    ? parsed.selectedAssets.filter((id): id is string => typeof id === 'string' && id.length > 0)
+    : [...allAvailableAssets];
+
+  const knownAssets = selectedAssets.filter((id) => allAvailableAssets.includes(id));
+  const resolvedAssets =
+    knownAssets.length > 0
+      ? knownAssets
+      : selectedAssets.length > 0
+        ? selectedAssets
+        : [...allAvailableAssets];
+
+  const customIntervalMs =
+    typeof parsed.customIntervalMs === 'number'
+      ? Math.max(5_000, Math.min(600_000, parsed.customIntervalMs))
+      : DEFAULT_ONE_SHOT_CONFIG.customIntervalMs;
+
+  return {
+    enabled:
+      typeof parsed.enabled === 'boolean'
+        ? parsed.enabled
+        : DEFAULT_ONE_SHOT_CONFIG.enabled,
+    density,
+    customIntervalMs,
+    selectedPacks: resolvedPacks,
+    selectedAssets: resolvedAssets,
+    volumeLinear:
+      typeof parsed.volumeLinear === 'number'
+        ? Math.max(0, Math.min(1, parsed.volumeLinear))
+        : DEFAULT_ONE_SHOT_CONFIG.volumeLinear,
+    spatialPan:
+      typeof parsed.spatialPan === 'boolean'
+        ? parsed.spatialPan
+        : DEFAULT_ONE_SHOT_CONFIG.spatialPan,
+    pitchJitter:
+      typeof parsed.pitchJitter === 'boolean'
+        ? parsed.pitchJitter
+        : DEFAULT_ONE_SHOT_CONFIG.pitchJitter,
+    distanceFilter:
+      typeof parsed.distanceFilter === 'boolean'
+        ? parsed.distanceFilter
+        : DEFAULT_ONE_SHOT_CONFIG.distanceFilter,
+    burstSequence:
+      typeof parsed.burstSequence === 'boolean'
+        ? parsed.burstSequence
+        : DEFAULT_ONE_SHOT_CONFIG.burstSequence,
+    acousticTail:
+      typeof parsed.acousticTail === 'boolean'
+        ? parsed.acousticTail
+        : DEFAULT_ONE_SHOT_CONFIG.acousticTail,
+  };
+}
+
+/**
  * Load One-Shot configuration from browser LocalStorage with fallback defaults.
  */
 export function loadOneShotConfigFromStorage(customPacks: CustomOneShotPack[] = []): OneShotConfig {
   if (typeof localStorage === 'undefined') {
-    return { ...DEFAULT_ONE_SHOT_CONFIG };
+    return { ...DEFAULT_ONE_SHOT_CONFIG, selectedAssets: [...ALL_ONE_SHOT_ASSETS] };
   }
   try {
     const raw = localStorage.getItem(ONE_SHOT_STORAGE_KEY);
-    if (!raw) return { ...DEFAULT_ONE_SHOT_CONFIG };
-    const parsed = JSON.parse(raw) as Partial<OneShotConfig>;
-    
-    const validDensities: OneShotDensity[] = ['subtle', 'balanced', 'lively', 'custom'];
-    const density: OneShotDensity = validDensities.includes(parsed.density as OneShotDensity)
-      ? (parsed.density as OneShotDensity)
-      : DEFAULT_ONE_SHOT_CONFIG.density;
-
-    const allPacks = getAllOneShotPacks(customPacks);
-    const validPackIds = allPacks.map(p => p.id);
-    const selectedPacks = Array.isArray(parsed.selectedPacks)
-      ? parsed.selectedPacks.filter(id => validPackIds.includes(id))
-      : DEFAULT_ONE_SHOT_CONFIG.selectedPacks;
-
-    const allAvailableAssets = Array.from(new Set(allPacks.flatMap(p => p.assetIds)));
-    const selectedAssets = Array.isArray(parsed.selectedAssets)
-      ? parsed.selectedAssets.filter(id => allAvailableAssets.includes(id))
-      : [...allAvailableAssets];
-
-    const customIntervalMs = typeof parsed.customIntervalMs === 'number'
-      ? Math.max(5_000, Math.min(600_000, parsed.customIntervalMs))
-      : DEFAULT_ONE_SHOT_CONFIG.customIntervalMs;
-
-    return {
-      enabled: typeof parsed.enabled === 'boolean' ? parsed.enabled : DEFAULT_ONE_SHOT_CONFIG.enabled,
-      density,
-      customIntervalMs,
-      selectedPacks: selectedPacks.length > 0 ? selectedPacks : validPackIds,
-      selectedAssets: selectedAssets.length > 0 ? selectedAssets : [...allAvailableAssets],
-      volumeLinear: typeof parsed.volumeLinear === 'number'
-        ? Math.max(0, Math.min(1, parsed.volumeLinear))
-        : DEFAULT_ONE_SHOT_CONFIG.volumeLinear,
-      spatialPan: typeof parsed.spatialPan === 'boolean' ? parsed.spatialPan : DEFAULT_ONE_SHOT_CONFIG.spatialPan,
-      pitchJitter: typeof parsed.pitchJitter === 'boolean' ? parsed.pitchJitter : DEFAULT_ONE_SHOT_CONFIG.pitchJitter,
-      distanceFilter: typeof parsed.distanceFilter === 'boolean' ? parsed.distanceFilter : DEFAULT_ONE_SHOT_CONFIG.distanceFilter,
-      burstSequence: typeof parsed.burstSequence === 'boolean' ? parsed.burstSequence : DEFAULT_ONE_SHOT_CONFIG.burstSequence,
-      acousticTail: typeof parsed.acousticTail === 'boolean' ? parsed.acousticTail : DEFAULT_ONE_SHOT_CONFIG.acousticTail,
-    };
+    if (!raw) return { ...DEFAULT_ONE_SHOT_CONFIG, selectedAssets: [...ALL_ONE_SHOT_ASSETS] };
+    return parseOneShotConfig(JSON.parse(raw) as unknown, customPacks);
   } catch (e) {
     console.warn('Failed to load one-shot config from localStorage:', e);
-    return { ...DEFAULT_ONE_SHOT_CONFIG };
+    return { ...DEFAULT_ONE_SHOT_CONFIG, selectedAssets: [...ALL_ONE_SHOT_ASSETS] };
   }
 }
 

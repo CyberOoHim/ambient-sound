@@ -1,6 +1,7 @@
 <script lang="ts">
   import { session } from '../app/session';
   import type { PresetV1 } from '../app/presets';
+  import { buildShareUrl } from '../app/share';
   import {
     DUPLICATE_MIN_OFFSET_MAX_SEC,
     DUPLICATE_MIN_OFFSET_MIN_SEC,
@@ -24,6 +25,13 @@
     minOffsetSec = session.duplicateMinOffsetSec;
   }
 
+  function sceneHint(p: PresetV1): string {
+    const parts = [`${p.layers.length} layer${p.layers.length === 1 ? '' : 's'}`];
+    if (p.binaural?.enabled) parts.push('tones');
+    if (p.oneShot?.enabled) parts.push('events');
+    return parts.join(' · ');
+  }
+
   async function load(id: string) {
     busy = true;
     message = null;
@@ -43,10 +51,11 @@
     name = '';
     selectedId = p.id;
     sync();
-    message = `Saved “${p.name}”`;
+    message = `Saved “${p.name}” (mix + tones + events)`;
   }
 
   function remove(id: string) {
+    if (!confirm('Delete this preset?')) return;
     session.removePreset(id);
     if (selectedId === id) selectedId = null;
     sync();
@@ -62,9 +71,25 @@
     if (!json) return;
     try {
       await navigator.clipboard.writeText(json);
-      message = 'Copied to clipboard';
+      message = 'Copied JSON to clipboard';
     } catch {
       message = 'Could not copy';
+    }
+  }
+
+  async function copyShareLink() {
+    message = null;
+    const snap =
+      selectedId != null
+        ? (session.presets.find((p) => p.id === selectedId) ??
+          session.captureSceneSnapshot())
+        : session.captureSceneSnapshot(name.trim() || 'Shared mix');
+    const url = buildShareUrl(snap);
+    try {
+      await navigator.clipboard.writeText(url);
+      message = 'Share link copied';
+    } catch {
+      message = 'Could not copy link';
     }
   }
 
@@ -116,7 +141,7 @@
             onclick={() => void load(p.id)}
           >
             <span class="title">{p.name}</span>
-            <span class="meta">{p.layers.length} layer{p.layers.length === 1 ? '' : 's'}</span>
+            <span class="meta">{sceneHint(p)}</span>
           </button>
           <button
             type="button"
@@ -132,6 +157,9 @@
   {/if}
 
   <div class="io">
+    <button type="button" class="secondary" onclick={() => void copyShareLink()}>
+      Copy link
+    </button>
     <button type="button" class="secondary" onclick={() => void exportSelected()}>
       Copy JSON
     </button>

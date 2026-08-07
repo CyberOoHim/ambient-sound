@@ -129,6 +129,11 @@ export class Session {
   constructor() {
     this.presets = loadPresetsFromStorage().presets;
     this.duplicateMinOffsetSec = loadDuplicateMinOffsetSec();
+    // Load packs + side configs first so scene fields in last session can override.
+    this.customOneShotPacks = loadCustomOneShotPacksFromStorage();
+    this.oneShotConfig = loadOneShotConfigFromStorage(this.customOneShotPacks);
+    this.binauralConfig = loadBinauralConfigFromStorage();
+
     const last = loadLastSession();
     if (last) {
       this.applyPresetData(last);
@@ -139,10 +144,9 @@ export class Session {
         { kind: 'noise', params: createDefaultNoiseLayer(uid('noise'), 'pink') },
       ];
     }
-    this.customOneShotPacks = loadCustomOneShotPacksFromStorage();
-    this.oneShotConfig = loadOneShotConfigFromStorage(this.customOneShotPacks);
     audioEngine.oneShotEngine.setCustomPacks(this.customOneShotPacks);
     audioEngine.oneShotEngine.setConfig(this.oneShotConfig);
+    audioEngine.binauralEngine.updateConfig(this.binauralConfig);
 
     this.ensureMediaSession();
     this.bindPageLifecycle();
@@ -340,6 +344,8 @@ export class Session {
       layers: this.layers,
       masterVolumeLinear: this.masterVolumeLinear,
       timerDefaults: this.timerDefaults,
+      binaural: this.binauralConfig,
+      oneShot: this.oneShotConfig,
     });
     saveLastSession(snap);
   }
@@ -717,6 +723,18 @@ export class Session {
         fadeSec: preset.timer.fadeSec,
       };
     }
+    // Scene fields: apply when present so older mixer-only presets leave
+    // current binaural/one-shot settings alone.
+    if (preset.binaural) {
+      this.binauralConfig = { ...preset.binaural };
+      saveBinauralConfigToStorage(this.binauralConfig);
+      audioEngine.binauralEngine.updateConfig(this.binauralConfig);
+    }
+    if (preset.oneShot) {
+      this.oneShotConfig = { ...preset.oneShot };
+      saveOneShotConfigToStorage(this.oneShotConfig);
+      audioEngine.oneShotEngine.setConfig(this.oneShotConfig);
+    }
   }
 
   async loadPreset(id: string): Promise<void> {
@@ -748,6 +766,8 @@ export class Session {
       layers: this.layers,
       masterVolumeLinear: this.masterVolumeLinear,
       timerDefaults: this.timerDefaults,
+      binaural: this.binauralConfig,
+      oneShot: this.oneShotConfig,
     });
     if (existing) {
       preset.createdAt = existing.createdAt;
@@ -762,6 +782,37 @@ export class Session {
     savePresetsToStorage(store);
     this.notify();
     return preset;
+  }
+
+  /**
+   * Apply a full scene from a shared link or imported preset (layers +
+   * optional binaural/one-shot). Does not add to the saved presets list.
+   */
+  async applySharedScene(preset: PresetV1): Promise<void> {
+    const wasPlaying = this.playing;
+    this.cancelTimer();
+    audioEngine.stopAll();
+    this.applyPresetData(preset);
+    audioEngine.setMasterVolumeLinear(this.masterVolumeLinear);
+    this.playing = false;
+
+    if (wasPlaying && this.layers.length > 0) {
+      await this.play();
+    }
+    this.notify();
+    this.schedulePersist();
+  }
+
+  /** Snapshot of the current mix for share links / export. */
+  captureSceneSnapshot(name = 'Shared mix'): PresetV1 {
+    return snapshotFromSession({
+      name,
+      layers: this.layers,
+      masterVolumeLinear: this.masterVolumeLinear,
+      timerDefaults: this.timerDefaults,
+      binaural: this.binauralConfig,
+      oneShot: this.oneShotConfig,
+    });
   }
 
   removePreset(id: string): void {

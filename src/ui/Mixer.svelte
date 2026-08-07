@@ -1,14 +1,21 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
   import { session } from '../app/session';
+  import {
+    clearMixHashFromLocation,
+    parseLocationHash,
+    setAttributionsHash,
+  } from '../app/share';
   import { NOISE_TYPES, type NoiseType } from '../audio/dsp/colored-noise';
   import { dbToLinear, linearToDb, DB_MIN, DB_MAX } from '../audio/dsp/curves';
   import type { MixerLayer } from '../audio/types';
+  import type { SoundCatalog } from '../assets/catalog';
   import TimerPanel from './TimerPanel.svelte';
   import PresetsPanel from './PresetsPanel.svelte';
   import LibraryPanel from './LibraryPanel.svelte';
   import OneShotPanel from './OneShotPanel.svelte';
   import BinauralPanel from './BinauralPanel.svelte';
+  import AttributionsPanel from './AttributionsPanel.svelte';
   import { formatRemaining } from './format';
 
   let layers = $state<MixerLayer[]>(session.layers);
@@ -26,6 +33,9 @@
   let loadNotice = $state<string | null>(null);
   let timerStatus = $state(session.timer.status);
   let timerRemainingMs = $state<number | null>(session.remainingMs());
+  let catalog = $state<SoundCatalog | null>(session.catalog);
+  let showAttributions = $state(false);
+  let shareNotice = $state<string | null>(null);
 
   let timerPanel: TimerPanel | undefined = $state();
   let presetsPanel: PresetsPanel | undefined = $state();
@@ -49,11 +59,42 @@
     loadNotice = session.loadNotice;
     timerStatus = session.timer.status;
     timerRemainingMs = session.remainingMs();
+    catalog = session.catalog;
     timerPanel?.sync();
     presetsPanel?.sync();
     libraryPanel?.sync();
     oneShotPanel?.sync();
     binauralPanel?.sync();
+  }
+
+  function openAttributions() {
+    showAttributions = true;
+    setAttributionsHash();
+  }
+
+  function closeAttributions() {
+    showAttributions = false;
+    clearMixHashFromLocation();
+  }
+
+  async function applyHashIntent() {
+    if (typeof location === 'undefined') return;
+    const intent = parseLocationHash(location.hash);
+    if (!intent) return;
+    if (intent.kind === 'attributions') {
+      showAttributions = true;
+      return;
+    }
+    if (intent.kind === 'mix') {
+      try {
+        await session.applySharedScene(intent.preset);
+        shareNotice = `Loaded shared mix “${intent.preset.name}” — press Play`;
+        clearMixHashFromLocation();
+        syncFromSession();
+      } catch (e) {
+        error = e instanceof Error ? e.message : String(e);
+      }
+    }
   }
 
   function isLayerLoading(id: string): boolean {
@@ -146,10 +187,17 @@
 
   onMount(() => {
     window.addEventListener('keydown', onKey);
+    window.addEventListener('hashchange', () => {
+      void applyHashIntent();
+    });
     unsub = session.subscribe(() => {
       syncFromSession();
     });
-    void session.whenCatalogReady().then(() => libraryPanel?.sync());
+    void session.whenCatalogReady().then(() => {
+      libraryPanel?.sync();
+      catalog = session.catalog;
+    });
+    void applyHashIntent();
     const tick = () => {
       if (session.playing) {
         peak = session.getPeakLevel();
@@ -251,6 +299,21 @@
     <div class="notice" role="status">
       <p>{loadNotice}</p>
       <button type="button" class="text-btn notice-dismiss" onclick={dismissNotice}>
+        Dismiss
+      </button>
+    </div>
+  {/if}
+
+  {#if shareNotice}
+    <div class="notice" role="status">
+      <p>{shareNotice}</p>
+      <button
+        type="button"
+        class="text-btn notice-dismiss"
+        onclick={() => {
+          shareNotice = null;
+        }}
+      >
         Dismiss
       </button>
     </div>
@@ -427,9 +490,20 @@
   </div>
 
   <footer class="footer">
-    <p>Sounds from Freesound (CC0) · see <code>ATTRIBUTIONS.md</code></p>
+    <p>
+      Sounds from Freesound (CC0) ·
+      <button type="button" class="footer-link" onclick={openAttributions}>
+        Attributions
+      </button>
+    </p>
   </footer>
 </div>
+
+<AttributionsPanel
+  catalog={catalog}
+  open={showAttributions}
+  onclose={closeAttributions}
+/>
 
 <style>
   .mixer {
@@ -970,9 +1044,20 @@
     margin: 0;
   }
 
-  .footer code {
-    font-size: 0.9em;
-    color: var(--muted);
+  .footer-link {
+    font: inherit;
+    font-size: inherit;
+    color: var(--accent);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 0.12em;
+  }
+
+  .footer-link:hover {
+    color: var(--accent-hover);
   }
 
   @media (min-width: 640px) {
