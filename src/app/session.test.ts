@@ -9,7 +9,17 @@ describe('Session empty mix layer behavior', () => {
     session.layers = [
       {
         kind: 'noise',
-        params: { id: 'l1', type: 'pink', volumeLinear: 0.8, stereoWidth: 1, pan: 0, muted: false, solo: false },
+        params: {
+          id: 'l1',
+          type: 'pink',
+          volumeLinear: 0.8,
+          stereoWidth: 1,
+          pan: 0,
+          muted: false,
+          solo: false,
+          lowpassHz: 20000,
+          highpassHz: 20,
+        },
       },
     ];
     session.playing = true;
@@ -63,6 +73,8 @@ describe('Session sample download / loading UI state', () => {
           loopMode: 'crossfade',
           crossfadeMs: 80,
           playbackRate: 1,
+          lowpassHz: 20000,
+          highpassHz: 20,
         },
       },
     ];
@@ -131,7 +143,17 @@ describe('Session timer countdown and fade state', () => {
     session.layers = [
       {
         kind: 'noise',
-        params: { id: 'l1', type: 'white', volumeLinear: 0.5, stereoWidth: 1, pan: 0, muted: false, solo: false },
+        params: {
+          id: 'l1',
+          type: 'white',
+          volumeLinear: 0.5,
+          stereoWidth: 1,
+          pan: 0,
+          muted: false,
+          solo: false,
+          lowpassHz: 20000,
+          highpassHz: 20,
+        },
       },
     ];
     session.playing = true;

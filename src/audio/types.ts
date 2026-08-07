@@ -2,6 +2,35 @@ import type { NoiseType } from './dsp/colored-noise';
 
 export type { NoiseType };
 
+/** Open lowpass (effectively off). */
+export const FILTER_LP_OPEN_HZ = 20_000;
+/** Open highpass (effectively off). */
+export const FILTER_HP_OPEN_HZ = 20;
+
+export interface LayerFilterParams {
+  /** Low-pass cutoff Hz. {@link FILTER_LP_OPEN_HZ} = bypass. */
+  lowpassHz: number;
+  /** High-pass cutoff Hz. {@link FILTER_HP_OPEN_HZ} = bypass. */
+  highpassHz: number;
+}
+
+export function defaultLayerFilters(): LayerFilterParams {
+  return {
+    lowpassHz: FILTER_LP_OPEN_HZ,
+    highpassHz: FILTER_HP_OPEN_HZ,
+  };
+}
+
+export function clampLowpassHz(hz: number): number {
+  if (!Number.isFinite(hz)) return FILTER_LP_OPEN_HZ;
+  return Math.max(200, Math.min(FILTER_LP_OPEN_HZ, hz));
+}
+
+export function clampHighpassHz(hz: number): number {
+  if (!Number.isFinite(hz)) return FILTER_HP_OPEN_HZ;
+  return Math.max(FILTER_HP_OPEN_HZ, Math.min(8_000, hz));
+}
+
 export interface NoiseLayerParams {
   id: string;
   type: NoiseType;
@@ -13,6 +42,10 @@ export interface NoiseLayerParams {
   stereoWidth: number;
   /** -1 left .. 1 right. */
   pan: number;
+  /** User LP for muffled / indoor feel (after type-specific filter). */
+  lowpassHz: number;
+  /** User HP. */
+  highpassHz: number;
 }
 
 export type LoopMode = 'native' | 'crossfade';
@@ -29,6 +62,8 @@ export interface SampleLayerParams {
   loopMode: LoopMode;
   crossfadeMs: number;
   playbackRate: number;
+  lowpassHz: number;
+  highpassHz: number;
 }
 
 export type MixerLayer =
@@ -47,6 +82,7 @@ export function createDefaultNoiseLayer(
     solo: false,
     stereoWidth: 1,
     pan: 0,
+    ...defaultLayerFilters(),
   };
 }
 
@@ -55,7 +91,15 @@ export function createDefaultSampleLayer(
   assetId: string,
   label: string,
   opts?: Partial<
-    Pick<SampleLayerParams, 'loopMode' | 'crossfadeMs' | 'playbackRate' | 'volumeLinear'>
+    Pick<
+      SampleLayerParams,
+      | 'loopMode'
+      | 'crossfadeMs'
+      | 'playbackRate'
+      | 'volumeLinear'
+      | 'lowpassHz'
+      | 'highpassHz'
+    >
   >,
 ): SampleLayerParams {
   return {
@@ -69,6 +113,8 @@ export function createDefaultSampleLayer(
     loopMode: opts?.loopMode ?? 'crossfade',
     crossfadeMs: opts?.crossfadeMs ?? 80,
     playbackRate: opts?.playbackRate ?? 1,
+    lowpassHz: opts?.lowpassHz ?? FILTER_LP_OPEN_HZ,
+    highpassHz: opts?.highpassHz ?? FILTER_HP_OPEN_HZ,
   };
 }
 
@@ -94,3 +140,6 @@ export function layerMuted(layer: MixerLayer): boolean {
 export function layerSolo(layer: MixerLayer): boolean {
   return layer.params.solo;
 }
+
+/** Soft cap for sample + noise layers (mobile CPU). */
+export const MAX_MIXER_LAYERS = 10;

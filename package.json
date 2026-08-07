@@ -1,7 +1,7 @@
 {
   "name": "ambient-sound",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.1.0",
   "type": "module",
   "packageManager": "pnpm@11.18.0",
   "license": "MIT",
@@ -14,6 +14,7 @@
     "test:watch": "vitest",
     "sounds:generate": "node scripts/generate-core-pack.mjs",
     "sounds:freesound": "node scripts/fetch-freesound-core.mjs",
+    "sounds:events": "node scripts/extract-one-shot-events.mjs",
     "validate-manifests": "node scripts/validate-manifests.mjs"
   },
   "devDependencies": {

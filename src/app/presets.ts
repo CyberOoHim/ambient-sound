@@ -4,6 +4,12 @@ import type {
   NoiseType,
   SampleLayerParams,
 } from '../audio/types';
+import {
+  clampHighpassHz,
+  clampLowpassHz,
+  FILTER_HP_OPEN_HZ,
+  FILTER_LP_OPEN_HZ,
+} from '../audio/types';
 import { NOISE_TYPES } from '../audio/dsp/colored-noise';
 import { clampLinear } from '../audio/dsp/curves';
 import {
@@ -73,6 +79,14 @@ function parseNoiseParams(raw: unknown, fallbackId: string): NoiseLayerParams | 
     solo: Boolean(o.solo),
     stereoWidth: Math.max(0, Math.min(1, Number(o.stereoWidth) || 0)),
     pan: Math.max(-1, Math.min(1, Number(o.pan) || 0)),
+    lowpassHz:
+      o.lowpassHz != null
+        ? clampLowpassHz(Number(o.lowpassHz))
+        : FILTER_LP_OPEN_HZ,
+    highpassHz:
+      o.highpassHz != null
+        ? clampHighpassHz(Number(o.highpassHz))
+        : FILTER_HP_OPEN_HZ,
   };
 }
 
@@ -95,6 +109,14 @@ function parseSampleParams(
     loopMode,
     crossfadeMs: Math.max(0, Number(o.crossfadeMs) || 80),
     playbackRate: Math.max(0.5, Math.min(1.5, Number(o.playbackRate) || 1)),
+    lowpassHz:
+      o.lowpassHz != null
+        ? clampLowpassHz(Number(o.lowpassHz))
+        : FILTER_LP_OPEN_HZ,
+    highpassHz:
+      o.highpassHz != null
+        ? clampHighpassHz(Number(o.highpassHz))
+        : FILTER_HP_OPEN_HZ,
   };
 }
 

@@ -6,9 +6,29 @@
 export interface MediaSessionHandlers {
   play: () => void | Promise<void>;
   pause: () => void | Promise<void>;
+  /** Cycle to next saved preset (lock-screen next track). */
+  nexttrack?: () => void | Promise<void>;
+  /** Cycle to previous saved preset. */
+  previoustrack?: () => void | Promise<void>;
 }
 
 let handlers: MediaSessionHandlers | null = null;
+
+function baseUrl(): string {
+  if (typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL) {
+    const base = import.meta.env.BASE_URL;
+    return base.endsWith('/') ? base : `${base}/`;
+  }
+  return '/';
+}
+
+function artworkEntries(): MediaImage[] {
+  const root = baseUrl();
+  return [
+    { src: `${root}icon-192.png`, sizes: '192x192', type: 'image/png' },
+    { src: `${root}icon-512.png`, sizes: '512x512', type: 'image/png' },
+  ];
+}
 
 export function installMediaSessionHandlers(h: MediaSessionHandlers): void {
   handlers = h;
@@ -25,6 +45,12 @@ export function installMediaSessionHandlers(h: MediaSessionHandlers): void {
     navigator.mediaSession.setActionHandler('stop', () => {
       void handlers?.pause();
     });
+    navigator.mediaSession.setActionHandler('nexttrack', () => {
+      void handlers?.nexttrack?.();
+    });
+    navigator.mediaSession.setActionHandler('previoustrack', () => {
+      void handlers?.previoustrack?.();
+    });
   } catch {
     /* some browsers throw on unsupported actions */
   }
@@ -33,14 +59,16 @@ export function installMediaSessionHandlers(h: MediaSessionHandlers): void {
 export function setMediaSessionPlayback(
   playing: boolean,
   title = 'Ambient sounds',
+  artist = 'Ambient',
 ): void {
   if (!('mediaSession' in navigator)) return;
 
   try {
     navigator.mediaSession.metadata = new MediaMetadata({
       title,
-      artist: 'Ambient',
+      artist,
       album: 'Soft sounds',
+      artwork: artworkEntries(),
     });
     navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
   } catch {

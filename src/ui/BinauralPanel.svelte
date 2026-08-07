@@ -12,10 +12,14 @@
 
   export function sync() {
     config = session.binauralConfig;
+    playing = session.playing;
   }
+
+  let playing = $state(session.playing);
 
   function toggleEnabled() {
     session.updateBinauralConfig({ enabled: !config.enabled });
+    playing = session.playing;
     sync();
   }
 
@@ -86,6 +90,10 @@
       <span class="toggle-label">{config.enabled ? 'Enabled' : 'Disabled'}</span>
     </button>
   </div>
+
+  {#if config.enabled && !playing}
+    <p class="paused-hint" role="status">Starts with Play</p>
+  {/if}
 
   {#if config.enabled}
     <div class="panel-content">
@@ -316,6 +324,13 @@
 
   .toggle-btn.active .toggle-label {
     color: #c084fc;
+  }
+
+  .paused-hint {
+    margin: 0.35rem 0 0;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--accent, #60a5fa);
   }
 
   .panel-content {

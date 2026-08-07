@@ -13,6 +13,16 @@ export interface CatalogLoop {
   crossfadeMs?: number;
 }
 
+/** Per-asset hints for stochastic one-shots (sliced from long loops). */
+export interface CatalogOneShotMeta {
+  /** Preferred play length when slicing a long buffer (seconds). */
+  eventDurationSec?: number;
+  /** Preferred start offset in seconds (if buffer is long enough). */
+  preferOffsetSec?: number;
+  /** If true, play the full buffer without random mid-file slices. */
+  playFull?: boolean;
+}
+
 export interface CatalogAsset {
   id: string;
   title: string;
@@ -22,6 +32,8 @@ export interface CatalogAsset {
   tags?: string[];
   loop: CatalogLoop;
   license: CatalogLicense;
+  /** Optional one-shot slice hints (FIX-03). */
+  oneShot?: CatalogOneShotMeta;
 }
 
 export interface SoundCatalog {
@@ -57,6 +69,18 @@ export function parseCatalog(raw: unknown): SoundCatalog | null {
     if (loop.mode !== 'native' && loop.mode !== 'crossfade') continue;
     if (typeof lic.spdx !== 'string' || typeof lic.author !== 'string') continue;
 
+    let oneShot: CatalogOneShotMeta | undefined;
+    if (x.oneShot && typeof x.oneShot === 'object') {
+      const os = x.oneShot as Record<string, unknown>;
+      oneShot = {
+        eventDurationSec:
+          typeof os.eventDurationSec === 'number' ? os.eventDurationSec : undefined,
+        preferOffsetSec:
+          typeof os.preferOffsetSec === 'number' ? os.preferOffsetSec : undefined,
+        playFull: typeof os.playFull === 'boolean' ? os.playFull : undefined,
+      };
+    }
+
     assets.push({
       id: x.id,
       title: x.title,
@@ -78,6 +102,7 @@ export function parseCatalog(raw: unknown): SoundCatalog | null {
           typeof lic.attribution === 'string' ? lic.attribution : undefined,
         notes: typeof lic.notes === 'string' ? lic.notes : undefined,
       },
+      ...(oneShot ? { oneShot } : {}),
     });
   }
 

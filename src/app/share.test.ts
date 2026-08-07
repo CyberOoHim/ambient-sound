@@ -27,6 +27,8 @@ const sample: PresetV1 = {
         solo: false,
         stereoWidth: 1,
         pan: 0,
+        lowpassHz: 20000,
+        highpassHz: 20,
       },
     },
   ],

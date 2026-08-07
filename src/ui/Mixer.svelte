@@ -8,8 +8,16 @@
   } from '../app/share';
   import { NOISE_TYPES, type NoiseType } from '../audio/dsp/colored-noise';
   import { dbToLinear, linearToDb, DB_MIN, DB_MAX } from '../audio/dsp/curves';
-  import type { MixerLayer } from '../audio/types';
+  import {
+    FILTER_HP_OPEN_HZ,
+    FILTER_LP_OPEN_HZ,
+    type MixerLayer,
+  } from '../audio/types';
   import type { SoundCatalog } from '../assets/catalog';
+  import {
+    DUPLICATE_MIN_OFFSET_MAX_SEC,
+    DUPLICATE_MIN_OFFSET_MIN_SEC,
+  } from '../audio/dsp/loop';
   import TimerPanel from './TimerPanel.svelte';
   import PresetsPanel from './PresetsPanel.svelte';
   import LibraryPanel from './LibraryPanel.svelte';
@@ -31,11 +39,24 @@
     Record<string, { ratio: number; determinate: boolean }>
   >({});
   let loadNotice = $state<string | null>(null);
+  let enableHint = $state<string | null>(session.enableHint);
+  let oneShotFireToast = $state<string | null>(session.oneShotFireToast);
   let timerStatus = $state(session.timer.status);
   let timerRemainingMs = $state<number | null>(session.remainingMs());
   let catalog = $state<SoundCatalog | null>(session.catalog);
   let showAttributions = $state(false);
   let shareNotice = $state<string | null>(null);
+  let showMobileTip = $state(false);
+  let showMixSettings = $state(false);
+  let minOffsetSec = $state(session.duplicateMinOffsetSec);
+  /** Mobile accordion: which side panels are expanded */
+  let panelOpen = $state<Record<string, boolean>>({
+    library: true,
+    timer: false,
+    presets: false,
+    binaural: false,
+    oneshot: false,
+  });
 
   let timerPanel: TimerPanel | undefined = $state();
   let presetsPanel: PresetsPanel | undefined = $state();
@@ -57,6 +78,9 @@
     }
     loadProgress = prog;
     loadNotice = session.loadNotice;
+    enableHint = session.enableHint;
+    oneShotFireToast = session.oneShotFireToast;
+    minOffsetSec = session.duplicateMinOffsetSec;
     timerStatus = session.timer.status;
     timerRemainingMs = session.remainingMs();
     catalog = session.catalog;
@@ -65,6 +89,43 @@
     libraryPanel?.sync();
     oneShotPanel?.sync();
     binauralPanel?.sync();
+  }
+
+  function togglePanel(id: string) {
+    panelOpen = { ...panelOpen, [id]: !panelOpen[id] };
+  }
+
+  function onMinOffsetInput(e: Event) {
+    const raw = Number((e.target as HTMLInputElement).value);
+    session.setDuplicateMinOffsetSec(raw);
+    minOffsetSec = session.duplicateMinOffsetSec;
+  }
+
+  function dismissMobileTip() {
+    session.dismissMobileTip();
+    showMobileTip = false;
+  }
+
+  function setLowpass(id: string, hz: number) {
+    session.updateLayerCommon(id, { lowpassHz: hz });
+    syncFromSession();
+  }
+
+  function setHighpass(id: string, hz: number) {
+    session.updateLayerCommon(id, { highpassHz: hz });
+    syncFromSession();
+  }
+
+  function filterLabelLp(hz: number): string {
+    if (hz >= FILTER_LP_OPEN_HZ - 100) return 'open';
+    if (hz >= 1000) return `${(hz / 1000).toFixed(1)}k`;
+    return `${Math.round(hz)}`;
+  }
+
+  function filterLabelHp(hz: number): string {
+    if (hz <= FILTER_HP_OPEN_HZ + 5) return 'open';
+    if (hz >= 1000) return `${(hz / 1000).toFixed(1)}k`;
+    return `${Math.round(hz)}`;
   }
 
   function openAttributions() {
@@ -137,6 +198,8 @@
   }
 
   function clearAll() {
+    if (layers.length === 0) return;
+    if (!confirm('Clear all layers from the mix?')) return;
     session.clearAllLayers();
     syncFromSession();
   }
@@ -198,6 +261,7 @@
       catalog = session.catalog;
     });
     void applyHashIntent();
+    showMobileTip = !session.isMobileTipDismissed();
     const tick = () => {
       if (session.playing) {
         peak = session.getPeakLevel();
@@ -319,6 +383,34 @@
     </div>
   {/if}
 
+  {#if showMobileTip}
+    <div class="mobile-tip" role="status">
+      <p>Tap <strong>Play</strong> once — then you can lock the screen. Audio keeps going.</p>
+      <button type="button" class="text-btn notice-dismiss" onclick={dismissMobileTip}>
+        Got it
+      </button>
+    </div>
+  {/if}
+
+  {#if enableHint}
+    <div class="status-line soft" role="status">
+      {enableHint}
+      <button
+        type="button"
+        class="text-btn notice-dismiss"
+        onclick={() => session.clearEnableHint()}
+      >
+        Dismiss
+      </button>
+    </div>
+  {/if}
+
+  {#if oneShotFireToast}
+    <div class="fire-toast" role="status" aria-live="polite">
+      ✦ {oneShotFireToast}
+    </div>
+  {/if}
+
   {#if loadingIds.length > 0}
     <div class="status-line" role="status">
       Downloading sound{loadingIds.length > 1 ? 's' : ''}…
@@ -333,10 +425,47 @@
           <span class="count">{layers.length}</span>
         {/if}
       </h2>
-      {#if layers.length > 0}
-        <button type="button" class="text-btn" onclick={clearAll}>Clear all</button>
-      {/if}
+      <div class="layers-actions">
+        <button
+          type="button"
+          class="text-btn gear"
+          class:on={showMixSettings}
+          onclick={() => (showMixSettings = !showMixSettings)}
+          aria-expanded={showMixSettings}
+          title="Mix settings"
+        >
+          ⚙
+        </button>
+        {#if layers.length > 0}
+          <button type="button" class="text-btn" onclick={clearAll}>Clear all</button>
+        {/if}
+      </div>
     </div>
+
+    {#if showMixSettings}
+      <div class="mix-settings">
+        <label class="dup-label" for="dup-min-offset">
+          Min offset (same sound)
+        </label>
+        <div class="dup-row">
+          <input
+            id="dup-min-offset"
+            class="dup-input"
+            type="number"
+            min={DUPLICATE_MIN_OFFSET_MIN_SEC}
+            max={DUPLICATE_MIN_OFFSET_MAX_SEC}
+            step="0.5"
+            value={minOffsetSec}
+            onchange={onMinOffsetInput}
+            title="Later copies of the same sound start at least this far into the loop"
+          />
+          <span class="dup-unit">s</span>
+        </div>
+        <p class="dup-hint">
+          Extra copies start later in the loop so they thicken the mix, not only the volume.
+        </p>
+      </div>
+    {/if}
 
     {#if layers.length === 0}
       <div class="empty-layers">
@@ -474,18 +603,120 @@
               </div>
             {/if}
           </div>
+
+          <div class="controls-compact filters">
+            <div class="row mini">
+              <label for="lp-{layer.params.id}" title="Low-pass (muffled / indoor)">
+                LP
+              </label>
+              <input
+                id="lp-{layer.params.id}"
+                type="range"
+                min="200"
+                max={FILTER_LP_OPEN_HZ}
+                step="50"
+                value={layer.params.lowpassHz ?? FILTER_LP_OPEN_HZ}
+                oninput={(e) =>
+                  setLowpass(layer.params.id, Number(e.currentTarget.value))}
+              />
+              <span class="filter-val">
+                {filterLabelLp(layer.params.lowpassHz ?? FILTER_LP_OPEN_HZ)}
+              </span>
+            </div>
+            <div class="row mini">
+              <label for="hp-{layer.params.id}" title="High-pass">HP</label>
+              <input
+                id="hp-{layer.params.id}"
+                type="range"
+                min={FILTER_HP_OPEN_HZ}
+                max="8000"
+                step="10"
+                value={layer.params.highpassHz ?? FILTER_HP_OPEN_HZ}
+                oninput={(e) =>
+                  setHighpass(layer.params.id, Number(e.currentTarget.value))}
+              />
+              <span class="filter-val">
+                {filterLabelHp(layer.params.highpassHz ?? FILTER_HP_OPEN_HZ)}
+              </span>
+            </div>
+          </div>
         </article>
       {/each}
     </div>
   </section>
 
   <div class="side-grid">
-    <LibraryPanel bind:this={libraryPanel} />
+    <div class="accordion-panel" class:open={panelOpen.library}>
+      <button
+        type="button"
+        class="accordion-toggle mobile-only"
+        aria-expanded={panelOpen.library}
+        onclick={() => togglePanel('library')}
+      >
+        Sounds
+        <span class="chev">{panelOpen.library ? '▾' : '▸'}</span>
+      </button>
+      <div class="accordion-body" class:collapsed={!panelOpen.library}>
+        <LibraryPanel bind:this={libraryPanel} />
+      </div>
+    </div>
     <div class="side-stack">
-      <TimerPanel bind:this={timerPanel} />
-      <PresetsPanel bind:this={presetsPanel} />
-      <BinauralPanel bind:this={binauralPanel} />
-      <OneShotPanel bind:this={oneShotPanel} />
+      <div class="accordion-panel" class:open={panelOpen.timer}>
+        <button
+          type="button"
+          class="accordion-toggle mobile-only"
+          aria-expanded={panelOpen.timer}
+          onclick={() => togglePanel('timer')}
+        >
+          Timer
+          <span class="chev">{panelOpen.timer ? '▾' : '▸'}</span>
+        </button>
+        <div class="accordion-body" class:collapsed={!panelOpen.timer}>
+          <TimerPanel bind:this={timerPanel} />
+        </div>
+      </div>
+      <div class="accordion-panel" class:open={panelOpen.presets}>
+        <button
+          type="button"
+          class="accordion-toggle mobile-only"
+          aria-expanded={panelOpen.presets}
+          onclick={() => togglePanel('presets')}
+        >
+          Presets
+          <span class="chev">{panelOpen.presets ? '▾' : '▸'}</span>
+        </button>
+        <div class="accordion-body" class:collapsed={!panelOpen.presets}>
+          <PresetsPanel bind:this={presetsPanel} />
+        </div>
+      </div>
+      <div class="accordion-panel" class:open={panelOpen.binaural}>
+        <button
+          type="button"
+          class="accordion-toggle mobile-only"
+          aria-expanded={panelOpen.binaural}
+          onclick={() => togglePanel('binaural')}
+        >
+          Tones
+          <span class="chev">{panelOpen.binaural ? '▾' : '▸'}</span>
+        </button>
+        <div class="accordion-body" class:collapsed={!panelOpen.binaural}>
+          <BinauralPanel bind:this={binauralPanel} />
+        </div>
+      </div>
+      <div class="accordion-panel" class:open={panelOpen.oneshot}>
+        <button
+          type="button"
+          class="accordion-toggle mobile-only"
+          aria-expanded={panelOpen.oneshot}
+          onclick={() => togglePanel('oneshot')}
+        >
+          Events
+          <span class="chev">{panelOpen.oneshot ? '▾' : '▸'}</span>
+        </button>
+        <div class="accordion-body" class:collapsed={!panelOpen.oneshot}>
+          <OneShotPanel bind:this={oneShotPanel} />
+        </div>
+      </div>
     </div>
   </div>
 
@@ -745,6 +976,202 @@
     justify-content: space-between;
     margin-bottom: 0.45rem;
     padding: 0 0.15rem;
+  }
+
+  .layers-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .text-btn.gear {
+    font-size: 0.95rem;
+    color: var(--muted);
+    padding: 0.15rem 0.35rem;
+  }
+
+  .text-btn.gear.on,
+  .text-btn.gear:hover {
+    color: var(--accent);
+    background: var(--accent-dim);
+  }
+
+  .mix-settings {
+    margin-bottom: 0.55rem;
+    padding: 0.55rem 0.65rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--card);
+  }
+
+  .dup-label {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--muted-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.25rem;
+  }
+
+  .dup-row {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .dup-input {
+    width: 4.5rem;
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.28rem 0.4rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  .dup-unit {
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  .dup-hint {
+    margin: 0.3rem 0 0;
+    font-size: 0.65rem;
+    line-height: 1.35;
+    color: var(--muted-soft);
+  }
+
+  .controls-compact.filters {
+    margin-top: 0.25rem;
+  }
+
+  .controls-compact.filters .row.mini {
+    grid-template-columns: 1.6rem 1fr 2.2rem;
+  }
+
+  .filter-val {
+    font-size: 0.62rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted-soft);
+    text-align: right;
+  }
+
+  .mobile-tip {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    background: var(--accent-dim);
+    border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+    color: var(--text-soft);
+    border-radius: var(--radius);
+    padding: 0.55rem 0.75rem;
+    margin-bottom: 0.65rem;
+    font-size: 0.82rem;
+  }
+
+  .mobile-tip p {
+    margin: 0;
+    line-height: 1.35;
+  }
+
+  .status-line.soft {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+
+  .fire-toast {
+    position: sticky;
+    top: 4.5rem;
+    z-index: 15;
+    margin: 0 auto 0.55rem;
+    max-width: 20rem;
+    text-align: center;
+    padding: 0.4rem 0.85rem;
+    border-radius: var(--radius-pill);
+    background: color-mix(in srgb, var(--accent) 22%, var(--card));
+    border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+    color: var(--accent);
+    font-size: 0.78rem;
+    font-weight: 650;
+    box-shadow: var(--shadow-soft);
+    animation: toast-in 0.25s ease;
+  }
+
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .accordion-toggle {
+    display: none;
+  }
+
+  .accordion-body.collapsed {
+    display: contents;
+  }
+
+  @media (max-width: 639px) {
+    .accordion-toggle.mobile-only {
+      display: flex;
+      width: 100%;
+      align-items: center;
+      justify-content: space-between;
+      font: inherit;
+      font-size: 0.78rem;
+      font-weight: 650;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.5rem 0.75rem;
+      cursor: pointer;
+      margin-bottom: 0.35rem;
+    }
+
+    .accordion-panel.open .accordion-toggle {
+      border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+      color: var(--accent);
+    }
+
+    .accordion-body.collapsed {
+      display: none;
+    }
+
+    .accordion-body:not(.collapsed) {
+      display: block;
+      margin-bottom: 0.5rem;
+    }
+
+    .chev {
+      font-size: 0.85rem;
+      opacity: 0.8;
+    }
+  }
+
+  @media (min-width: 640px) {
+    .accordion-toggle {
+      display: none !important;
+    }
+
+    .accordion-body,
+    .accordion-body.collapsed {
+      display: contents !important;
+    }
   }
 
   h2 {

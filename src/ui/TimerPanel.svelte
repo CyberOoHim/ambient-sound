@@ -8,6 +8,12 @@
   let status = $state(session.timer.status);
   let remainingMs = $state<number | null>(session.remainingMs());
   let busy = $state(false);
+  let mode = $state<'sleep' | 'pomodoro'>('sleep');
+  let pomodoroEnabled = $state(session.pomodoro.enabled);
+  let pomodoroPhase = $state(session.pomodoro.phase);
+  let workSec = $state(session.pomodoro.workSec);
+  let breakSec = $state(session.pomodoro.breakSec);
+  let completedCycles = $state(session.pomodoro.completedWorkCycles);
 
   const presets = [
     { sec: 5 * 60, label: '5m' },
@@ -26,19 +32,45 @@
     { sec: 300, label: '5m' },
   ];
 
+  const pomodoroWorkOptions = [
+    { sec: 15 * 60, label: '15m' },
+    { sec: 25 * 60, label: '25m' },
+    { sec: 45 * 60, label: '45m' },
+    { sec: 50 * 60, label: '50m' },
+  ];
+
+  const pomodoroBreakOptions = [
+    { sec: 3 * 60, label: '3m' },
+    { sec: 5 * 60, label: '5m' },
+    { sec: 10 * 60, label: '10m' },
+    { sec: 15 * 60, label: '15m' },
+  ];
+
   export function sync() {
     durationSec = session.timerDefaults.durationSec;
     activeDurationSec = session.timer.durationSec;
     fadeSec = session.timerDefaults.fadeSec;
     status = session.timer.status;
     remainingMs = session.remainingMs();
+    pomodoroEnabled = session.pomodoro.enabled;
+    pomodoroPhase = session.pomodoro.phase;
+    workSec = session.pomodoro.workSec;
+    breakSec = session.pomodoro.breakSec;
+    completedCycles = session.pomodoro.completedWorkCycles;
+    if (pomodoroEnabled) mode = 'pomodoro';
   }
 
   async function start() {
     busy = true;
     try {
-      session.setTimerDefaults(durationSec, fadeSec);
-      await session.startTimer(durationSec, fadeSec);
+      if (mode === 'pomodoro') {
+        session.setPomodoroDefaults(workSec, breakSec);
+        await session.startPomodoro('work');
+      } else {
+        session.pomodoro = { ...session.pomodoro, enabled: false };
+        session.setTimerDefaults(durationSec, fadeSec);
+        await session.startTimer(durationSec, fadeSec);
+      }
       sync();
     } finally {
       busy = false;
@@ -46,7 +78,11 @@
   }
 
   function cancel() {
-    session.cancelTimer();
+    if (pomodoroEnabled) {
+      session.stopPomodoro();
+    } else {
+      session.cancelTimer();
+    }
     sync();
   }
 
@@ -60,21 +96,60 @@
     session.setTimerDefaults(durationSec, fadeSec);
   }
 
+  function pickWork(sec: number) {
+    workSec = sec;
+    session.setPomodoroDefaults(workSec, breakSec);
+  }
+
+  function pickBreak(sec: number) {
+    breakSec = sec;
+    session.setPomodoroDefaults(workSec, breakSec);
+  }
+
   const running = $derived(status === 'running' || status === 'fading');
 </script>
 
-<section class="panel timer" class:is-fading={status === 'fading'}>
+<section class="panel timer" class:is-fading={status === 'fading'} class:pomodoro={pomodoroEnabled}>
   <header class="panel-head">
-    <h2>Sleep timer</h2>
+    <h2>{pomodoroEnabled ? 'Focus timer' : 'Sleep timer'}</h2>
     {#if running}
       <span class="countdown" class:fading={status === 'fading'}>
         {remainingMs != null ? formatRemaining(remainingMs) : '—'}
-        {status === 'fading' ? ' · fading' : ''}
+        {#if pomodoroEnabled}
+          · {pomodoroPhase === 'work' ? 'work' : 'break'}
+        {:else if status === 'fading'}
+          · fading
+        {/if}
       </span>
     {:else if status === 'done'}
       <span class="countdown done">Ended</span>
     {/if}
   </header>
+
+  {#if !running}
+    <div class="mode-tabs" role="tablist" aria-label="Timer mode">
+      <button
+        type="button"
+        class="mode-tab"
+        class:on={mode === 'sleep'}
+        role="tab"
+        aria-selected={mode === 'sleep'}
+        onclick={() => (mode = 'sleep')}
+      >
+        Sleep
+      </button>
+      <button
+        type="button"
+        class="mode-tab"
+        class:on={mode === 'pomodoro'}
+        role="tab"
+        aria-selected={mode === 'pomodoro'}
+        onclick={() => (mode = 'pomodoro')}
+      >
+        Pomodoro
+      </button>
+    </div>
+  {/if}
 
   {#if running && remainingMs != null && activeDurationSec > 0}
     {@const totalMs = activeDurationSec * 1000}
@@ -83,23 +158,23 @@
     <div
       class="timer-indicator"
       class:fading={status === 'fading'}
+      class:break-phase={pomodoroEnabled && pomodoroPhase === 'break'}
       role="progressbar"
-      aria-label="Sleep timer countdown progress"
+      aria-label="Timer countdown progress"
       aria-valuenow={percent}
       aria-valuemin={0}
       aria-valuemax={100}
     >
       <div class="indicator-track">
-        <div
-          class="indicator-fill"
-          style="width: {percent}%"
-        ></div>
+        <div class="indicator-fill" style="width: {percent}%"></div>
       </div>
       <div class="indicator-meta">
         <span class="status-tag">
           <span class="dot"></span>
           {#if status === 'fading'}
             Fading out ({session.timer.fadeSec}s)
+          {:else if pomodoroEnabled}
+            {pomodoroPhase === 'work' ? 'Focus' : 'Break'} · cycle {completedCycles + (pomodoroPhase === 'work' ? 1 : 0)}
           {:else}
             Timer active
           {/if}
@@ -108,62 +183,98 @@
     </div>
   {/if}
 
-  <div class="chips" role="group" aria-label="Duration">
-    {#each presets as p}
-      <button
-        type="button"
-        class="chip"
-        class:on={durationSec === p.sec}
-        disabled={running}
-        onclick={() => pickDuration(p.sec)}
-      >
-        {p.label}
-      </button>
-    {/each}
-  </div>
-
-  <div class="row">
-    <label for="dur-custom">Custom</label>
-    <input
-      id="dur-custom"
-      type="number"
-      min="1"
-      max="720"
-      step="1"
-      value={Math.round(durationSec / 60)}
-      disabled={running}
-      oninput={(e) => {
-        const mins = Math.max(1, Number(e.currentTarget.value) || 1);
-        durationSec = mins * 60;
-        session.setTimerDefaults(durationSec, fadeSec);
-      }}
-    />
-    <span class="unit">min · {formatDurationLabel(durationSec)}</span>
-  </div>
-
-  <div class="fade-row">
-    <span class="fade-label">Fade</span>
-    <div class="chips fade-chips" role="group" aria-label="Fade length">
-      {#each fadeOptions as f}
+  {#if mode === 'pomodoro' && !running}
+    <div class="fade-row">
+      <span class="fade-label">Work</span>
+      <div class="chips fade-chips" role="group" aria-label="Work duration">
+        {#each pomodoroWorkOptions as p}
+          <button
+            type="button"
+            class="chip sm"
+            class:on={workSec === p.sec}
+            onclick={() => pickWork(p.sec)}
+          >
+            {p.label}
+          </button>
+        {/each}
+      </div>
+    </div>
+    <div class="fade-row">
+      <span class="fade-label">Break</span>
+      <div class="chips fade-chips" role="group" aria-label="Break duration">
+        {#each pomodoroBreakOptions as p}
+          <button
+            type="button"
+            class="chip sm"
+            class:on={breakSec === p.sec}
+            onclick={() => pickBreak(p.sec)}
+          >
+            {p.label}
+          </button>
+        {/each}
+      </div>
+    </div>
+    <p class="pomo-hint">
+      Work {formatDurationLabel(workSec)} → break {formatDurationLabel(breakSec)} · auto-cycles
+    </p>
+  {:else if mode === 'sleep' && !running}
+    <div class="chips" role="group" aria-label="Duration">
+      {#each presets as p}
         <button
           type="button"
-          class="chip sm"
-          class:on={fadeSec === f.sec}
+          class="chip"
+          class:on={durationSec === p.sec}
           disabled={running}
-          onclick={() => pickFade(f.sec)}
+          onclick={() => pickDuration(p.sec)}
         >
-          {f.label}
+          {p.label}
         </button>
       {/each}
     </div>
-  </div>
+
+    <div class="row">
+      <label for="dur-custom">Custom</label>
+      <input
+        id="dur-custom"
+        type="number"
+        min="1"
+        max="720"
+        step="1"
+        value={Math.round(durationSec / 60)}
+        disabled={running}
+        oninput={(e) => {
+          const mins = Math.max(1, Number(e.currentTarget.value) || 1);
+          durationSec = mins * 60;
+          session.setTimerDefaults(durationSec, fadeSec);
+        }}
+      />
+      <span class="unit">min · {formatDurationLabel(durationSec)}</span>
+    </div>
+
+    <div class="fade-row">
+      <span class="fade-label">Fade</span>
+      <div class="chips fade-chips" role="group" aria-label="Fade length">
+        {#each fadeOptions as f}
+          <button
+            type="button"
+            class="chip sm"
+            class:on={fadeSec === f.sec}
+            disabled={running}
+            onclick={() => pickFade(f.sec)}
+          >
+            {f.label}
+          </button>
+        {/each}
+      </div>
+    </div>
+  {/if}
 
   <div class="actions">
     {#if running}
       <button type="button" class="secondary" onclick={cancel}>Cancel</button>
     {:else}
       <button type="button" class="primary" disabled={busy} onclick={() => void start()}>
-        Start timer
+        {mode === 'pomodoro' ? 'Start focus' : 'Start timer'}
       </button>
     {/if}
   </div>
@@ -182,6 +293,10 @@
   .panel.timer.is-fading {
     border-color: color-mix(in srgb, var(--solo) 40%, var(--border));
     box-shadow: 0 0 14px rgba(251, 191, 36, 0.1), var(--shadow-card);
+  }
+
+  .panel.timer.pomodoro {
+    border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
   }
 
   .panel-head {
@@ -218,7 +333,37 @@
     font-weight: 500;
   }
 
-  /* ── Timer Visual Countdown Indicator ── */
+  .mode-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.3rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .mode-tab {
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 650;
+    padding: 0.3rem 0.4rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--muted);
+    cursor: pointer;
+  }
+
+  .mode-tab.on {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+    color: var(--accent);
+  }
+
+  .pomo-hint {
+    margin: 0 0 0.45rem;
+    font-size: 0.68rem;
+    color: var(--muted-soft);
+  }
+
   .timer-indicator {
     margin-bottom: 0.65rem;
     padding: 0.45rem 0.55rem;
@@ -232,6 +377,15 @@
     background: var(--solo-dim);
     border-color: color-mix(in srgb, var(--solo) 55%, transparent);
     box-shadow: 0 0 12px rgba(251, 191, 36, 0.15);
+  }
+
+  .timer-indicator.break-phase {
+    border-color: color-mix(in srgb, #34d399 45%, var(--border));
+  }
+
+  .timer-indicator.break-phase .indicator-fill {
+    background: linear-gradient(90deg, #34d399, #6ee7b7);
+    box-shadow: 0 0 8px rgba(52, 211, 153, 0.4);
   }
 
   .indicator-track {
@@ -388,6 +542,7 @@
     font-weight: 600;
     color: var(--muted);
     flex-shrink: 0;
+    min-width: 2.4rem;
   }
 
   .fade-chips {

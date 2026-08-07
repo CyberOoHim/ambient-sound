@@ -6,7 +6,11 @@ import {
   pickDuplicateStartOffset,
 } from './dsp/loop';
 import {
+  clampHighpassHz,
+  clampLowpassHz,
   effectiveMuteSolo,
+  FILTER_HP_OPEN_HZ,
+  FILTER_LP_OPEN_HZ,
   layerId,
   layerMuted,
   layerSolo,
@@ -32,7 +36,12 @@ interface NoiseNodes {
   volume: GainNode;
   pan: StereoPannerNode;
   muteSolo: GainNode;
+  /** Type-specific color filter (rain/fan/static). */
   filter: BiquadFilterNode;
+  /** User low-pass (muffled / indoor). */
+  userLp: BiquadFilterNode;
+  /** User high-pass. */
+  userHp: BiquadFilterNode;
 }
 
 interface SampleNodes {
@@ -41,6 +50,8 @@ interface SampleNodes {
   volume: GainNode;
   pan: StereoPannerNode;
   muteSolo: GainNode;
+  userLp: BiquadFilterNode;
+  userHp: BiquadFilterNode;
 }
 
 type LayerNodes = NoiseNodes | SampleNodes;
@@ -268,6 +279,10 @@ export class AudioEngine {
     const filter = ctx.createBiquadFilter();
     this.configureFilter(filter, params.type);
 
+    const userHp = ctx.createBiquadFilter();
+    const userLp = ctx.createBiquadFilter();
+    this.applyUserFilters(userHp, userLp, params.highpassHz, params.lowpassHz);
+
     const volume = ctx.createGain();
     volume.gain.value = clampLinear(params.volumeLinear);
 
@@ -277,13 +292,25 @@ export class AudioEngine {
     const muteSolo = ctx.createGain();
     muteSolo.gain.value = 1;
 
+    // worklet → type filter → user HP → user LP → volume → pan → muteSolo → master
     worklet.connect(filter);
-    filter.connect(volume);
+    filter.connect(userHp);
+    userHp.connect(userLp);
+    userLp.connect(volume);
     volume.connect(pan);
     pan.connect(muteSolo);
     muteSolo.connect(this.master);
 
-    this.layers.set(params.id, { kind: 'noise', worklet, volume, pan, muteSolo, filter });
+    this.layers.set(params.id, {
+      kind: 'noise',
+      worklet,
+      volume,
+      pan,
+      muteSolo,
+      filter,
+      userLp,
+      userHp,
+    });
   }
 
   updateNoiseLayer(params: NoiseLayerParams): void {
@@ -305,6 +332,7 @@ export class AudioEngine {
     }
 
     this.configureFilter(nodes.filter, params.type);
+    this.applyUserFilters(nodes.userHp, nodes.userLp, params.highpassHz, params.lowpassHz);
     nodes.volume.gain.setTargetAtTime(clampLinear(params.volumeLinear), t, 0.015);
     nodes.pan.pan.setTargetAtTime(Math.max(-1, Math.min(1, params.pan)), t, 0.015);
   }
@@ -341,6 +369,10 @@ export class AudioEngine {
         return;
       }
 
+      const userHp = ctx.createBiquadFilter();
+      const userLp = ctx.createBiquadFilter();
+      this.applyUserFilters(userHp, userLp, params.highpassHz, params.lowpassHz);
+
       const volume = ctx.createGain();
       volume.gain.value = clampLinear(params.volumeLinear);
 
@@ -350,11 +382,14 @@ export class AudioEngine {
       const muteSolo = ctx.createGain();
       muteSolo.gain.value = 1;
 
+      // player → user HP → user LP → volume → pan → muteSolo → master
+      userHp.connect(userLp);
+      userLp.connect(volume);
       volume.connect(pan);
       pan.connect(muteSolo);
       muteSolo.connect(this.master);
 
-      const player = new SamplePlayer(ctx, buffer, volume, {
+      const player = new SamplePlayer(ctx, buffer, userHp, {
         loopMode: params.loopMode,
         crossfadeMs: params.crossfadeMs,
         playbackRate: params.playbackRate,
@@ -367,7 +402,15 @@ export class AudioEngine {
       );
       player.start(offsetSec);
 
-      this.layers.set(params.id, { kind: 'sample', player, volume, pan, muteSolo });
+      this.layers.set(params.id, {
+        kind: 'sample',
+        player,
+        volume,
+        pan,
+        muteSolo,
+        userLp,
+        userHp,
+      });
     } finally {
       this.inflightLoads.delete(params.id);
       this.cancelledLoads.delete(params.id);
@@ -380,6 +423,7 @@ export class AudioEngine {
     const t = this.ctx.currentTime;
     nodes.volume.gain.setTargetAtTime(clampLinear(params.volumeLinear), t, 0.015);
     nodes.pan.pan.setTargetAtTime(Math.max(-1, Math.min(1, params.pan)), t, 0.015);
+    this.applyUserFilters(nodes.userHp, nodes.userLp, params.highpassHz, params.lowpassHz);
     // Rate / loop mode: apply only on restart (v1 simplification)
   }
 
@@ -409,6 +453,26 @@ export class AudioEngine {
     }
   }
 
+  /** Apply user HP/LP; near-open values act as transparent. */
+  private applyUserFilters(
+    hp: BiquadFilterNode,
+    lp: BiquadFilterNode,
+    highpassHz: number | undefined,
+    lowpassHz: number | undefined,
+  ): void {
+    const hpHz = clampHighpassHz(highpassHz ?? FILTER_HP_OPEN_HZ);
+    const lpHz = clampLowpassHz(lowpassHz ?? FILTER_LP_OPEN_HZ);
+
+    hp.type = 'highpass';
+    hp.Q.value = 0.707;
+    // Below ~25 Hz highpass is essentially transparent for ambient content
+    hp.frequency.value = hpHz <= FILTER_HP_OPEN_HZ + 5 ? 10 : hpHz;
+
+    lp.type = 'lowpass';
+    lp.Q.value = 0.707;
+    lp.frequency.value = lpHz >= FILTER_LP_OPEN_HZ - 100 ? 22_000 : lpHz;
+  }
+
   removeLayer(id: string): void {
     // Always mark cancel so an in-flight fetch for this id is discarded,
     // even when engine nodes do not exist yet (download still in progress).
@@ -419,9 +483,13 @@ export class AudioEngine {
       if (nodes.kind === 'noise') {
         nodes.worklet.disconnect();
         nodes.filter.disconnect();
+        nodes.userHp.disconnect();
+        nodes.userLp.disconnect();
         nodes.worklet.port.close();
       } else {
         nodes.player.stop();
+        nodes.userHp.disconnect();
+        nodes.userLp.disconnect();
       }
       nodes.volume.disconnect();
       nodes.pan.disconnect();

@@ -57,6 +57,8 @@ const sample: PresetV1 = {
         solo: false,
         stereoWidth: 1,
         pan: 0,
+        lowpassHz: 20000,
+        highpassHz: 20,
       },
     },
     {
@@ -72,6 +74,8 @@ const sample: PresetV1 = {
         loopMode: 'crossfade',
         crossfadeMs: 80,
         playbackRate: 1,
+        lowpassHz: 20000,
+        highpassHz: 20,
       },
     },
   ],

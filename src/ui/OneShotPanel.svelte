@@ -18,6 +18,7 @@
   let expandedPacks = $state<Record<string, boolean>>({});
   let history = $state(session.getOneShotHistory());
   let customPacks = $state(session.customOneShotPacks);
+  let playing = $state(session.playing);
 
   // Custom Pack Manager Form state
   let showCreatePackModal = $state(false);
@@ -35,10 +36,12 @@
     lastTrigger = session.lastOneShotTrigger;
     history = session.getOneShotHistory();
     customPacks = session.customOneShotPacks;
+    playing = session.playing;
   }
 
   function toggleEnabled() {
     session.updateOneShotConfig({ enabled: !config.enabled });
+    playing = session.playing;
     sync();
   }
 
@@ -236,6 +239,10 @@
       <span class="toggle-label">{config.enabled ? 'Enabled' : 'Disabled'}</span>
     </button>
   </div>
+
+  {#if config.enabled && !playing}
+    <p class="paused-hint" role="status">Starts with Play</p>
+  {/if}
 
   <!-- 2D Soundstage Radar Canvas -->
   <div class="radar-container">
@@ -713,6 +720,13 @@
 
   .toggle-btn.active .toggle-thumb {
     transform: translateX(14px);
+  }
+
+  .paused-hint {
+    margin: 0.35rem 0 0.5rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--accent, #60a5fa);
   }
 
   /* Soundstage Radar Visualizer */

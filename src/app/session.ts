@@ -1,7 +1,12 @@
 import { audioEngine } from '../audio/engine';
 import {
+  clampHighpassHz,
+  clampLowpassHz,
   createDefaultNoiseLayer,
   createDefaultSampleLayer,
+  FILTER_HP_OPEN_HZ,
+  FILTER_LP_OPEN_HZ,
+  MAX_MIXER_LAYERS,
   type MixerLayer,
   type NoiseType,
   type SampleLayerParams,
@@ -15,6 +20,7 @@ import {
 import {
   createPresetId,
   deletePreset,
+  getDefaultPresets,
   loadDuplicateMinOffsetSec,
   loadLastSession,
   loadPresetsFromStorage,
@@ -70,6 +76,37 @@ export interface TimerState {
   fadeSec: number;
 }
 
+export type PomodoroPhase = 'work' | 'break';
+
+export interface PomodoroState {
+  /** When true, timer cycles work → break → work… */
+  enabled: boolean;
+  phase: PomodoroPhase;
+  workSec: number;
+  breakSec: number;
+  /** Completed work intervals in the current run. */
+  completedWorkCycles: number;
+}
+
+const POMODORO_STORAGE_KEY = 'ambient-sound:pomodoro-defaults';
+const MOBILE_TIP_KEY = 'ambient-sound:mobile-tip-dismissed';
+
+function loadPomodoroDefaults(): Pick<PomodoroState, 'workSec' | 'breakSec'> {
+  const fallback = { workSec: 25 * 60, breakSec: 5 * 60 };
+  if (typeof localStorage === 'undefined') return fallback;
+  try {
+    const raw = localStorage.getItem(POMODORO_STORAGE_KEY);
+    if (!raw) return fallback;
+    const o = JSON.parse(raw) as Record<string, unknown>;
+    return {
+      workSec: Math.max(60, Number(o.workSec) || fallback.workSec),
+      breakSec: Math.max(30, Number(o.breakSec) || fallback.breakSec),
+    };
+  } catch {
+    return fallback;
+  }
+}
+
 /**
  * Session owns layers (noise + sample), mute/solo, sleep timer, presets, catalog.
  */
@@ -95,6 +132,17 @@ export class Session {
    */
   loadNotice: string | null = null;
 
+  /**
+   * Short hint when enabling binaural/one-shot while paused (FIX-01).
+   */
+  enableHint: string | null = null;
+
+  /**
+   * Ephemeral toast when a one-shot event fires (ENH-10).
+   */
+  oneShotFireToast: string | null = null;
+  private oneShotToastTimer: ReturnType<typeof setTimeout> | null = null;
+
   timerDefaults: PresetTimerConfig = { durationSec: 30 * 60, fadeSec: 60 };
 
   timer: TimerState = {
@@ -102,6 +150,13 @@ export class Session {
     endAtMs: null,
     durationSec: 30 * 60,
     fadeSec: 60,
+  };
+
+  pomodoro: PomodoroState = {
+    enabled: false,
+    phase: 'work',
+    ...loadPomodoroDefaults(),
+    completedWorkCycles: 0,
   };
 
   presets: PresetV1[] = [];
@@ -116,6 +171,9 @@ export class Session {
   oneShotConfig: OneShotConfig = loadOneShotConfigFromStorage(this.customOneShotPacks);
   lastOneShotTrigger: OneShotTriggerEvent | null = null;
   binauralConfig: BinauralConfig = loadBinauralConfigFromStorage();
+
+  /** Index into presets for media-session next/prev. */
+  private mediaPresetIndex = 0;
 
   private pollId: ReturnType<typeof setInterval> | null = null;
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -153,15 +211,46 @@ export class Session {
     audioEngine.oneShotEngine.addListener((evt) => {
       if (evt) {
         this.lastOneShotTrigger = evt;
+        this.showOneShotFireToast(evt);
         this.notify();
       }
     });
+  }
+
+  private showOneShotFireToast(evt: OneShotTriggerEvent): void {
+    this.oneShotFireToast = `${evt.packLabel}: ${evt.assetLabel}`;
+    if (this.oneShotToastTimer) clearTimeout(this.oneShotToastTimer);
+    this.oneShotToastTimer = setTimeout(() => {
+      this.oneShotFireToast = null;
+      this.oneShotToastTimer = null;
+      this.notify();
+    }, 2200);
+  }
+
+  clearEnableHint(): void {
+    if (this.enableHint == null) return;
+    this.enableHint = null;
+    this.notify();
+  }
+
+  private setEnableHintIfPaused(feature: string): void {
+    if (this.playing) {
+      this.enableHint = null;
+      return;
+    }
+    this.enableHint = `${feature} starts with Play`;
   }
 
   updateBinauralConfig(partial: Partial<BinauralConfig>): void {
     this.binauralConfig = { ...this.binauralConfig, ...partial };
     saveBinauralConfigToStorage(this.binauralConfig);
     audioEngine.binauralEngine.updateConfig(this.binauralConfig);
+    if (partial.enabled === true) {
+      this.setEnableHintIfPaused('Tone generator');
+      // If already playing, engines are running; updateConfig applies immediately.
+    } else if (partial.enabled === false) {
+      this.enableHint = null;
+    }
     this.notify();
   }
 
@@ -169,6 +258,11 @@ export class Session {
     this.oneShotConfig = { ...this.oneShotConfig, ...partial };
     saveOneShotConfigToStorage(this.oneShotConfig);
     audioEngine.oneShotEngine.setConfig(this.oneShotConfig);
+    if (partial.enabled === true) {
+      this.setEnableHintIfPaused('One-shot events');
+    } else if (partial.enabled === false) {
+      this.enableHint = null;
+    }
     this.notify();
   }
 
@@ -255,8 +349,32 @@ export class Session {
     installMediaSessionHandlers({
       play: () => this.play(),
       pause: () => this.pause(),
+      nexttrack: () => this.cyclePreset(1),
+      previoustrack: () => this.cyclePreset(-1),
     });
   }
+
+  /** Cycle saved presets from lock-screen next/previous (ENH-06). */
+  async cyclePreset(delta: 1 | -1): Promise<void> {
+    if (this.presets.length === 0) return;
+    this.mediaPresetIndex =
+      ((this.mediaPresetIndex + delta) % this.presets.length + this.presets.length) %
+      this.presets.length;
+    const p = this.presets[this.mediaPresetIndex];
+    if (!p) return;
+    await this.loadPreset(p.id);
+  }
+
+  /** Soft layer cap (FIX-04). */
+  canAddLayer(): boolean {
+    return this.layers.length < MAX_MIXER_LAYERS;
+  }
+
+  layerCapMessage(): string {
+    return `Layer limit reached (${MAX_MIXER_LAYERS}). Remove a layer to add more.`;
+  }
+
+  static readonly MAX_LAYERS = MAX_MIXER_LAYERS;
 
   /**
    * Re-assert playback when returning to the tab / unlocking the device.
@@ -361,6 +479,7 @@ export class Session {
     await audioEngine.resume();
     audioEngine.restoreMasterGain();
     audioEngine.setMasterVolumeLinear(this.masterVolumeLinear);
+    this.enableHint = null;
 
     // Snapshot ids at start; layers may be removed while samples download.
     // Failed sample downloads auto-remove that layer and continue the rest.
@@ -410,6 +529,11 @@ export class Session {
   }
 
   async addNoiseLayer(type: NoiseType = 'white'): Promise<void> {
+    if (!this.canAddLayer()) {
+      this.setLoadNotice(this.layerCapMessage());
+      this.notify();
+      return;
+    }
     const layer: MixerLayer = {
       kind: 'noise',
       params: createDefaultNoiseLayer(uid('noise'), type),
@@ -436,6 +560,11 @@ export class Session {
   async addSampleFromAsset(asset: CatalogAsset): Promise<string> {
     await this.ensureCatalogReady();
     if (!this.catalog) throw new Error(this.catalogError ?? 'Catalog unavailable');
+    if (!this.canAddLayer()) {
+      this.setLoadNotice(this.layerCapMessage());
+      this.notify();
+      return '';
+    }
 
     const layer: MixerLayer = {
       kind: 'sample',
@@ -457,6 +586,196 @@ export class Session {
     }
     this.notify();
     return layer.params.id;
+  }
+
+  /**
+   * Build a random complementary mix (ENH-04). Replaces current layers.
+   */
+  async surpriseMe(options?: { includeBinaural?: boolean; includeOneShot?: boolean }): Promise<void> {
+    await this.ensureCatalogReady();
+    if (!this.catalog || this.catalog.assets.length === 0) {
+      this.setLoadNotice('Catalog not ready — try again in a moment.');
+      this.notify();
+      return;
+    }
+
+    const includeBinaural = options?.includeBinaural ?? false;
+    const includeOneShot = options?.includeOneShot ?? false;
+
+    // Curated complementary groups (asset ids that work well together)
+    const groups: string[][] = [
+      ['rain_light', 'fire_camp', 'stream_small'],
+      ['ocean_shore', 'seagulls', 'wind_trees'],
+      ['crickets_night', 'owls_forest', 'fire_camp'],
+      ['rain_tent', 'thunder_distant', 'wind_trees'],
+      ['train_ride', 'rain_roof'],
+      ['bus_ride', 'rain_light'],
+      ['amazon_forest', 'birds_morning', 'stream_small'],
+      ['cave_drips', 'underwater'],
+      ['winter_storm', 'fire_camp'],
+      ['lake_shore', 'frogs_pond', 'cicadas_summer'],
+    ];
+
+    const available = new Set(this.catalog.assets.map((a) => a.id));
+    const validGroups = groups
+      .map((g) => g.filter((id) => available.has(id)))
+      .filter((g) => g.length >= 2);
+
+    const pick =
+      validGroups.length > 0
+        ? validGroups[Math.floor(Math.random() * validGroups.length)]
+        : this.catalog.assets
+            .slice()
+            .sort(() => Math.random() - 0.5)
+            .slice(0, 3)
+            .map((a) => a.id);
+
+    // 2–4 layers
+    const count = Math.min(4, Math.max(2, pick.length));
+    const chosen = pick.slice(0, count);
+
+    const wasPlaying = this.playing;
+    this.cancelTimer();
+    audioEngine.stopAll();
+    this.layers = [];
+
+    const pans = [-0.35, 0.35, 0, -0.15, 0.2];
+    const vols = [0.65, 0.55, 0.45, 0.5];
+
+    for (let i = 0; i < chosen.length; i++) {
+      const asset = findAsset(this.catalog, chosen[i]);
+      if (!asset) continue;
+      this.layers.push({
+        kind: 'sample',
+        params: createDefaultSampleLayer(uid('sample'), asset.id, asset.title, {
+          loopMode: asset.loop.mode,
+          crossfadeMs: asset.loop.crossfadeMs ?? 80,
+          volumeLinear: vols[i % vols.length],
+        }),
+      });
+      const layer = this.layers[this.layers.length - 1];
+      if (layer.kind === 'sample') {
+        layer.params.pan = pans[i % pans.length];
+      }
+    }
+
+    // ~30% chance of soft pink bed
+    if (this.layers.length < MAX_MIXER_LAYERS && Math.random() < 0.3) {
+      const noise = createDefaultNoiseLayer(uid('noise'), 'pink');
+      noise.volumeLinear = 0.28;
+      this.layers.push({ kind: 'noise', params: noise });
+    }
+
+    this.masterVolumeLinear = 0.85;
+    audioEngine.setMasterVolumeLinear(this.masterVolumeLinear);
+
+    if (!includeBinaural) {
+      this.updateBinauralConfig({ enabled: false });
+    }
+    if (!includeOneShot) {
+      this.updateOneShotConfig({ enabled: false });
+    }
+
+    this.playing = false;
+    if (wasPlaying && this.layers.length > 0) {
+      await this.play();
+    }
+    this.setLoadNotice(
+      `Surprise mix: ${this.layers
+        .map((l) => (l.kind === 'sample' ? l.params.label : `${l.params.type} noise`))
+        .join(' · ')}`,
+    );
+    this.notify();
+    this.schedulePersist();
+  }
+
+  setPomodoroDefaults(workSec: number, breakSec: number): void {
+    this.pomodoro = {
+      ...this.pomodoro,
+      workSec: Math.max(60, workSec),
+      breakSec: Math.max(30, breakSec),
+    };
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem(
+          POMODORO_STORAGE_KEY,
+          JSON.stringify({
+            workSec: this.pomodoro.workSec,
+            breakSec: this.pomodoro.breakSec,
+          }),
+        );
+      } catch {
+        /* */
+      }
+    }
+    this.notify();
+  }
+
+  /**
+   * Start a pomodoro work/break cycle using the sleep-timer wall clock (ENH-03).
+   */
+  async startPomodoro(phase: PomodoroPhase = 'work'): Promise<void> {
+    this.pomodoro = {
+      ...this.pomodoro,
+      enabled: true,
+      phase,
+      completedWorkCycles:
+        phase === 'work' ? this.pomodoro.completedWorkCycles : this.pomodoro.completedWorkCycles,
+    };
+    const dur =
+      phase === 'work' ? this.pomodoro.workSec : this.pomodoro.breakSec;
+    // Short fade at end of each phase
+    const fade = Math.min(15, Math.max(5, Math.floor(dur * 0.05)));
+    await this.startTimer(dur, fade);
+  }
+
+  stopPomodoro(): void {
+    this.pomodoro = {
+      ...this.pomodoro,
+      enabled: false,
+      phase: 'work',
+      completedWorkCycles: 0,
+    };
+    this.cancelTimer();
+  }
+
+  isMobileTipDismissed(): boolean {
+    if (typeof localStorage === 'undefined') return true;
+    try {
+      return localStorage.getItem(MOBILE_TIP_KEY) === '1';
+    } catch {
+      return true;
+    }
+  }
+
+  dismissMobileTip(): void {
+    if (typeof localStorage === 'undefined') return;
+    try {
+      localStorage.setItem(MOBILE_TIP_KEY, '1');
+    } catch {
+      /* */
+    }
+    this.notify();
+  }
+
+  /** Merge missing default curated presets into the saved list (ENH-05). */
+  restoreDefaultPresets(): number {
+    const defaults = getDefaultPresets();
+    const existingIds = new Set(this.presets.map((p) => p.id));
+    let added = 0;
+    let store: PresetStoreFile = { version: 1, presets: this.presets };
+    for (const d of defaults) {
+      if (existingIds.has(d.id)) continue;
+      store = upsertPreset(store, d);
+      existingIds.add(d.id);
+      added++;
+    }
+    if (added > 0) {
+      this.presets = store.presets;
+      savePresetsToStorage(store);
+      this.notify();
+    }
+    return added;
   }
 
   removeLayer(id: string): void {
@@ -541,12 +860,26 @@ export class Session {
   /** Generic mute/solo/volume helpers for UI */
   updateLayerCommon(
     id: string,
-    patch: { volumeLinear?: number; muted?: boolean; solo?: boolean; pan?: number },
+    patch: {
+      volumeLinear?: number;
+      muted?: boolean;
+      solo?: boolean;
+      pan?: number;
+      lowpassHz?: number;
+      highpassHz?: number;
+    },
   ): void {
     const layer = this.layers.find((l) => l.params.id === id);
     if (!layer) return;
-    if (layer.kind === 'noise') this.updateNoiseLayer(id, patch);
-    else this.updateSampleLayer(id, patch);
+    const normalized = { ...patch };
+    if (patch.lowpassHz != null) {
+      normalized.lowpassHz = clampLowpassHz(patch.lowpassHz);
+    }
+    if (patch.highpassHz != null) {
+      normalized.highpassHz = clampHighpassHz(patch.highpassHz);
+    }
+    if (layer.kind === 'noise') this.updateNoiseLayer(id, normalized);
+    else this.updateSampleLayer(id, normalized);
   }
 
   getPeakLevel(): number {
@@ -676,6 +1009,41 @@ export class Session {
   private async finishTimer(): Promise<void> {
     this.clearPoll();
     this.fadeInFlight = false;
+
+    // Pomodoro: advance phase without fully stopping the mix when possible
+    if (this.pomodoro.enabled) {
+      if (this.pomodoro.phase === 'work') {
+        this.pomodoro = {
+          ...this.pomodoro,
+          completedWorkCycles: this.pomodoro.completedWorkCycles + 1,
+          phase: 'break',
+        };
+        audioEngine.restoreMasterGain();
+        this.timer = {
+          status: 'idle',
+          endAtMs: null,
+          durationSec: this.pomodoro.breakSec,
+          fadeSec: 10,
+        };
+        this.notify();
+        // Auto-start break
+        await this.startPomodoro('break');
+        return;
+      }
+      // Break finished → next work cycle
+      this.pomodoro = { ...this.pomodoro, phase: 'work' };
+      audioEngine.restoreMasterGain();
+      this.timer = {
+        status: 'idle',
+        endAtMs: null,
+        durationSec: this.pomodoro.workSec,
+        fadeSec: 10,
+      };
+      this.notify();
+      await this.startPomodoro('work');
+      return;
+    }
+
     audioEngine.stopAll();
     audioEngine.restoreMasterGain();
     await audioEngine.suspend();
@@ -704,6 +1072,8 @@ export class Session {
             volumeLinear: clampLinear(l.params.volumeLinear),
             stereoWidth: Math.max(0, Math.min(1, l.params.stereoWidth)),
             pan: Math.max(-1, Math.min(1, l.params.pan)),
+            lowpassHz: clampLowpassHz(l.params.lowpassHz ?? FILTER_LP_OPEN_HZ),
+            highpassHz: clampHighpassHz(l.params.highpassHz ?? FILTER_HP_OPEN_HZ),
           },
         };
       }
@@ -714,6 +1084,8 @@ export class Session {
           id: uid('sample'),
           volumeLinear: clampLinear(l.params.volumeLinear),
           pan: Math.max(-1, Math.min(1, l.params.pan)),
+          lowpassHz: clampLowpassHz(l.params.lowpassHz ?? FILTER_LP_OPEN_HZ),
+          highpassHz: clampHighpassHz(l.params.highpassHz ?? FILTER_HP_OPEN_HZ),
         },
       };
     });

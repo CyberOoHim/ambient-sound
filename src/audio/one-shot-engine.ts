@@ -205,7 +205,7 @@ export class OneShotEngine {
       const buffer = await decodeCache.get(this.ctx, url);
       if (!buffer) return null;
 
-      const meta = this.playOneShotBuffer(buffer, asset.id);
+      const meta = this.playOneShotBuffer(buffer, asset.id, asset.oneShot);
 
       const triggerEvent: OneShotTriggerEvent = {
         packId: pack.id,
@@ -229,7 +229,15 @@ export class OneShotEngine {
     }
   }
 
-  private playOneShotBuffer(buffer: AudioBuffer, assetId: string): { pan: number; pitch: number; filterCutoff: number; burstCount: number } {
+  private playOneShotBuffer(
+    buffer: AudioBuffer,
+    assetId: string,
+    oneShotMeta?: {
+      eventDurationSec?: number;
+      preferOffsetSec?: number;
+      playFull?: boolean;
+    },
+  ): { pan: number; pitch: number; filterCutoff: number; burstCount: number } {
     if (!this.ctx || !this.destination) {
       return { pan: 0, pitch: 1, filterCutoff: 14000, burstCount: 1 };
     }
@@ -254,13 +262,21 @@ export class OneShotEngine {
     }
 
     // Determine Burst Sequence parameters
-    const isBirdOrAnimal = assetId.startsWith('birds') || assetId.startsWith('owls') || assetId.startsWith('seagulls') || assetId.startsWith('cave_drips');
-    const isThunder = assetId.startsWith('thunder');
+    const isEventClip = assetId.startsWith('event_');
+    const isBirdOrAnimal =
+      assetId.startsWith('birds') ||
+      assetId.startsWith('owls') ||
+      assetId.startsWith('seagulls') ||
+      assetId.startsWith('cave_drips') ||
+      assetId.includes('bird') ||
+      assetId.includes('owl');
+    const isThunder = assetId.startsWith('thunder') || assetId.includes('thunder');
 
     let burstCount = 1;
-    if (this.config.burstSequence && isBirdOrAnimal) {
+    // Dedicated short event clips already are discrete — avoid multi-burst mush
+    if (!isEventClip && this.config.burstSequence && isBirdOrAnimal) {
       burstCount = Math.floor(Math.random() * 3) + 2; // 2 to 4 bursts
-    } else if (this.config.burstSequence && isThunder) {
+    } else if (!isEventClip && this.config.burstSequence && isThunder) {
       burstCount = 2; // Initial crack + rolling echo
     }
 
@@ -268,8 +284,6 @@ export class OneShotEngine {
     const gainNode = ctx.createGain();
     const distanceGain = 0.45 + Math.random() * 0.55;
     const targetGain = Math.max(0, Math.min(1, this.config.volumeLinear * distanceGain));
-
-    let lastNode: AudioNode = gainNode;
 
     // Acoustic Reverb Tail Convolver Node
     if (this.config.acousticTail && 'createConvolver' in ctx) {
@@ -287,6 +301,12 @@ export class OneShotEngine {
     }
 
     gainNode.connect(this.destination);
+
+    const totalDuration = buffer.duration;
+    const playFull =
+      oneShotMeta?.playFull === true ||
+      isEventClip ||
+      totalDuration <= 6;
 
     // Play bursts
     for (let i = 0; i < burstCount; i++) {
@@ -322,22 +342,45 @@ export class OneShotEngine {
       burstLastNode.connect(burstGainNode);
       burstGainNode.connect(gainNode);
 
-      const totalDuration = buffer.duration;
       let startOffset = 0;
       let playDuration = totalDuration;
 
-      if (totalDuration > 8) {
-        playDuration = 2.5 + Math.random() * 3.0;
-        const maxOffset = Math.max(0, totalDuration - playDuration - 0.5);
-        startOffset = Math.random() * maxOffset;
+      if (!playFull && totalDuration > 4) {
+        // Tight discrete events: ~0.8–2.2s (was 2.5–5.5s of ambient snips)
+        const metaDur = oneShotMeta?.eventDurationSec;
+        playDuration =
+          typeof metaDur === 'number' && metaDur > 0
+            ? Math.min(metaDur, totalDuration - 0.05)
+            : 0.8 + Math.random() * 1.4;
+
+        if (
+          typeof oneShotMeta?.preferOffsetSec === 'number' &&
+          oneShotMeta.preferOffsetSec >= 0 &&
+          i === 0
+        ) {
+          const maxOff = Math.max(0, totalDuration - playDuration - 0.05);
+          startOffset = Math.min(oneShotMeta.preferOffsetSec, maxOff);
+          // Small jitter so repeats aren't identical
+          startOffset = Math.max(0, startOffset + (Math.random() * 0.4 - 0.2));
+          startOffset = Math.min(startOffset, maxOff);
+        } else {
+          const maxOffset = Math.max(0, totalDuration - playDuration - 0.05);
+          startOffset = Math.random() * maxOffset;
+        }
+      } else if (playFull) {
+        startOffset = 0;
+        playDuration = totalDuration;
       }
 
-      const fadeIn = 0.08;
-      const fadeOut = Math.min(0.5, playDuration * 0.25);
+      const fadeIn = playFull ? 0.02 : 0.04;
+      const fadeOut = Math.min(0.35, playDuration * 0.2);
 
       burstGainNode.gain.setValueAtTime(0.0001, burstNow);
       burstGainNode.gain.exponentialRampToValueAtTime(Math.max(0.001, burstGainVal), burstNow + fadeIn);
-      burstGainNode.gain.setValueAtTime(Math.max(0.001, burstGainVal), burstNow + playDuration - fadeOut);
+      burstGainNode.gain.setValueAtTime(
+        Math.max(0.001, burstGainVal),
+        Math.max(burstNow + fadeIn, burstNow + playDuration - fadeOut),
+      );
       burstGainNode.gain.exponentialRampToValueAtTime(0.0001, burstNow + playDuration);
 
       source.start(burstNow, startOffset, playDuration);
