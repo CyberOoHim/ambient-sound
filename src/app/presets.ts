@@ -7,8 +7,12 @@ import type {
 import {
   clampHighpassHz,
   clampLowpassHz,
+  clampPanLfoDepth,
+  clampPanLfoRateHz,
   FILTER_HP_OPEN_HZ,
   FILTER_LP_OPEN_HZ,
+  PAN_LFO_DEPTH_DEFAULT,
+  PAN_LFO_RATE_DEFAULT_HZ,
 } from '../audio/types';
 import { NOISE_TYPES } from '../audio/dsp/colored-noise';
 import { clampLinear } from '../audio/dsp/curves';
@@ -87,6 +91,15 @@ function parseNoiseParams(raw: unknown, fallbackId: string): NoiseLayerParams | 
       o.highpassHz != null
         ? clampHighpassHz(Number(o.highpassHz))
         : FILTER_HP_OPEN_HZ,
+    panLfoEnabled: Boolean(o.panLfoEnabled),
+    panLfoRateHz:
+      o.panLfoRateHz != null
+        ? clampPanLfoRateHz(Number(o.panLfoRateHz))
+        : PAN_LFO_RATE_DEFAULT_HZ,
+    panLfoDepth:
+      o.panLfoDepth != null
+        ? clampPanLfoDepth(Number(o.panLfoDepth))
+        : PAN_LFO_DEPTH_DEFAULT,
   };
 }
 
@@ -117,6 +130,15 @@ function parseSampleParams(
       o.highpassHz != null
         ? clampHighpassHz(Number(o.highpassHz))
         : FILTER_HP_OPEN_HZ,
+    panLfoEnabled: Boolean(o.panLfoEnabled),
+    panLfoRateHz:
+      o.panLfoRateHz != null
+        ? clampPanLfoRateHz(Number(o.panLfoRateHz))
+        : PAN_LFO_RATE_DEFAULT_HZ,
+    panLfoDepth:
+      o.panLfoDepth != null
+        ? clampPanLfoDepth(Number(o.panLfoDepth))
+        : PAN_LFO_DEPTH_DEFAULT,
   };
 }
 

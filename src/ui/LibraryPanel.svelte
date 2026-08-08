@@ -1,22 +1,32 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { session } from '../app/session';
   import { NOISE_TYPES, type NoiseType } from '../audio/dsp/colored-noise';
   import { MAX_MIXER_LAYERS } from '../audio/types';
   import type { CatalogAsset } from '../assets/catalog';
+  import type { LocalAudioMeta } from '../audio/local-audio-store';
 
   let assets = $state<CatalogAsset[]>([]);
+  let localClips = $state<LocalAudioMeta[]>([]);
   let catalogError = $state<string | null>(null);
   let busy = $state(false);
   let message = $state<string | null>(null);
   let filterGroup = $state<string>('all');
   let searchQuery = $state('');
   let layerCount = $state(session.layers.length);
+  let dragOver = $state(false);
+  let fileInput: HTMLInputElement | undefined = $state();
 
   export function sync() {
     assets = session.catalog?.assets ?? [];
+    localClips = session.localAudio;
     catalogError = session.catalogError;
     layerCount = session.layers.length;
   }
+
+  onMount(() => {
+    void session.ensureLocalAudioReady().then(() => sync());
+  });
 
   function labelNoise(t: NoiseType): string {
     return t.charAt(0).toUpperCase() + t.slice(1);
@@ -77,6 +87,84 @@
     } finally {
       busy = false;
     }
+  }
+
+  async function handleImportFiles(files: FileList | File[]) {
+    const list = [...files];
+    if (list.length === 0) return;
+    busy = true;
+    message = null;
+    let ok = 0;
+    try {
+      for (const file of list) {
+        try {
+          const meta = await session.importLocalAudio(file);
+          ok++;
+          message = `Imported “${meta.title}”`;
+        } catch (e) {
+          message = e instanceof Error ? e.message : String(e);
+        }
+      }
+      if (ok > 1) message = `Imported ${ok} files`;
+      localClips = session.localAudio;
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function addLocal(meta: LocalAudioMeta) {
+    busy = true;
+    message = null;
+    try {
+      const layerId = await session.addLocalSample(meta);
+      if (session.loadNotice) {
+        message = session.loadNotice;
+      } else if (layerId) {
+        message = `Added ${meta.title}`;
+      }
+      layerCount = session.layers.length;
+    } catch (e) {
+      message = e instanceof Error ? e.message : String(e);
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function removeLocal(meta: LocalAudioMeta) {
+    if (!confirm(`Delete imported “${meta.title}”? This cannot be undone.`)) return;
+    busy = true;
+    try {
+      await session.removeLocalAudio(meta.id);
+      localClips = session.localAudio;
+      layerCount = session.layers.length;
+      message = `Deleted “${meta.title}”`;
+    } catch (e) {
+      message = e instanceof Error ? e.message : String(e);
+    } finally {
+      busy = false;
+    }
+  }
+
+  function onDrop(e: DragEvent) {
+    e.preventDefault();
+    dragOver = false;
+    if (e.dataTransfer?.files?.length) {
+      void handleImportFiles(e.dataTransfer.files);
+    }
+  }
+
+  function onFilePick(e: Event) {
+    const input = e.target as HTMLInputElement;
+    if (input.files?.length) {
+      void handleImportFiles(input.files);
+      input.value = '';
+    }
+  }
+
+  function formatBytes(n: number): string {
+    if (n < 1024) return `${n} B`;
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
+    return `${(n / (1024 * 1024)).toFixed(1)} MB`;
   }
 
   interface GroupDef {
@@ -177,6 +265,68 @@
         </button>
       {/each}
     </div>
+  </div>
+
+  <div class="section">
+    <h3>Your files</h3>
+    <div
+      class="dropzone"
+      class:over={dragOver}
+      role="button"
+      tabindex="0"
+      onclick={() => fileInput?.click()}
+      onkeydown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          fileInput?.click();
+        }
+      }}
+      ondragover={(e) => {
+        e.preventDefault();
+        dragOver = true;
+      }}
+      ondragleave={() => (dragOver = false)}
+      ondrop={onDrop}
+    >
+      <p class="drop-title">Drop mp3 / wav / ogg here</p>
+      <p class="drop-sub">or click to browse · stays on this device</p>
+      <input
+        bind:this={fileInput}
+        type="file"
+        accept="audio/*,.mp3,.wav,.ogg,.oga,.m4a,.flac,.webm"
+        multiple
+        class="file-hidden"
+        onchange={onFilePick}
+      />
+    </div>
+    {#if localClips.length > 0}
+      <div class="local-list">
+        {#each localClips as clip (clip.id)}
+          <div class="local-row">
+            <button
+              type="button"
+              class="local-add"
+              disabled={busy}
+              title="Add to mix"
+              onclick={() => void addLocal(clip)}
+            >
+              <span class="local-name">{clip.title}</span>
+              <span class="local-size">{formatBytes(clip.byteLength)}</span>
+            </button>
+            <button
+              type="button"
+              class="local-del"
+              disabled={busy}
+              aria-label="Delete {clip.title}"
+              title="Delete import"
+              onclick={() => void removeLocal(clip)}
+            >
+              ×
+            </button>
+          </div>
+        {/each}
+      </div>
+    {/if}
   </div>
 
   <div class="section">
@@ -448,5 +598,101 @@
     margin: 0.5rem 0 0;
     font-size: 0.72rem;
     color: var(--accent);
+  }
+
+  .dropzone {
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    padding: 0.55rem 0.65rem;
+    text-align: center;
+    cursor: pointer;
+    transition:
+      border-color 0.12s ease,
+      background 0.12s ease;
+  }
+
+  .dropzone:hover,
+  .dropzone.over {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+  }
+
+  .drop-title {
+    margin: 0;
+    font-size: 0.78rem;
+    font-weight: 650;
+    color: var(--text-soft);
+  }
+
+  .drop-sub {
+    margin: 0.15rem 0 0;
+    font-size: 0.65rem;
+    color: var(--muted-soft);
+  }
+
+  .file-hidden {
+    display: none;
+  }
+
+  .local-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    margin-top: 0.4rem;
+  }
+
+  .local-row {
+    display: flex;
+    align-items: stretch;
+    gap: 0.25rem;
+  }
+
+  .local-add {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.05rem;
+    text-align: left;
+    font: inherit;
+    padding: 0.35rem 0.5rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    cursor: pointer;
+  }
+
+  .local-add:hover:not(:disabled) {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+  }
+
+  .local-name {
+    font-size: 0.78rem;
+    font-weight: 650;
+    color: var(--text-soft);
+  }
+
+  .local-size {
+    font-size: 0.62rem;
+    color: var(--muted-soft);
+  }
+
+  .local-del {
+    font: inherit;
+    width: 1.75rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--muted);
+    cursor: pointer;
+  }
+
+  .local-del:hover:not(:disabled) {
+    border-color: var(--danger);
+    color: var(--danger);
+    background: var(--danger-dim);
   }
 </style>

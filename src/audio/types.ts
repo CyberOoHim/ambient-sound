@@ -31,6 +31,39 @@ export function clampHighpassHz(hz: number): number {
   return Math.max(FILTER_HP_OPEN_HZ, Math.min(8_000, hz));
 }
 
+/** Auto-pan LFO defaults (ENH-15). */
+export const PAN_LFO_RATE_DEFAULT_HZ = 0.08;
+export const PAN_LFO_RATE_MIN_HZ = 0.02;
+export const PAN_LFO_RATE_MAX_HZ = 0.5;
+export const PAN_LFO_DEPTH_DEFAULT = 0.35;
+
+export interface PanLfoParams {
+  /** When true, slow sine LFO modulates pan around the base pan value. */
+  panLfoEnabled: boolean;
+  /** LFO rate in Hz (very slow for ambient motion). */
+  panLfoRateHz: number;
+  /** Modulation depth 0..1 (1 ≈ full pan swing). */
+  panLfoDepth: number;
+}
+
+export function defaultPanLfo(): PanLfoParams {
+  return {
+    panLfoEnabled: false,
+    panLfoRateHz: PAN_LFO_RATE_DEFAULT_HZ,
+    panLfoDepth: PAN_LFO_DEPTH_DEFAULT,
+  };
+}
+
+export function clampPanLfoRateHz(hz: number): number {
+  if (!Number.isFinite(hz)) return PAN_LFO_RATE_DEFAULT_HZ;
+  return Math.max(PAN_LFO_RATE_MIN_HZ, Math.min(PAN_LFO_RATE_MAX_HZ, hz));
+}
+
+export function clampPanLfoDepth(depth: number): number {
+  if (!Number.isFinite(depth)) return PAN_LFO_DEPTH_DEFAULT;
+  return Math.max(0, Math.min(1, depth));
+}
+
 export interface NoiseLayerParams {
   id: string;
   type: NoiseType;
@@ -46,6 +79,9 @@ export interface NoiseLayerParams {
   lowpassHz: number;
   /** User HP. */
   highpassHz: number;
+  panLfoEnabled: boolean;
+  panLfoRateHz: number;
+  panLfoDepth: number;
 }
 
 export type LoopMode = 'native' | 'crossfade';
@@ -64,6 +100,9 @@ export interface SampleLayerParams {
   playbackRate: number;
   lowpassHz: number;
   highpassHz: number;
+  panLfoEnabled: boolean;
+  panLfoRateHz: number;
+  panLfoDepth: number;
 }
 
 export type MixerLayer =
@@ -83,6 +122,7 @@ export function createDefaultNoiseLayer(
     stereoWidth: 1,
     pan: 0,
     ...defaultLayerFilters(),
+    ...defaultPanLfo(),
   };
 }
 
@@ -99,6 +139,10 @@ export function createDefaultSampleLayer(
       | 'volumeLinear'
       | 'lowpassHz'
       | 'highpassHz'
+      | 'pan'
+      | 'panLfoEnabled'
+      | 'panLfoRateHz'
+      | 'panLfoDepth'
     >
   >,
 ): SampleLayerParams {
@@ -109,12 +153,15 @@ export function createDefaultSampleLayer(
     volumeLinear: opts?.volumeLinear ?? 0.7,
     muted: false,
     solo: false,
-    pan: 0,
+    pan: opts?.pan ?? 0,
     loopMode: opts?.loopMode ?? 'crossfade',
     crossfadeMs: opts?.crossfadeMs ?? 80,
     playbackRate: opts?.playbackRate ?? 1,
     lowpassHz: opts?.lowpassHz ?? FILTER_LP_OPEN_HZ,
     highpassHz: opts?.highpassHz ?? FILTER_HP_OPEN_HZ,
+    panLfoEnabled: opts?.panLfoEnabled ?? false,
+    panLfoRateHz: opts?.panLfoRateHz ?? PAN_LFO_RATE_DEFAULT_HZ,
+    panLfoDepth: opts?.panLfoDepth ?? PAN_LFO_DEPTH_DEFAULT,
   };
 }
 
@@ -143,3 +190,10 @@ export function layerSolo(layer: MixerLayer): boolean {
 
 /** Soft cap for sample + noise layers (mobile CPU). */
 export const MAX_MIXER_LAYERS = 10;
+
+/** Local (user-imported) sample asset id prefix (ENH-13). */
+export const LOCAL_ASSET_PREFIX = 'local:';
+
+export function isLocalAssetId(assetId: string): boolean {
+  return assetId.startsWith(LOCAL_ASSET_PREFIX);
+}

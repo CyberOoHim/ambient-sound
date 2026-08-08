@@ -8,9 +8,12 @@ import {
 import {
   clampHighpassHz,
   clampLowpassHz,
+  clampPanLfoDepth,
+  clampPanLfoRateHz,
   effectiveMuteSolo,
   FILTER_HP_OPEN_HZ,
   FILTER_LP_OPEN_HZ,
+  isLocalAssetId,
   layerId,
   layerMuted,
   layerSolo,
@@ -29,6 +32,12 @@ import { OneShotEngine } from './one-shot-engine';
 import { loadOneShotConfigFromStorage } from '../app/one-shot';
 import { BinauralEngine } from './binaural-engine';
 import { loadBinauralConfigFromStorage } from '../app/binaural';
+import { getLocalAudioData } from './local-audio-store';
+
+interface PanLfoNodes {
+  osc: OscillatorNode;
+  depthGain: GainNode;
+}
 
 interface NoiseNodes {
   kind: 'noise';
@@ -42,6 +51,7 @@ interface NoiseNodes {
   userLp: BiquadFilterNode;
   /** User high-pass. */
   userHp: BiquadFilterNode;
+  panLfo: PanLfoNodes | null;
 }
 
 interface SampleNodes {
@@ -52,6 +62,7 @@ interface SampleNodes {
   muteSolo: GainNode;
   userLp: BiquadFilterNode;
   userHp: BiquadFilterNode;
+  panLfo: PanLfoNodes | null;
 }
 
 type LayerNodes = NoiseNodes | SampleNodes;
@@ -81,6 +92,8 @@ export class AudioEngine {
   private catalog: SoundCatalog | null = null;
   private mediaOutput = new MediaOutput();
   private peakBuf: Float32Array<ArrayBuffer> | null = null;
+  private freqBuf: Uint8Array<ArrayBuffer> | null = null;
+  private timeBuf: Uint8Array<ArrayBuffer> | null = null;
   /** User wants audio running (used to re-resume after iOS interrupt). */
   private wantRunning = false;
   private stateChangeBound = false;
@@ -113,6 +126,11 @@ export class AudioEngine {
     return this.fading;
   }
 
+  /** Master-bus analyser for visualizer (ENH-11). */
+  getAnalyser(): AnalyserNode | null {
+    return this.analyser;
+  }
+
   setCatalog(catalog: SoundCatalog): void {
     this.catalog = catalog;
     if (this.ctx && this.master) {
@@ -127,6 +145,7 @@ export class AudioEngine {
       this.master.gain.value = this.masterVolumeLinear;
       this.analyser = this.ctx.createAnalyser();
       this.analyser.fftSize = 2048;
+      this.analyser.smoothingTimeConstant = 0.82;
       this.master.connect(this.analyser);
       // Mobile (iOS + Android): route via HTMLAudioElement for background
       // playback / media controls. Desktop: analyser → destination.
@@ -301,7 +320,7 @@ export class AudioEngine {
     pan.connect(muteSolo);
     muteSolo.connect(this.master);
 
-    this.layers.set(params.id, {
+    const nodes: NoiseNodes = {
       kind: 'noise',
       worklet,
       volume,
@@ -310,7 +329,10 @@ export class AudioEngine {
       filter,
       userLp,
       userHp,
-    });
+      panLfo: null,
+    };
+    this.syncPanLfo(nodes, params);
+    this.layers.set(params.id, nodes);
   }
 
   updateNoiseLayer(params: NoiseLayerParams): void {
@@ -334,7 +356,7 @@ export class AudioEngine {
     this.configureFilter(nodes.filter, params.type);
     this.applyUserFilters(nodes.userHp, nodes.userLp, params.highpassHz, params.lowpassHz);
     nodes.volume.gain.setTargetAtTime(clampLinear(params.volumeLinear), t, 0.015);
-    nodes.pan.pan.setTargetAtTime(Math.max(-1, Math.min(1, params.pan)), t, 0.015);
+    this.syncPanLfo(nodes, params);
   }
 
   async addSampleLayer(
@@ -348,17 +370,13 @@ export class AudioEngine {
       this.updateSampleLayer(params);
       return;
     }
-    if (!this.catalog) throw new Error('Catalog not loaded');
-    const asset = findAsset(this.catalog, params.assetId);
-    if (!asset) throw new Error(`Unknown asset: ${params.assetId}`);
 
     // Fresh load for this id — clear any prior cancel from a previous attempt.
     this.cancelledLoads.delete(params.id);
     this.inflightLoads.add(params.id);
 
-    const url = assetUrl(asset.file);
     try {
-      const buffer = await decodeCache.get(ctx, url, { onProgress });
+      const buffer = await this.decodeSampleBuffer(ctx, params, onProgress);
 
       // Layer removed / mix cleared while the FreeSound file was downloading.
       if (this.cancelledLoads.has(params.id)) {
@@ -402,7 +420,7 @@ export class AudioEngine {
       );
       player.start(offsetSec);
 
-      this.layers.set(params.id, {
+      const nodes: SampleNodes = {
         kind: 'sample',
         player,
         volume,
@@ -410,11 +428,64 @@ export class AudioEngine {
         muteSolo,
         userLp,
         userHp,
-      });
+        panLfo: null,
+      };
+      this.syncPanLfo(nodes, params);
+      this.layers.set(params.id, nodes);
     } finally {
       this.inflightLoads.delete(params.id);
       this.cancelledLoads.delete(params.id);
     }
+  }
+
+  /**
+   * Decode a sample from the core catalog URL or IndexedDB local import.
+   */
+  private async decodeSampleBuffer(
+    ctx: AudioContext,
+    params: SampleLayerParams,
+    onProgress?: DecodeProgressCallback,
+  ): Promise<AudioBuffer> {
+    if (isLocalAssetId(params.assetId)) {
+      const cacheKey = `local-audio:${params.assetId}`;
+      if (decodeCache.has(cacheKey)) {
+        return decodeCache.get(ctx, cacheKey, { onProgress });
+      }
+      onProgress?.({
+        loaded: 0,
+        total: null,
+        phase: 'fetch',
+        ratio: 0.1,
+        determinate: false,
+      });
+      const ab = await getLocalAudioData(params.assetId);
+      if (!ab) {
+        throw new Error(`Local audio missing: ${params.assetId}`);
+      }
+      onProgress?.({
+        loaded: ab.byteLength,
+        total: ab.byteLength,
+        phase: 'decode',
+        ratio: 0.9,
+        determinate: true,
+      });
+      const buffer = await ctx.decodeAudioData(ab.slice(0));
+      decodeCache.put(cacheKey, buffer);
+      onProgress?.({
+        loaded: ab.byteLength,
+        total: ab.byteLength,
+        phase: 'decode',
+        ratio: 1,
+        determinate: true,
+      });
+      return buffer;
+    }
+
+    if (!this.catalog) throw new Error('Catalog not loaded');
+    const asset = findAsset(this.catalog, params.assetId);
+    if (!asset) throw new Error(`Unknown asset: ${params.assetId}`);
+    const url = assetUrl(asset.file);
+    return decodeCache.get(ctx, url, { onProgress });
   }
 
   updateSampleLayer(params: SampleLayerParams): void {
@@ -422,9 +493,67 @@ export class AudioEngine {
     if (!nodes || nodes.kind !== 'sample' || !this.ctx) return;
     const t = this.ctx.currentTime;
     nodes.volume.gain.setTargetAtTime(clampLinear(params.volumeLinear), t, 0.015);
-    nodes.pan.pan.setTargetAtTime(Math.max(-1, Math.min(1, params.pan)), t, 0.015);
     this.applyUserFilters(nodes.userHp, nodes.userLp, params.highpassHz, params.lowpassHz);
+    this.syncPanLfo(nodes, params);
     // Rate / loop mode: apply only on restart (v1 simplification)
+  }
+
+  /**
+   * Base pan on StereoPanner + optional sine LFO summed into pan.pan (ENH-15).
+   */
+  private syncPanLfo(
+    nodes: LayerNodes,
+    params: {
+      pan: number;
+      panLfoEnabled?: boolean;
+      panLfoRateHz?: number;
+      panLfoDepth?: number;
+    },
+  ): void {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const basePan = Math.max(-1, Math.min(1, params.pan));
+    const enabled = Boolean(params.panLfoEnabled);
+    const depth = clampPanLfoDepth(params.panLfoDepth ?? 0);
+    const rate = clampPanLfoRateHz(params.panLfoRateHz ?? 0.08);
+
+    nodes.pan.pan.setTargetAtTime(basePan, t, 0.015);
+
+    if (!enabled || depth < 0.01) {
+      this.disposePanLfo(nodes);
+      return;
+    }
+
+    // Soften depth near hard-pan edges so LFO stays in range
+    const edge = 1 - Math.abs(basePan) * 0.55;
+    const safeDepth = depth * Math.max(0.15, edge);
+
+    if (!nodes.panLfo) {
+      const osc = this.ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = rate;
+      const depthGain = this.ctx.createGain();
+      depthGain.gain.value = safeDepth;
+      osc.connect(depthGain);
+      depthGain.connect(nodes.pan.pan);
+      osc.start();
+      nodes.panLfo = { osc, depthGain };
+    } else {
+      nodes.panLfo.osc.frequency.setTargetAtTime(rate, t, 0.05);
+      nodes.panLfo.depthGain.gain.setTargetAtTime(safeDepth, t, 0.05);
+    }
+  }
+
+  private disposePanLfo(nodes: LayerNodes): void {
+    if (!nodes.panLfo) return;
+    try {
+      nodes.panLfo.osc.stop();
+      nodes.panLfo.osc.disconnect();
+      nodes.panLfo.depthGain.disconnect();
+    } catch {
+      /* already stopped */
+    }
+    nodes.panLfo = null;
   }
 
   private configureFilter(filter: BiquadFilterNode, type: NoiseType): void {
@@ -480,6 +609,7 @@ export class AudioEngine {
     const nodes = this.layers.get(id);
     if (!nodes) return;
     try {
+      this.disposePanLfo(nodes);
       if (nodes.kind === 'noise') {
         nodes.worklet.disconnect();
         nodes.filter.disconnect();
@@ -522,6 +652,28 @@ export class AudioEngine {
       if (a > peak) peak = a;
     }
     return peak;
+  }
+
+  /** Frequency bins 0..255 for visualizer. Returns null if analyser not ready. */
+  getFrequencyData(): Uint8Array | null {
+    if (!this.analyser) return null;
+    const n = this.analyser.frequencyBinCount;
+    if (!this.freqBuf || this.freqBuf.length !== n) {
+      this.freqBuf = new Uint8Array(n);
+    }
+    this.analyser.getByteFrequencyData(this.freqBuf);
+    return this.freqBuf;
+  }
+
+  /** Time-domain waveform 0..255 for visualizer. */
+  getTimeDomainData(): Uint8Array | null {
+    if (!this.analyser) return null;
+    const n = this.analyser.fftSize;
+    if (!this.timeBuf || this.timeBuf.length !== n) {
+      this.timeBuf = new Uint8Array(n);
+    }
+    this.analyser.getByteTimeDomainData(this.timeBuf);
+    return this.timeBuf;
   }
 
   stopAll(): void {

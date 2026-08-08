@@ -2,15 +2,24 @@ import { audioEngine } from '../audio/engine';
 import {
   clampHighpassHz,
   clampLowpassHz,
+  clampPanLfoDepth,
+  clampPanLfoRateHz,
   createDefaultNoiseLayer,
   createDefaultSampleLayer,
   FILTER_HP_OPEN_HZ,
   FILTER_LP_OPEN_HZ,
+  isLocalAssetId,
   MAX_MIXER_LAYERS,
   type MixerLayer,
   type NoiseType,
   type SampleLayerParams,
 } from '../audio/types';
+import {
+  deleteLocalAudio,
+  importLocalAudioFile,
+  listLocalAudio,
+  type LocalAudioMeta,
+} from '../audio/local-audio-store';
 import { clampLinear } from '../audio/dsp/curves';
 import {
   clearMediaSession,
@@ -171,6 +180,10 @@ export class Session {
   oneShotConfig: OneShotConfig = loadOneShotConfigFromStorage(this.customOneShotPacks);
   lastOneShotTrigger: OneShotTriggerEvent | null = null;
   binauralConfig: BinauralConfig = loadBinauralConfigFromStorage();
+
+  /** User-imported clips (ENH-13); metadata only — audio lives in IndexedDB. */
+  localAudio: LocalAudioMeta[] = [];
+  private localAudioReady: Promise<void> | null = null;
 
   /** Index into presets for media-session next/prev. */
   private mediaPresetIndex = 0;
@@ -435,6 +448,72 @@ export class Session {
 
   whenCatalogReady(): Promise<void> {
     return this.ensureCatalogReady();
+  }
+
+  /** Load IndexedDB local imports (safe to call repeatedly). */
+  async ensureLocalAudioReady(): Promise<void> {
+    if (!this.localAudioReady) {
+      this.localAudioReady = (async () => {
+        try {
+          this.localAudio = await listLocalAudio();
+        } catch {
+          this.localAudio = [];
+        }
+        this.notify();
+      })();
+    }
+    await this.localAudioReady;
+  }
+
+  /**
+   * Import a local audio file into IndexedDB and refresh the library list.
+   */
+  async importLocalAudio(file: File): Promise<LocalAudioMeta> {
+    const meta = await importLocalAudioFile(file);
+    this.localAudio = [meta, ...this.localAudio.filter((a) => a.id !== meta.id)];
+    this.notify();
+    return meta;
+  }
+
+  async removeLocalAudio(id: string): Promise<void> {
+    await deleteLocalAudio(id);
+    decodeCache.delete(`local-audio:${id}`);
+    this.localAudio = this.localAudio.filter((a) => a.id !== id);
+    // Drop mix layers that referenced this clip
+    const doomed = this.layers
+      .filter((l) => l.kind === 'sample' && l.params.assetId === id)
+      .map((l) => l.params.id);
+    for (const lid of doomed) {
+      this.removeLayer(lid);
+    }
+    this.notify();
+  }
+
+  /** Add an imported local clip as a sample layer. */
+  async addLocalSample(meta: LocalAudioMeta): Promise<string> {
+    if (!this.canAddLayer()) {
+      this.setLoadNotice(this.layerCapMessage());
+      this.notify();
+      return '';
+    }
+    const asset = this.localMetaToAsset(meta);
+    return this.addSampleFromAsset(asset);
+  }
+
+  private localMetaToAsset(meta: LocalAudioMeta): CatalogAsset {
+    return {
+      id: meta.id,
+      title: meta.title,
+      category: 'local',
+      file: meta.id,
+      tags: ['local', 'imported'],
+      loop: { mode: 'crossfade', crossfadeMs: 80 },
+      license: {
+        spdx: 'PD',
+        author: 'You',
+        notes: 'User-imported local file',
+      },
+    };
   }
 
   subscribe(fn: () => void): () => void {
@@ -867,6 +946,9 @@ export class Session {
       pan?: number;
       lowpassHz?: number;
       highpassHz?: number;
+      panLfoEnabled?: boolean;
+      panLfoRateHz?: number;
+      panLfoDepth?: number;
     },
   ): void {
     const layer = this.layers.find((l) => l.params.id === id);
@@ -878,12 +960,54 @@ export class Session {
     if (patch.highpassHz != null) {
       normalized.highpassHz = clampHighpassHz(patch.highpassHz);
     }
+    if (patch.panLfoRateHz != null) {
+      normalized.panLfoRateHz = clampPanLfoRateHz(patch.panLfoRateHz);
+    }
+    if (patch.panLfoDepth != null) {
+      normalized.panLfoDepth = clampPanLfoDepth(patch.panLfoDepth);
+    }
     if (layer.kind === 'noise') this.updateNoiseLayer(id, normalized);
     else this.updateSampleLayer(id, normalized);
   }
 
+  /**
+   * Spatial canvas: X → pan (-1..1), Y → volume (top quiet, bottom loud).
+   * Optional light filter coupling for “distance” (far = lower LP).
+   */
+  setLayerSpatial(
+    id: string,
+    pan: number,
+    volumeLinear: number,
+    opts?: { coupleFilter?: boolean },
+  ): void {
+    const layer = this.layers.find((l) => l.params.id === id);
+    if (!layer) return;
+    const p = Math.max(-1, Math.min(1, pan));
+    const v = clampLinear(volumeLinear);
+    const patch: {
+      pan: number;
+      volumeLinear: number;
+      lowpassHz?: number;
+    } = { pan: p, volumeLinear: v };
+    if (opts?.coupleFilter) {
+      // Near (v high) → open LP; far (v low) → muffled
+      const t = Math.max(0, Math.min(1, v));
+      const lp = 800 + t * (FILTER_LP_OPEN_HZ - 800);
+      patch.lowpassHz = clampLowpassHz(lp);
+    }
+    this.updateLayerCommon(id, patch);
+  }
+
   getPeakLevel(): number {
     return audioEngine.getPeakLevel();
+  }
+
+  getFrequencyData(): Uint8Array | null {
+    return audioEngine.getFrequencyData();
+  }
+
+  getTimeDomainData(): Uint8Array | null {
+    return audioEngine.getTimeDomainData();
   }
 
   remainingMs(): number | null {
@@ -1074,6 +1198,9 @@ export class Session {
             pan: Math.max(-1, Math.min(1, l.params.pan)),
             lowpassHz: clampLowpassHz(l.params.lowpassHz ?? FILTER_LP_OPEN_HZ),
             highpassHz: clampHighpassHz(l.params.highpassHz ?? FILTER_HP_OPEN_HZ),
+            panLfoEnabled: Boolean(l.params.panLfoEnabled),
+            panLfoRateHz: clampPanLfoRateHz(l.params.panLfoRateHz ?? 0.08),
+            panLfoDepth: clampPanLfoDepth(l.params.panLfoDepth ?? 0.35),
           },
         };
       }
@@ -1086,6 +1213,9 @@ export class Session {
           pan: Math.max(-1, Math.min(1, l.params.pan)),
           lowpassHz: clampLowpassHz(l.params.lowpassHz ?? FILTER_LP_OPEN_HZ),
           highpassHz: clampHighpassHz(l.params.highpassHz ?? FILTER_HP_OPEN_HZ),
+          panLfoEnabled: Boolean(l.params.panLfoEnabled),
+          panLfoRateHz: clampPanLfoRateHz(l.params.panLfoRateHz ?? 0.08),
+          panLfoDepth: clampPanLfoDepth(l.params.panLfoDepth ?? 0.35),
         },
       };
     });
@@ -1221,6 +1351,20 @@ export class Session {
   }
 
   getAsset(assetId: string): CatalogAsset | undefined {
+    if (isLocalAssetId(assetId)) {
+      const meta = this.localAudio.find((a) => a.id === assetId);
+      if (meta) return this.localMetaToAsset(meta);
+      // Fallback stub so engine can still try IndexedDB load
+      return {
+        id: assetId,
+        title: 'Imported sound',
+        category: 'local',
+        file: assetId,
+        tags: ['local'],
+        loop: { mode: 'crossfade', crossfadeMs: 80 },
+        license: { spdx: 'PD', author: 'You' },
+      };
+    }
     if (!this.catalog) return undefined;
     return findAsset(this.catalog, assetId);
   }
@@ -1245,6 +1389,9 @@ export class Session {
    * rather than an in-memory decode-cache hit.
    */
   needsSampleFetch(asset: CatalogAsset): boolean {
+    if (isLocalAssetId(asset.id)) {
+      return !decodeCache.has(`local-audio:${asset.id}`);
+    }
     return !decodeCache.has(assetUrl(asset.file));
   }
 

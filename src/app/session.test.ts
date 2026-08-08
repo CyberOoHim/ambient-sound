@@ -19,6 +19,9 @@ describe('Session empty mix layer behavior', () => {
           solo: false,
           lowpassHz: 20000,
           highpassHz: 20,
+          panLfoEnabled: false,
+          panLfoRateHz: 0.08,
+          panLfoDepth: 0.35,
         },
       },
     ];
@@ -75,6 +78,9 @@ describe('Session sample download / loading UI state', () => {
           playbackRate: 1,
           lowpassHz: 20000,
           highpassHz: 20,
+          panLfoEnabled: false,
+          panLfoRateHz: 0.08,
+          panLfoDepth: 0.35,
         },
       },
     ];
@@ -153,6 +159,9 @@ describe('Session timer countdown and fade state', () => {
           solo: false,
           lowpassHz: 20000,
           highpassHz: 20,
+          panLfoEnabled: false,
+          panLfoRateHz: 0.08,
+          panLfoDepth: 0.35,
         },
       },
     ];

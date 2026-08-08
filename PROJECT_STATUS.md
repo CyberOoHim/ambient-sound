@@ -2,10 +2,11 @@
 
 | Field | Value |
 |-------|--------|
-| **Last updated** | 2026-08-07 |
+| **Last updated** | 2026-08-08 |
 | **Branch** | `main` |
-| **Latest related work** | Phase 2 complete (fixes + enhancements) · app `0.1.0` |
-| **How to use this file** | Assign work by **phase** (`Phase 3`) or by **item ID**. Check off items when done; move them to [Done](#done--shipped). |
+| **Latest related work** | Phase 3 complete (immersion + spatial + local import) · app `0.2.0` |
+| **Product scope** | Web / PWA only |
+| **How to use this file** | Assign work by **phase** or by **item ID**. Check off items when done; move them to [Done](#done--shipped). |
 
 **Status values:** `done` · `open` · `partial` · `blocked`
 
@@ -17,14 +18,9 @@
 |----|--------|-------|--------|--------|--------|
 | FIX-01 … FIX-08 | Phase 2 fixes | 2 | — | — | **done** |
 | ENH-01 … ENH-10 | Phase 2 enhancements | 2 | — | — | **done** |
-| [ENH-11](#enh-11--generative-visualizer) | Generative visualizer | 3 | High | High | open |
-| [ENH-12](#enh-12--dynamic-mood-themes) | Dynamic mood themes | 3 | Med | Med | open |
-| [ENH-13](#enh-13--local-audio-import-indexeddb) | Local audio import (IndexedDB) | 3 | High | Med | open |
-| [ENH-14](#enh-14--2d-spatial-sound-canvas) | 2D spatial sound canvas | 3 | High | High | open |
-| [ENH-15](#enh-15--auto-panning-lfo) | Auto-panning LFO | 3 | Med | Med | open |
-| [ARCH-01](#arch-01--tauri-desktop-shell) | Tauri desktop shell | later | High | Med | open |
-| [ARCH-02](#arch-02--output-device-picker) | Output device picker | later | Med | Low | open |
-| [ARCH-03](#arch-03--system-tray--global-hotkeys) | System tray / global hotkeys | later | Med | Med | open |
+| ENH-11 … ENH-15 | Phase 3 features | 3 | — | — | **done** |
+
+**All planned phases (0–3) are shipped.** New work is ad-hoc product polish, content, or bugfixes — not a deferred desktop shell.
 
 ---
 
@@ -91,24 +87,36 @@ When finishing an item, update its **Status** to `done` and add a one-line note 
 
 **Scripts:** `pnpm sounds:events` extracts event clips (ffmpeg).
 
+### Phase 3 — shipped 2026-08-08 (web `0.2.0`)
+
+| ID | Title | Notes |
+|----|--------|--------|
+| ENH-11 | Generative visualizer | `Visualizer.svelte` canvas spectrum + particles + waveform; master `AnalyserNode`; respects `prefers-reduced-motion` |
+| ENH-12 | Dynamic mood themes | `mood-theme.ts` + `data-mood` CSS palettes (rain/fire/forest/ocean/night/train/cave) from active layers |
+| ENH-13 | Local audio import | IndexedDB store; drag-drop / file pick in Library; `local:` sample layers offline |
+| ENH-14 | 2D spatial canvas | `SpatialCanvas.svelte` — X=pan, Y=volume/distance; optional LP distance coupling |
+| ENH-15 | Auto-panning LFO | Per-layer rate/depth; sine LFO into `StereoPannerNode.pan`; preset/share persist |
+
+**Primary files:** `src/ui/Visualizer.svelte`, `src/ui/SpatialCanvas.svelte`, `src/ui/mood-theme.ts`, `src/audio/local-audio-store.ts`, `src/audio/engine.ts`, `src/audio/types.ts`, `src/app/session.ts`, `src/app.css`
+
 ---
 
 ## Phase 3 — Larger features
 
-Higher effort or lower urgency. Assign only when Phase 2 is mostly clear.
+Higher effort or lower urgency. **Complete** as of 2026-08-08.
 
 ### ENH-11 — Generative visualizer
 
 | | |
 |--|--|
-| **Status** | open |
+| **Status** | **done** |
 | **Effort** | High |
 | **Impact** | High |
 | **Area** | Visuals |
 
-**Work:** Lightweight canvas/WebGL tied to `AnalyserNode` (already on master bus). Respect `prefers-reduced-motion`.
+**Work:** Lightweight canvas tied to `AnalyserNode` (already on master bus). Respect `prefers-reduced-motion`.
 
-**Primary files:** new `src/ui/Visualizer.svelte`, `src/audio/engine.ts` (analyser access)
+**Primary files:** `src/ui/Visualizer.svelte`, `src/audio/engine.ts` (analyser access)
 
 ---
 
@@ -116,14 +124,14 @@ Higher effort or lower urgency. Assign only when Phase 2 is mostly clear.
 
 | | |
 |--|--|
-| **Status** | open |
+| **Status** | **done** |
 | **Effort** | Medium |
 | **Impact** | Medium |
 | **Area** | UI |
 
 **Work:** Shift CSS palette from active layers (rain → slate blue, fire → amber, forest → green).
 
-**Primary files:** `src/app.css`, `src/ui/Mixer.svelte`
+**Primary files:** `src/app.css`, `src/ui/mood-theme.ts`, `src/ui/Mixer.svelte`
 
 ---
 
@@ -131,14 +139,14 @@ Higher effort or lower urgency. Assign only when Phase 2 is mostly clear.
 
 | | |
 |--|--|
-| **Status** | open |
+| **Status** | **done** |
 | **Effort** | High |
 | **Impact** | Medium |
 | **Area** | Customization |
 
 **Work:** Drag-drop `.mp3`/`.wav`/`.ogg`; persist in IndexedDB; appear as sample layers offline.
 
-**Primary files:** new import module, `src/assets/`, `src/ui/LibraryPanel.svelte`, decode path
+**Primary files:** `src/audio/local-audio-store.ts`, `src/ui/LibraryPanel.svelte`, `src/app/session.ts`, `src/audio/engine.ts`
 
 ---
 
@@ -146,14 +154,14 @@ Higher effort or lower urgency. Assign only when Phase 2 is mostly clear.
 
 | | |
 |--|--|
-| **Status** | open |
+| **Status** | **done** |
 | **Effort** | High |
 | **Impact** | High |
 | **Area** | Audio / UI |
 
 **Work:** Drag icons for pan (X) and distance/gain (Y); optional coupling with filters.
 
-**Primary files:** new canvas component, `src/audio/engine.ts`, layer pan/gain
+**Primary files:** `src/ui/SpatialCanvas.svelte`, `src/app/session.ts` (`setLayerSpatial`)
 
 ---
 
@@ -161,71 +169,28 @@ Higher effort or lower urgency. Assign only when Phase 2 is mostly clear.
 
 | | |
 |--|--|
-| **Status** | open |
+| **Status** | **done** |
 | **Effort** | Medium |
 | **Impact** | Medium |
 | **Area** | Audio |
 
 **Work:** Optional slow LFO on layer pan for ocean/wind motion; rate + depth controls.
 
-**Primary files:** `src/audio/engine.ts`, `src/audio/types.ts`, mixer UI
-
----
-
-## Later / architecture (v1.1+ design doc)
-
-Not required for excellent web/PWA product. Assign only if desktop install is a goal.
-
-### ARCH-01 — Tauri desktop shell
-
-| | |
-|--|--|
-| **Status** | open |
-| **Effort** | High |
-| **Impact** | Medium |
-| **Area** | Packaging |
-
-Design KD-1: Windows-primary Tauri 2 shell. Out of web Phase 2.
-
----
-
-### ARCH-02 — Output device picker
-
-| | |
-|--|--|
-| **Status** | open |
-| **Effort** | Medium |
-| **Impact** | Low |
-| **Area** | Audio |
-
-Depends on WebView / browser `setSinkId` support.
-
----
-
-### ARCH-03 — System tray / global hotkeys
-
-| | |
-|--|--|
-| **Status** | open |
-| **Effort** | Medium |
-| **Impact** | Medium |
-| **Area** | Desktop |
-
-Requires Tauri (or similar). Deferred in design doc to v1.1.
+**Primary files:** `src/audio/engine.ts`, `src/audio/types.ts`, `src/ui/Mixer.svelte`
 
 ---
 
 ## Suggested assignment bundles
 
-### Bundle F — “Immersion” (Phase 3)
+### Bundle F — “Immersion” (Phase 3) — **shipped**
 
 `ENH-11` · `ENH-12` · `ENH-15`
 
-### Bundle G — “Custom audio” (Phase 3)
+### Bundle G — “Custom audio” (Phase 3) — **shipped**
 
 `ENH-13`
 
-### Bundle H — “Spatial” (Phase 3)
+### Bundle H — “Spatial” (Phase 3) — **shipped**
 
 `ENH-14` · `ENH-15`
 
@@ -253,6 +218,11 @@ Manual smoke (web):
 6. Attributions modal
 7. (Mobile) lock screen continues audio after Play once
 8. Surprise me / Pomodoro / LP-HP filters (Phase 2)
+9. Visualizer animates while playing; reduced-motion → static wash
+10. Mood palette shifts with rain / fire / forest layers
+11. Space canvas drag updates pan + volume
+12. Auto-pan LFO on a layer
+13. Import local mp3/wav/ogg → add to mix → survives reload
 
 See also [docs/qa-checklist.md](docs/qa-checklist.md).
 
@@ -277,3 +247,5 @@ See also [docs/qa-checklist.md](docs/qa-checklist.md).
 |------|--------|
 | 2026-08-07 | Initial `PROJECT_STATUS.md` from full-app review + Phase 1 completion |
 | 2026-08-07 | Phase 2 complete: all FIX-01…08 + ENH-01…10; version 0.1.0 |
+| 2026-08-08 | Phase 3 complete: ENH-11…15; version 0.2.0 |
+| 2026-08-08 | Dropped Tauri / desktop architecture track (ARCH-01…03); product is web/PWA only |

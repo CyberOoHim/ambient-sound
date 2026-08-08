@@ -10,8 +10,11 @@ An offline-first noise and ambient sound mixer built for desktop and web.
 - **Procedural Noise Generators:** Custom Web Audio API DSP noise synth (White, Pink, Brown, etc.).
 - **Ambient Sample Layers:** High-quality natural field recordings (Rain, Ocean, Wind, Fire, Stream, Crickets, Birds, Thunder, Waterfall, Frogs).
 - **Stochastic One-Shot Events:** Natural, non-repetitive background audio accents (bird chirps, owl hoots, distant thunder, etc.) using Poisson-process timing, pitch jitter, stereo panning, and distance low-pass filtering.
-- **Sleep Timer:** Flexible duration with customizable fade-out curves.
-- **Custom Presets & Session Storage:** Save layer combinations and volume settings locally or export/import JSON presets.
+- **Spatial canvas & auto-pan:** Drag layers on a 2D space map (pan × volume); optional slow LFO auto-pan per layer.
+- **Mood themes & visualizer:** Palette shifts with the mix; soft spectrum/particle canvas (respects reduced motion).
+- **Local audio import:** Drop your own mp3/wav/ogg files — stored in IndexedDB on this device.
+- **Sleep Timer:** Flexible duration with customizable fade-out curves (plus Pomodoro work/break cycles).
+- **Custom Presets & Session Storage:** Save layer combinations and volume settings locally or export/import JSON presets; share mixes via URL hash.
 - **Offline-First:** Runs entirely in the browser without remote servers or track streaming dependencies.
 - **Mobile background audio:** On iPhone, iPad, and Android browsers, playback is routed through an HTML media element plus the Media Session API so sound can keep going when you switch apps or lock the screen (see notes below).
 

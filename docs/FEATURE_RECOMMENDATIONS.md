@@ -24,10 +24,8 @@ This document outlines proposed feature enhancements and enrichment ideas for **
 
 ### 1.1 ~~Binaural Beats & Isochronic Tone Generator~~ — **Done**
 
-### 1.2 Dynamic Spatial Panning & 2D Sound Canvas — **Proposed**
-- **Concept:** Dynamic audio positioning per layer:
-  - **Auto-Panning:** `StereoPannerNode` with LFOs for gentle motion.
-  - **2D Sound Canvas UI:** Drag icons for pan/distance.
+### 1.2 ~~Dynamic Spatial Panning & 2D Sound Canvas~~ — **Done (Phase 3)**
+- Auto-pan LFO per layer (rate + depth); 2D Space canvas (X=pan, Y=volume) with optional distance filter.
 
 ### 1.3 Per-Layer Audio Filters (Indoor vs. Outdoor Effects) — **Proposed (Phase 2)**
 - **Concept:** Per-layer Low-Pass / High-Pass `BiquadFilterNode` controls.
@@ -54,11 +52,11 @@ This document outlines proposed feature enhancements and enrichment ideas for **
 
 ## 3. Visuals & UI/UX Immersion
 
-### 3.1 Generative Canvas / WebGL Visualizer — **Proposed (Phase 2+)**
-- Lightweight `AnalyserNode` visualizer (particles, gradients).
+### 3.1 ~~Generative Canvas Visualizer~~ — **Done (Phase 3)**
+- Canvas spectrum + particles + waveform; respects `prefers-reduced-motion`.
 
-### 3.2 Dynamic Mood Themes — **Proposed**
-- CSS palette shifts from active soundscape.
+### 3.2 ~~Dynamic Mood Themes~~ — **Done (Phase 3)**
+- CSS palette shifts from active soundscape (`data-mood`).
 
 ---
 
@@ -68,8 +66,8 @@ This document outlines proposed feature enhancements and enrichment ideas for **
 - Encode scene (tracks, volumes, timer, binaural, one-shot) into `#mix=…`.
 - **Copy link** on Presets panel; open link applies scene and clears hash.
 
-### 4.2 Local Custom Audio File Import (IndexedDB) — **Proposed (Phase 3)**
-- Drag-and-drop `.mp3` / `.wav` / `.ogg` with offline IndexedDB persistence.
+### 4.2 ~~Local Custom Audio File Import (IndexedDB)~~ — **Done (Phase 3)**
+- Drag-and-drop / file pick; offline IndexedDB; `local:` sample layers.
 
 ---
 

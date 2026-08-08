@@ -100,6 +100,22 @@ export class DecodeCache {
     return this.cache.has(url);
   }
 
+  /** Insert a pre-decoded buffer (e.g. local IndexedDB import). */
+  put(url: string, buffer: AudioBuffer): void {
+    if (this.cache.size >= this.maxEntries && !this.cache.has(url)) {
+      const first = this.cache.keys().next().value as string | undefined;
+      if (first) this.cache.delete(first);
+    }
+    this.cache.set(url, buffer);
+  }
+
+  /** Drop a single cache entry (e.g. after deleting a local clip). */
+  delete(url: string): void {
+    this.cache.delete(url);
+    this.inflight.delete(url);
+    this.progressListeners.delete(url);
+  }
+
   async get(
     ctx: AudioContext,
     url: string,

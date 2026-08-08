@@ -59,6 +59,9 @@ const sample: PresetV1 = {
         pan: 0,
         lowpassHz: 20000,
         highpassHz: 20,
+        panLfoEnabled: false,
+        panLfoRateHz: 0.08,
+        panLfoDepth: 0.35,
       },
     },
     {
@@ -76,6 +79,9 @@ const sample: PresetV1 = {
         playbackRate: 1,
         lowpassHz: 20000,
         highpassHz: 20,
+        panLfoEnabled: false,
+        panLfoRateHz: 0.08,
+        panLfoDepth: 0.35,
       },
     },
   ],
@@ -91,6 +97,57 @@ describe('presets', () => {
     expect(parsed!.layers[1].kind).toBe('sample');
     if (parsed!.layers[1].kind === 'sample') {
       expect(parsed!.layers[1].params.assetId).toBe('rain_light');
+    }
+  });
+
+  it('defaults pan LFO fields when missing (legacy presets)', () => {
+    const legacy = {
+      ...sample,
+      layers: [
+        {
+          kind: 'noise',
+          params: {
+            id: 'n1',
+            type: 'pink',
+            volumeLinear: 0.5,
+            muted: false,
+            solo: false,
+            stereoWidth: 1,
+            pan: 0,
+          },
+        },
+      ],
+    };
+    const parsed = parsePreset(legacy);
+    expect(parsed).not.toBeNull();
+    if (parsed!.layers[0].kind === 'noise') {
+      expect(parsed!.layers[0].params.panLfoEnabled).toBe(false);
+      expect(parsed!.layers[0].params.panLfoRateHz).toBe(0.08);
+      expect(parsed!.layers[0].params.panLfoDepth).toBe(0.35);
+    }
+  });
+
+  it('persists pan LFO settings', () => {
+    const withLfo = {
+      ...sample,
+      layers: [
+        {
+          kind: 'sample' as const,
+          params: {
+            ...sample.layers[1]!.params,
+            panLfoEnabled: true,
+            panLfoRateHz: 0.12,
+            panLfoDepth: 0.5,
+          },
+        },
+      ],
+    };
+    const parsed = parsePreset(JSON.parse(JSON.stringify(withLfo)) as unknown);
+    expect(parsed).not.toBeNull();
+    if (parsed!.layers[0].kind === 'sample') {
+      expect(parsed!.layers[0].params.panLfoEnabled).toBe(true);
+      expect(parsed!.layers[0].params.panLfoRateHz).toBe(0.12);
+      expect(parsed!.layers[0].params.panLfoDepth).toBe(0.5);
     }
   });
 

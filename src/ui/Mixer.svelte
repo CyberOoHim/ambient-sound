@@ -11,6 +11,8 @@
   import {
     FILTER_HP_OPEN_HZ,
     FILTER_LP_OPEN_HZ,
+    PAN_LFO_RATE_MAX_HZ,
+    PAN_LFO_RATE_MIN_HZ,
     type MixerLayer,
   } from '../audio/types';
   import type { SoundCatalog } from '../assets/catalog';
@@ -24,6 +26,9 @@
   import OneShotPanel from './OneShotPanel.svelte';
   import BinauralPanel from './BinauralPanel.svelte';
   import AttributionsPanel from './AttributionsPanel.svelte';
+  import Visualizer from './Visualizer.svelte';
+  import SpatialCanvas from './SpatialCanvas.svelte';
+  import { syncMoodFromLayers } from './mood-theme';
   import { formatRemaining } from './format';
 
   let layers = $state<MixerLayer[]>(session.layers);
@@ -52,6 +57,7 @@
   /** Mobile accordion: which side panels are expanded */
   let panelOpen = $state<Record<string, boolean>>({
     library: true,
+    space: false,
     timer: false,
     presets: false,
     binaural: false,
@@ -84,6 +90,7 @@
     timerStatus = session.timer.status;
     timerRemainingMs = session.remainingMs();
     catalog = session.catalog;
+    syncMoodFromLayers(layers, catalog);
     timerPanel?.sync();
     presetsPanel?.sync();
     libraryPanel?.sync();
@@ -224,6 +231,21 @@
     syncFromSession();
   }
 
+  function setPanLfoEnabled(id: string, panLfoEnabled: boolean) {
+    session.updateLayerCommon(id, { panLfoEnabled });
+    syncFromSession();
+  }
+
+  function setPanLfoRate(id: string, panLfoRateHz: number) {
+    session.updateLayerCommon(id, { panLfoRateHz });
+    syncFromSession();
+  }
+
+  function setPanLfoDepth(id: string, panLfoDepth: number) {
+    session.updateLayerCommon(id, { panLfoDepth });
+    syncFromSession();
+  }
+
   function setNoiseType(id: string, type: NoiseType) {
     session.updateNoiseLayer(id, { type });
     syncFromSession();
@@ -292,6 +314,8 @@
     return t.charAt(0).toUpperCase() + t.slice(1);
   }
 </script>
+
+<Visualizer />
 
 <div class="mixer">
   <header class="header">
@@ -604,6 +628,50 @@
             {/if}
           </div>
 
+          <div class="lfo-row">
+            <label class="lfo-toggle" title="Slow automatic pan for motion">
+              <input
+                type="checkbox"
+                checked={layer.params.panLfoEnabled}
+                onchange={(e) =>
+                  setPanLfoEnabled(layer.params.id, e.currentTarget.checked)}
+              />
+              Auto-pan
+            </label>
+            {#if layer.params.panLfoEnabled}
+              <div class="controls-compact lfo-sliders">
+                <div class="row mini">
+                  <label for="lfo-rate-{layer.params.id}" title="LFO rate">Rate</label>
+                  <input
+                    id="lfo-rate-{layer.params.id}"
+                    type="range"
+                    min={PAN_LFO_RATE_MIN_HZ}
+                    max={PAN_LFO_RATE_MAX_HZ}
+                    step="0.01"
+                    value={layer.params.panLfoRateHz}
+                    oninput={(e) =>
+                      setPanLfoRate(layer.params.id, Number(e.currentTarget.value))}
+                  />
+                  <span class="filter-val">{layer.params.panLfoRateHz.toFixed(2)}Hz</span>
+                </div>
+                <div class="row mini">
+                  <label for="lfo-depth-{layer.params.id}" title="LFO depth">Depth</label>
+                  <input
+                    id="lfo-depth-{layer.params.id}"
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={layer.params.panLfoDepth}
+                    oninput={(e) =>
+                      setPanLfoDepth(layer.params.id, Number(e.currentTarget.value))}
+                  />
+                  <span class="filter-val">{Math.round(layer.params.panLfoDepth * 100)}%</span>
+                </div>
+              </div>
+            {/if}
+          </div>
+
           <div class="controls-compact filters">
             <div class="row mini">
               <label for="lp-{layer.params.id}" title="Low-pass (muffled / indoor)">
@@ -661,6 +729,20 @@
       </div>
     </div>
     <div class="side-stack">
+      <div class="accordion-panel" class:open={panelOpen.space}>
+        <button
+          type="button"
+          class="accordion-toggle mobile-only"
+          aria-expanded={panelOpen.space}
+          onclick={() => togglePanel('space')}
+        >
+          Space
+          <span class="chev">{panelOpen.space ? '▾' : '▸'}</span>
+        </button>
+        <div class="accordion-body" class:collapsed={!panelOpen.space}>
+          <SpatialCanvas layers={layers} />
+        </div>
+      </div>
       <div class="accordion-panel" class:open={panelOpen.timer}>
         <button
           type="button"
@@ -738,9 +820,33 @@
 
 <style>
   .mixer {
+    position: relative;
+    z-index: 1;
     max-width: 52rem;
     margin: 0 auto;
     padding: 0.75rem 0.85rem 2rem;
+  }
+
+  .lfo-row {
+    margin-top: 0.25rem;
+  }
+
+  .lfo-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.72rem;
+    color: var(--text-soft);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .lfo-toggle input {
+    accent-color: var(--accent);
+  }
+
+  .lfo-sliders {
+    margin-top: 0.25rem;
   }
 
   /* ── Sticky warm header ── */
