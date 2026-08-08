@@ -19,7 +19,6 @@ export const ONE_SHOT_PACKS: OneShotPack[] = [
     label: 'Storm & Sky',
     icon: '🌩️',
     description: 'Thunder cracks & distant rumbles',
-    // Prefer short event clips when present; fall back to long loops
     assetIds: [
       'event_thunder_crack',
       'event_thunder_roll',
@@ -44,24 +43,86 @@ export const ONE_SHOT_PACKS: OneShotPack[] = [
     id: 'coastal',
     label: 'Coastal Ambiance',
     icon: '🌊',
-    description: 'Seagull cries & shore accents',
-    assetIds: ['event_seagull_cry', 'seagulls', 'seagulls_surf'],
+    description: 'Seagull cries, harbor accents & shore crests',
+    assetIds: [
+      'event_seagull_cry',
+      'seagulls',
+      'seagulls_surf',
+      'harbor_night',
+      'pebble_beach',
+    ],
   },
   {
     id: 'cozy',
-    label: 'Cozy & Nature',
+    label: 'Cozy Hearth & Room',
     icon: '☕',
-    description: 'Fire pops, cave drips & soft rain accents',
+    description: 'Fireplace pops, cave drips & warm room accents',
     assetIds: [
       'event_fire_pop',
       'event_cave_drip',
-      'cave_drips',
+      'fireplace_indoor',
       'fire_camp',
+      'cave_drips',
+    ],
+  },
+  {
+    id: 'urban',
+    label: 'Urban & Cafe Life',
+    icon: '🏙️',
+    description: 'Soft cup clinks, page turns & city accents',
+    assetIds: [
+      'event_cup_clink',
+      'event_page_turn',
+      'event_city_horn',
+      'cafe_murmur',
+      'library_quiet',
+      'city_soft',
+    ],
+  },
+  {
+    id: 'wildlife',
+    label: 'Night Wildlife',
+    icon: '🦗',
+    description: 'Night cricket chirps, frog croaks & insect murmurs',
+    assetIds: [
+      'event_cricket_chirp',
+      'event_frog_croak',
+      'crickets_night',
+      'frogs_pond',
+      'summer_night_insects',
+    ],
+  },
+  {
+    id: 'water',
+    label: 'Streams & Water Accents',
+    icon: '💧',
+    description: 'Rock gurgles, water splashes & plaza drips',
+    assetIds: [
+      'event_water_splash',
+      'creek_rocks',
+      'stream_small',
+      'fountain_plaza',
+      'river_wide',
+    ],
+  },
+  {
+    id: 'transit',
+    label: 'Travel & Motion',
+    icon: '🚂',
+    description: 'Train whistles, rail clacks & transport hums',
+    assetIds: [
+      'event_rail_clack',
+      'train_steam_clickety',
+      'train_ride',
+      'bus_ride',
+      'metro_cabin',
     ],
   },
 ];
 
-export const ALL_ONE_SHOT_ASSETS: string[] = ONE_SHOT_PACKS.flatMap((p) => p.assetIds);
+export const ALL_ONE_SHOT_ASSETS: string[] = Array.from(
+  new Set(ONE_SHOT_PACKS.flatMap((p) => p.assetIds)),
+);
 
 export interface OneShotConfig {
   enabled: boolean;
@@ -84,7 +145,7 @@ export const DEFAULT_ONE_SHOT_CONFIG: OneShotConfig = {
   enabled: false,
   density: 'balanced',
   customIntervalMs: 60_000,
-  selectedPacks: ['storm', 'forest', 'coastal', 'cozy'],
+  selectedPacks: ['storm', 'forest', 'coastal', 'cozy', 'urban', 'wildlife', 'water', 'transit'],
   selectedAssets: [...ALL_ONE_SHOT_ASSETS],
   volumeLinear: 0.7,
   spatialPan: true,

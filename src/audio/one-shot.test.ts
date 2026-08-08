@@ -90,10 +90,18 @@ describe('One-Shot Configuration & LocalStorage', () => {
   });
 
   it('contains valid default sound packs', () => {
-    expect(ONE_SHOT_PACKS.length).toBeGreaterThanOrEqual(4);
+    expect(ONE_SHOT_PACKS.length).toBe(8);
     const stormPack = ONE_SHOT_PACKS.find((p) => p.id === 'storm');
     expect(stormPack).toBeDefined();
     expect(stormPack?.assetIds).toContain('thunder_distant');
+
+    const urbanPack = ONE_SHOT_PACKS.find((p) => p.id === 'urban');
+    expect(urbanPack).toBeDefined();
+    expect(urbanPack?.assetIds).toContain('event_cup_clink');
+
+    const wildlifePack = ONE_SHOT_PACKS.find((p) => p.id === 'wildlife');
+    expect(wildlifePack).toBeDefined();
+    expect(wildlifePack?.assetIds).toContain('event_cricket_chirp');
   });
 });
 
