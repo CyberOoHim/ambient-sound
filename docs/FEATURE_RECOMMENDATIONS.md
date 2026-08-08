@@ -58,8 +58,9 @@ Bass/treble shelves + light convolver reverb on the master bus; ⚙ Mix settings
 
 Shipped defaults include Deep Sleep Focus, Night Forest, Deep Focus, Cozy Rainy Cafe, Storm Night, Train Focus, etc.
 
-- **CNT-01** (Phase 4, deferred): more scenes that use spatial + LFO.
-- **CNT-02 / CNT-03** (Phase 4, deferred): more `event_*` clips and optional core loops.
+- **CNT-01** (Phase 4, partial): Wave A–C presets shipped (Library Study, Soft City Night, Window Rain Focus, Hearth Evening, River Meadow, Snow Quiet, Metro Focus, Harbor Dusk, Forest Rain Leaves; cafe unfaked). More spatial/LFO scenes still open.
+- **CNT-02** (Phase 4, deferred): more `event_*` clips.
+- **CNT-03** (Phase 4, **done**): Waves A–C cores (+17 → 54 loops) — [plan-core-loop-expansion.md](plan-core-loop-expansion.md).
 
 ### 2.3 Surprise me — **Done (Phase 2)**
 
@@ -99,9 +100,9 @@ System fonts; SW `CACHE_VERSION` stamped per build.
 | :--- | :--- | :--- |
 | POL-01 | Full QA pass (Phase 3 focus) | **Done** (`0.2.1`) |
 | DOC-01 | Resync this file with project plan | **Done** |
-| CNT-01 | Expand default scene presets | **Deferred** (content later) |
+| CNT-01 | Expand default scene presets | **Partial** — +9 Wave A–C scenes; spatial/LFO still open |
 | CNT-02 | Grow one-shot event library | **Deferred** (content later) |
-| CNT-03 | Optional new core loops | **Deferred** (content later) |
+| CNT-03 | Optional new core loops | **Done** — Waves A–C (+17 cores → 54); [plan](plan-core-loop-expansion.md) |
 | POL-02 | Share-link discovery polish | **Done** |
 | ENH-16 | Local-import backup & storage UX | **Done** |
 | ENH-17 | Global EQ / light reverb bus | **Done** |

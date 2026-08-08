@@ -163,14 +163,19 @@ Asset / catalog expansion deliberately left open. Prefer Freesound import skill 
 
 | | |
 |--|--|
-| **Status** | **open** (deferred) |
-| **Effort** | Medium |
-| **Impact** | Medium |
+| **Status** | **done** (Waves A–C shipped) |
+| **Effort** | Medium–High |
+| **Impact** | High |
 | **Area** | Content |
 
-**Work:** **2–3+** core ambient loops for library gaps (cafe/indoor, soft city, water variants, etc.).
+**Work:** Diversify the core pack beyond nature/transport. Full plan: [docs/plan-core-loop-expansion.md](docs/plan-core-loop-expansion.md).
 
-**Primary files:** `public/sounds/core/*`, catalog, Freesound skill
+- **Wave A (+6):** ✅ `cafe_murmur`, `library_quiet`, `city_soft`, `rain_window`, `rain_heavy`, `fireplace_indoor`  
+- **Wave B (+6):** ✅ `river_wide`, `creek_rocks`, `fountain_plaza`, `snow_wind`, `meadow_day`, `ac_room`  
+- **Wave C (+5):** ✅ `park_city`, `metro_cabin`, `rain_leaves`, `temple_soft`, `harbor_night` (skipped redundant woodstove)  
+- **Totals:** **54 cores**, Indoor/Urban groups, mood scoring, expanded default presets  
+
+**Primary files:** `config/sounds.json`, `public/sounds/core/*`, catalog, attributions, `LibraryPanel.svelte`, freesound skill
 
 ---
 

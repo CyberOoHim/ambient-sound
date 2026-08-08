@@ -70,6 +70,26 @@ describe('detectMood', () => {
     expect(detectMood(layers, catalog)).toBe('ocean');
   });
 
+  it('maps indoor cafe/library to night mood', () => {
+    const layers = [
+      {
+        kind: 'sample' as const,
+        params: createDefaultSampleLayer('s1', 'cafe_murmur', 'Cafe murmur'),
+      },
+    ];
+    expect(detectMood(layers, catalog)).toBe('night');
+  });
+
+  it('maps soft city to train mood', () => {
+    const layers = [
+      {
+        kind: 'sample' as const,
+        params: createDefaultSampleLayer('s1', 'city_soft', 'Soft city evening'),
+      },
+    ];
+    expect(detectMood(layers, catalog)).toBe('train');
+  });
+
   it('detects rain from noise type', () => {
     const layers = [
       {

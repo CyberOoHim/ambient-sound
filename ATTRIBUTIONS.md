@@ -30,6 +30,30 @@ Audio files in this repository are derived from Freesound **HQ previews** (publi
 - **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
 - **Attribution text:** "Rain on tent" by dr19 (https://freesound.org/people/dr19/sounds/457594/) — CC0-1.0
 
+### Rain on window (`rain_window`)
+
+- **Original:** Gusty Rain on Window.WAV
+- **Author:** [leesparey](https://freesound.org/people/leesparey/)
+- **Freesound:** [#505554](https://freesound.org/people/leesparey/sounds/505554/)
+- **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **Attribution text:** "Gusty Rain on Window.WAV" by leesparey (https://freesound.org/people/leesparey/sounds/505554/) — CC0-1.0
+
+### Heavy rain (`rain_heavy`)
+
+- **Original:** Rain heavy 2 (rural)
+- **Author:** [jmbphilmes](https://freesound.org/people/jmbphilmes/)
+- **Freesound:** [#200272](https://freesound.org/people/jmbphilmes/sounds/200272/)
+- **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **Attribution text:** "Rain heavy 2 (rural)" by jmbphilmes (https://freesound.org/people/jmbphilmes/sounds/200272/) — CC0-1.0
+
+### Rain on leaves (`rain_leaves`)
+
+- **Original:** rain medium on group with leaves soft splatty campground.flac
+- **Author:** [kyles](https://freesound.org/people/kyles/)
+- **Freesound:** [#451154](https://freesound.org/people/kyles/sounds/451154/)
+- **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **Attribution text:** "rain medium on group with leaves soft splatty campground.flac" by kyles (https://freesound.org/people/kyles/sounds/451154/) — CC0-1.0
+
 ### Distant thunder (`thunder_distant`)
 
 - **Original:** Rolling_Thunder_Deep.wav
@@ -70,6 +94,14 @@ Audio files in this repository are derived from Freesound **HQ previews** (publi
 - **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
 - **Attribution text:** "Waves Crashing Against Wall/Break Water 2" by Ali_6868 (https://freesound.org/people/Ali_6868/sounds/384360/) — CC0-1.0
 
+### Harbor ambience (`harbor_night`)
+
+- **Original:** harbour ambiance 1311 220802_0472.wav
+- **Author:** [klankbeeld](https://freesound.org/people/klankbeeld/)
+- **Freesound:** [#653016](https://freesound.org/people/klankbeeld/sounds/653016/)
+- **License:** [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/)
+- **Attribution text:** "harbour ambiance 1311 220802_0472.wav" by klankbeeld (https://freesound.org/people/klankbeeld/sounds/653016/) — CC-BY-4.0
+
 ### Lake shore (`lake_shore`)
 
 - **Original:** water medium gentle lake waves splash on shore close.flac
@@ -85,6 +117,30 @@ Audio files in this repository are derived from Freesound **HQ previews** (publi
 - **Freesound:** [#733004](https://freesound.org/people/sonicalypse/sounds/733004/)
 - **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
 - **Attribution text:** "Water Stream River Creek with crickets" by sonicalypse (https://freesound.org/people/sonicalypse/sounds/733004/) — CC0-1.0
+
+### Wide river (`river_wide`)
+
+- **Original:** water river large stream small over rocks wide.flac
+- **Author:** [kyles](https://freesound.org/people/kyles/)
+- **Freesound:** [#454283](https://freesound.org/people/kyles/sounds/454283/)
+- **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **Attribution text:** "water river large stream small over rocks wide.flac" by kyles (https://freesound.org/people/kyles/sounds/454283/) — CC0-1.0
+
+### Creek moderate flow (`creek_rocks`)
+
+- **Original:** Creek - Moderate Flow
+- **Author:** [easy_thunder](https://freesound.org/people/easy_thunder/)
+- **Freesound:** [#264180](https://freesound.org/people/easy_thunder/sounds/264180/)
+- **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **Attribution text:** "Creek - Moderate Flow" by easy_thunder (https://freesound.org/people/easy_thunder/sounds/264180/) — CC0-1.0
+
+### Plaza fountain (`fountain_plaza`)
+
+- **Original:** Fuente de agua plaza de la Catedral de Santa María de Huesca.WAV
+- **Author:** [Juan.Solo](https://freesound.org/people/Juan.Solo/)
+- **Freesound:** [#461066](https://freesound.org/people/Juan.Solo/sounds/461066/)
+- **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **Attribution text:** "Fuente de agua plaza de la Catedral de Santa María de Huesca.WAV" by Juan.Solo (https://freesound.org/people/Juan.Solo/sounds/461066/) — CC0-1.0
 
 ### Waterfall (`waterfall`)
 
@@ -142,6 +198,14 @@ Audio files in this repository are derived from Freesound **HQ previews** (publi
 - **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
 - **Attribution text:** "Howling winter storm ambient sounds" by DBlover (https://freesound.org/people/DBlover/sounds/505999/) — CC0-1.0
 
+### Snow wind forest (`snow_wind`)
+
+- **Original:** 2023 leaves snow wind forest_MIXPRE-759.wav
+- **Author:** [peterkotrha](https://freesound.org/people/peterkotrha/)
+- **Freesound:** [#676801](https://freesound.org/people/peterkotrha/sounds/676801/)
+- **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **Attribution text:** "2023 leaves snow wind forest_MIXPRE-759.wav" by peterkotrha (https://freesound.org/people/peterkotrha/sounds/676801/) — CC0-1.0
+
 ### Bamboo forest (`bamboo_forest`)
 
 - **Original:** bamboo forest (2).wav
@@ -149,6 +213,14 @@ Audio files in this repository are derived from Freesound **HQ previews** (publi
 - **Freesound:** [#546986](https://freesound.org/people/Codly/sounds/546986/)
 - **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
 - **Attribution text:** "bamboo forest (2).wav" by Codly (https://freesound.org/people/Codly/sounds/546986/) — CC0-1.0
+
+### French meadow (`meadow_day`)
+
+- **Original:** french meadow on the ground.wav
+- **Author:** [bruno.auzet](https://freesound.org/people/bruno.auzet/)
+- **Freesound:** [#529670](https://freesound.org/people/bruno.auzet/sounds/529670/)
+- **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **Attribution text:** "french meadow on the ground.wav" by bruno.auzet (https://freesound.org/people/bruno.auzet/sounds/529670/) — CC0-1.0
 
 ### Amazon morning forest (`amazon_forest`)
 
@@ -254,6 +326,62 @@ Audio files in this repository are derived from Freesound **HQ previews** (publi
 - **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
 - **Attribution text:** "Crackling Flames (loop)" by NickTayloe (https://freesound.org/people/NickTayloe/sounds/813328/) — CC0-1.0
 
+### Indoor fireplace (`fireplace_indoor`)
+
+- **Original:** crackling_fire_021012.wav
+- **Author:** [moxobna](https://freesound.org/people/moxobna/)
+- **Freesound:** [#145774](https://freesound.org/people/moxobna/sounds/145774/)
+- **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **Attribution text:** "crackling_fire_021012.wav" by moxobna (https://freesound.org/people/moxobna/sounds/145774/) — CC0-1.0
+
+### Cafe murmur (`cafe_murmur`)
+
+- **Original:** italian restaurant ambient.wav
+- **Author:** [extrafonia](https://freesound.org/people/extrafonia/)
+- **Freesound:** [#321626](https://freesound.org/people/extrafonia/sounds/321626/)
+- **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **Attribution text:** "italian restaurant ambient.wav" by extrafonia (https://freesound.org/people/extrafonia/sounds/321626/) — CC0-1.0
+
+### Quiet library (`library_quiet`)
+
+- **Original:** Quiet library ambience
+- **Author:** [xkeril](https://freesound.org/people/xkeril/)
+- **Freesound:** [#620683](https://freesound.org/people/xkeril/sounds/620683/)
+- **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **Attribution text:** "Quiet library ambience" by xkeril (https://freesound.org/people/xkeril/sounds/620683/) — CC0-1.0
+
+### Air conditioner hum (`ac_room`)
+
+- **Original:** Air Conditioner A/C Vent Hum - Room Tone
+- **Author:** [Sauron974](https://freesound.org/people/Sauron974/)
+- **Freesound:** [#273627](https://freesound.org/people/Sauron974/sounds/273627/)
+- **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **Attribution text:** "Air Conditioner A/C Vent Hum - Room Tone" by Sauron974 (https://freesound.org/people/Sauron974/sounds/273627/) — CC0-1.0
+
+### Quiet cathedral hall (`temple_soft`)
+
+- **Original:** 130516 Church interior, St Patrick's Cathedral, doors open close whispers distant traffic quiet, NYC
+- **Author:** [TRP](https://freesound.org/people/TRP/)
+- **Freesound:** [#715662](https://freesound.org/people/TRP/sounds/715662/)
+- **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **Attribution text:** "130516 Church interior, St Patrick's Cathedral, doors open close whispers distant traffic quiet, NYC" by TRP (https://freesound.org/people/TRP/sounds/715662/) — CC0-1.0
+
+### Soft city evening (`city_soft`)
+
+- **Original:** CITY EVENING DISTANT TRAFFIC HUM
+- **Author:** [softwalls](https://freesound.org/people/softwalls/)
+- **Freesound:** [#478142](https://freesound.org/people/softwalls/sounds/478142/)
+- **License:** [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/)
+- **Attribution text:** "CITY EVENING DISTANT TRAFFIC HUM" by softwalls (https://freesound.org/people/softwalls/sounds/478142/) — CC-BY-4.0
+
+### City park autumn (`park_city`)
+
+- **Original:** leipzig city park autumn atmo with birds wind and cars
+- **Author:** [Garuda1982](https://freesound.org/people/Garuda1982/)
+- **Freesound:** [#608854](https://freesound.org/people/Garuda1982/sounds/608854/)
+- **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **Attribution text:** "leipzig city park autumn atmo with birds wind and cars" by Garuda1982 (https://freesound.org/people/Garuda1982/sounds/608854/) — CC0-1.0
+
 ### Jet airliner (`jet_airliner`)
 
 - **Original:** Boeing 737 Lot ambiance .wav
@@ -301,6 +429,14 @@ Audio files in this repository are derived from Freesound **HQ previews** (publi
 - **Freesound:** [#265553](https://freesound.org/people/AugustSandberg/sounds/265553/)
 - **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
 - **Attribution text:** "Moored sailboat interior in strong breeze" by AugustSandberg (https://freesound.org/people/AugustSandberg/sounds/265553/) — CC0-1.0
+
+### Metro cabin (`metro_cabin`)
+
+- **Original:** DC Metro - Interior 2
+- **Author:** [crashoverride6](https://freesound.org/people/crashoverride6/)
+- **Freesound:** [#219232](https://freesound.org/people/crashoverride6/sounds/219232/)
+- **License:** [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **Attribution text:** "DC Metro - Interior 2" by crashoverride6 (https://freesound.org/people/crashoverride6/sounds/219232/) — CC0-1.0
 
 ## License note
 

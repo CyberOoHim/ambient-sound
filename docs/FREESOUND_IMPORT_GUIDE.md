@@ -67,7 +67,7 @@ Append the new sound entry to `config/sounds.json` (a JSON array). Place it near
 |---|---|---|
 | `id` | string | Unique `snake_case` identifier (convention: `<category>_<descriptor>`) |
 | `title` | string | Human-readable display title |
-| `category` | string | Sound category: `rain`, `thunder`, `ocean`, `water`, `stream`, `waterfall`, `cave`, `wind`, `forest`, `birds`, `insects`, `frogs`, `fire`, `transport` |
+| `category` | string | Sound category: `rain`, `thunder`, `ocean`, `water`, `stream`, `waterfall`, `cave`, `wind`, `forest`, `birds`, `insects`, `frogs`, `fire`, `transport`, `indoor`, `urban` |
 | `tags` | string[] | Descriptive tags; always include `"ambient"` and `"freesound"` |
 | `freesoundId` | number | Freesound numeric sound ID |
 | `username` | string | Freesound uploader username |

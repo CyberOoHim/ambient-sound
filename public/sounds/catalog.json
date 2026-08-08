@@ -91,6 +91,98 @@
       }
     },
     {
+      "id": "rain_window",
+      "title": "Rain on window",
+      "category": "rain",
+      "file": "core/rain_window.ogg",
+      "tags": [
+        "rain",
+        "window",
+        "glass",
+        "indoor",
+        "gusty",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 110
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "leesparey",
+        "sourceUrl": "https://freesound.org/people/leesparey/sounds/505554/",
+        "attribution": "\"Gusty Rain on Window.WAV\" by leesparey (https://freesound.org/people/leesparey/sounds/505554/) — CC0-1.0",
+        "notes": "Freesound #505554. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 505554,
+        "username": "leesparey",
+        "originalTitle": "Gusty Rain on Window.WAV"
+      }
+    },
+    {
+      "id": "rain_heavy",
+      "title": "Heavy rain",
+      "category": "rain",
+      "file": "core/rain_heavy.ogg",
+      "tags": [
+        "rain",
+        "heavy",
+        "downpour",
+        "rural",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 120
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "jmbphilmes",
+        "sourceUrl": "https://freesound.org/people/jmbphilmes/sounds/200272/",
+        "attribution": "\"Rain heavy 2 (rural)\" by jmbphilmes (https://freesound.org/people/jmbphilmes/sounds/200272/) — CC0-1.0",
+        "notes": "Freesound #200272. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 200272,
+        "username": "jmbphilmes",
+        "originalTitle": "Rain heavy 2 (rural)"
+      }
+    },
+    {
+      "id": "rain_leaves",
+      "title": "Rain on leaves",
+      "category": "rain",
+      "file": "core/rain_leaves.ogg",
+      "tags": [
+        "rain",
+        "leaves",
+        "forest",
+        "campground",
+        "splatty",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 110
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "kyles",
+        "sourceUrl": "https://freesound.org/people/kyles/sounds/451154/",
+        "attribution": "\"rain medium on group with leaves soft splatty campground.flac\" by kyles (https://freesound.org/people/kyles/sounds/451154/) — CC0-1.0",
+        "notes": "Freesound #451154. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 451154,
+        "username": "kyles",
+        "originalTitle": "rain medium on group with leaves soft splatty campground.flac"
+      }
+    },
+    {
       "id": "thunder_distant",
       "title": "Distant thunder",
       "category": "thunder",
@@ -117,10 +209,6 @@
         "id": 683419,
         "username": "SholeColtis",
         "originalTitle": "Rolling_Thunder_Deep.wav"
-      },
-      "oneShot": {
-        "eventDurationSec": 2.8,
-        "preferOffsetSec": 1.5
       }
     },
     {
@@ -151,10 +239,6 @@
         "id": 237242,
         "username": "felix.blume",
         "originalTitle": "Thunderstorm and rain in a field in Illinois, USA"
-      },
-      "oneShot": {
-        "eventDurationSec": 3.2,
-        "preferOffsetSec": 2
       }
     },
     {
@@ -248,6 +332,38 @@
       }
     },
     {
+      "id": "harbor_night",
+      "title": "Harbor ambience",
+      "category": "ocean",
+      "file": "core/harbor_night.ogg",
+      "tags": [
+        "harbor",
+        "harbour",
+        "dock",
+        "water",
+        "ocean",
+        "night",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 130
+      },
+      "license": {
+        "spdx": "CC-BY-4.0",
+        "author": "klankbeeld",
+        "sourceUrl": "https://freesound.org/people/klankbeeld/sounds/653016/",
+        "attribution": "\"harbour ambiance 1311 220802_0472.wav\" by klankbeeld (https://freesound.org/people/klankbeeld/sounds/653016/) — CC-BY-4.0",
+        "notes": "Freesound #653016. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 653016,
+        "username": "klankbeeld",
+        "originalTitle": "harbour ambiance 1311 220802_0472.wav"
+      }
+    },
+    {
       "id": "lake_shore",
       "title": "Lake shore",
       "category": "water",
@@ -304,6 +420,98 @@
         "id": 733004,
         "username": "sonicalypse",
         "originalTitle": "Water Stream River Creek with crickets"
+      }
+    },
+    {
+      "id": "river_wide",
+      "title": "Wide river",
+      "category": "stream",
+      "file": "core/river_wide.ogg",
+      "tags": [
+        "river",
+        "stream",
+        "water",
+        "rocks",
+        "wide",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 110
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "kyles",
+        "sourceUrl": "https://freesound.org/people/kyles/sounds/454283/",
+        "attribution": "\"water river large stream small over rocks wide.flac\" by kyles (https://freesound.org/people/kyles/sounds/454283/) — CC0-1.0",
+        "notes": "Freesound #454283. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 454283,
+        "username": "kyles",
+        "originalTitle": "water river large stream small over rocks wide.flac"
+      }
+    },
+    {
+      "id": "creek_rocks",
+      "title": "Creek moderate flow",
+      "category": "stream",
+      "file": "core/creek_rocks.ogg",
+      "tags": [
+        "creek",
+        "stream",
+        "rocks",
+        "water",
+        "babbling",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 100
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "easy_thunder",
+        "sourceUrl": "https://freesound.org/people/easy_thunder/sounds/264180/",
+        "attribution": "\"Creek - Moderate Flow\" by easy_thunder (https://freesound.org/people/easy_thunder/sounds/264180/) — CC0-1.0",
+        "notes": "Freesound #264180. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 264180,
+        "username": "easy_thunder",
+        "originalTitle": "Creek - Moderate Flow"
+      }
+    },
+    {
+      "id": "fountain_plaza",
+      "title": "Plaza fountain",
+      "category": "water",
+      "file": "core/fountain_plaza.ogg",
+      "tags": [
+        "fountain",
+        "plaza",
+        "water",
+        "urban",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 100
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "Juan.Solo",
+        "sourceUrl": "https://freesound.org/people/Juan.Solo/sounds/461066/",
+        "attribution": "\"Fuente de agua plaza de la Catedral de Santa María de Huesca.WAV\" by Juan.Solo (https://freesound.org/people/Juan.Solo/sounds/461066/) — CC0-1.0",
+        "notes": "Freesound #461066. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 461066,
+        "username": "Juan.Solo",
+        "originalTitle": "Fuente de agua plaza de la Catedral de Santa María de Huesca.WAV"
       }
     },
     {
@@ -393,10 +601,6 @@
         "id": 177958,
         "username": "Sclolex",
         "originalTitle": "Water Dripping in Cave.wav"
-      },
-      "oneShot": {
-        "eventDurationSec": 1,
-        "preferOffsetSec": 1.5
       }
     },
     {
@@ -425,10 +629,6 @@
         "id": 563571,
         "username": "Cinetony",
         "originalTitle": "Wind in forest with creaking tree"
-      },
-      "oneShot": {
-        "eventDurationSec": 1.8,
-        "preferOffsetSec": 5
       }
     },
     {
@@ -459,10 +659,6 @@
         "id": 575645,
         "username": "Garuda1982",
         "originalTitle": "large leaves rustle in the wind sound effect"
-      },
-      "oneShot": {
-        "eventDurationSec": 1.4,
-        "preferOffsetSec": 1
       }
     },
     {
@@ -523,10 +719,38 @@
         "id": 505999,
         "username": "DBlover",
         "originalTitle": "Howling winter storm ambient sounds"
+      }
+    },
+    {
+      "id": "snow_wind",
+      "title": "Snow wind forest",
+      "category": "wind",
+      "file": "core/snow_wind.ogg",
+      "tags": [
+        "snow",
+        "wind",
+        "winter",
+        "forest",
+        "leaves",
+        "gentle",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 120
       },
-      "oneShot": {
-        "eventDurationSec": 2.5,
-        "preferOffsetSec": 3
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "peterkotrha",
+        "sourceUrl": "https://freesound.org/people/peterkotrha/sounds/676801/",
+        "attribution": "\"2023 leaves snow wind forest_MIXPRE-759.wav\" by peterkotrha (https://freesound.org/people/peterkotrha/sounds/676801/) — CC0-1.0",
+        "notes": "Freesound #676801. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 676801,
+        "username": "peterkotrha",
+        "originalTitle": "2023 leaves snow wind forest_MIXPRE-759.wav"
       }
     },
     {
@@ -557,6 +781,38 @@
         "id": 546986,
         "username": "Codly",
         "originalTitle": "bamboo forest (2).wav"
+      }
+    },
+    {
+      "id": "meadow_day",
+      "title": "French meadow",
+      "category": "forest",
+      "file": "core/meadow_day.ogg",
+      "tags": [
+        "meadow",
+        "grass",
+        "field",
+        "summer",
+        "day",
+        "nature",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 110
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "bruno.auzet",
+        "sourceUrl": "https://freesound.org/people/bruno.auzet/sounds/529670/",
+        "attribution": "\"french meadow on the ground.wav\" by bruno.auzet (https://freesound.org/people/bruno.auzet/sounds/529670/) — CC0-1.0",
+        "notes": "Freesound #529670. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 529670,
+        "username": "bruno.auzet",
+        "originalTitle": "french meadow on the ground.wav"
       }
     },
     {
@@ -649,10 +905,6 @@
         "id": 546521,
         "username": "trezz77",
         "originalTitle": "birds on morning"
-      },
-      "oneShot": {
-        "eventDurationSec": 1.6,
-        "preferOffsetSec": 3
       }
     },
     {
@@ -683,10 +935,6 @@
         "id": 151241,
         "username": "kvgarlic",
         "originalTitle": "OwlsForestApril82012.wav"
-      },
-      "oneShot": {
-        "eventDurationSec": 2,
-        "preferOffsetSec": 2
       }
     },
     {
@@ -718,10 +966,6 @@
         "id": 155747,
         "username": "felix.blume",
         "originalTitle": "Seagulls screeching on the beach, on the peruvian shore."
-      },
-      "oneShot": {
-        "eventDurationSec": 1.5,
-        "preferOffsetSec": 2
       }
     },
     {
@@ -961,10 +1205,230 @@
         "id": 813328,
         "username": "NickTayloe",
         "originalTitle": "Crackling Flames (loop)"
+      }
+    },
+    {
+      "id": "fireplace_indoor",
+      "title": "Indoor fireplace",
+      "category": "fire",
+      "file": "core/fireplace_indoor.ogg",
+      "tags": [
+        "fire",
+        "fireplace",
+        "hearth",
+        "indoor",
+        "crackling",
+        "wood",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 100
       },
-      "oneShot": {
-        "eventDurationSec": 1.2,
-        "preferOffsetSec": 4
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "moxobna",
+        "sourceUrl": "https://freesound.org/people/moxobna/sounds/145774/",
+        "attribution": "\"crackling_fire_021012.wav\" by moxobna (https://freesound.org/people/moxobna/sounds/145774/) — CC0-1.0",
+        "notes": "Freesound #145774. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 145774,
+        "username": "moxobna",
+        "originalTitle": "crackling_fire_021012.wav"
+      }
+    },
+    {
+      "id": "cafe_murmur",
+      "title": "Cafe murmur",
+      "category": "indoor",
+      "file": "core/cafe_murmur.ogg",
+      "tags": [
+        "cafe",
+        "restaurant",
+        "crowd",
+        "indoor",
+        "chatter",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 120
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "extrafonia",
+        "sourceUrl": "https://freesound.org/people/extrafonia/sounds/321626/",
+        "attribution": "\"italian restaurant ambient.wav\" by extrafonia (https://freesound.org/people/extrafonia/sounds/321626/) — CC0-1.0",
+        "notes": "Freesound #321626. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 321626,
+        "username": "extrafonia",
+        "originalTitle": "italian restaurant ambient.wav"
+      }
+    },
+    {
+      "id": "library_quiet",
+      "title": "Quiet library",
+      "category": "indoor",
+      "file": "core/library_quiet.ogg",
+      "tags": [
+        "library",
+        "quiet",
+        "indoor",
+        "study",
+        "room-tone",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 100
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "xkeril",
+        "sourceUrl": "https://freesound.org/people/xkeril/sounds/620683/",
+        "attribution": "\"Quiet library ambience\" by xkeril (https://freesound.org/people/xkeril/sounds/620683/) — CC0-1.0",
+        "notes": "Freesound #620683. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 620683,
+        "username": "xkeril",
+        "originalTitle": "Quiet library ambience"
+      }
+    },
+    {
+      "id": "ac_room",
+      "title": "Air conditioner hum",
+      "category": "indoor",
+      "file": "core/ac_room.ogg",
+      "tags": [
+        "ac",
+        "hvac",
+        "air-conditioner",
+        "room-tone",
+        "indoor",
+        "hum",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 80
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "Sauron974",
+        "sourceUrl": "https://freesound.org/people/Sauron974/sounds/273627/",
+        "attribution": "\"Air Conditioner A/C Vent Hum - Room Tone\" by Sauron974 (https://freesound.org/people/Sauron974/sounds/273627/) — CC0-1.0",
+        "notes": "Freesound #273627. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 273627,
+        "username": "Sauron974",
+        "originalTitle": "Air Conditioner A/C Vent Hum - Room Tone"
+      }
+    },
+    {
+      "id": "temple_soft",
+      "title": "Quiet cathedral hall",
+      "category": "indoor",
+      "file": "core/temple_soft.ogg",
+      "tags": [
+        "cathedral",
+        "church",
+        "temple",
+        "hall",
+        "quiet",
+        "indoor",
+        "reverb",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 120
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "TRP",
+        "sourceUrl": "https://freesound.org/people/TRP/sounds/715662/",
+        "attribution": "\"130516 Church interior, St Patrick's Cathedral, doors open close whispers distant traffic quiet, NYC\" by TRP (https://freesound.org/people/TRP/sounds/715662/) — CC0-1.0",
+        "notes": "Freesound #715662. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 715662,
+        "username": "TRP",
+        "originalTitle": "130516 Church interior, St Patrick's Cathedral, doors open close whispers distant traffic quiet, NYC"
+      }
+    },
+    {
+      "id": "city_soft",
+      "title": "Soft city evening",
+      "category": "urban",
+      "file": "core/city_soft.ogg",
+      "tags": [
+        "city",
+        "urban",
+        "traffic",
+        "distant",
+        "evening",
+        "hum",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 130
+      },
+      "license": {
+        "spdx": "CC-BY-4.0",
+        "author": "softwalls",
+        "sourceUrl": "https://freesound.org/people/softwalls/sounds/478142/",
+        "attribution": "\"CITY EVENING DISTANT TRAFFIC HUM\" by softwalls (https://freesound.org/people/softwalls/sounds/478142/) — CC-BY-4.0",
+        "notes": "Freesound #478142. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 478142,
+        "username": "softwalls",
+        "originalTitle": "CITY EVENING DISTANT TRAFFIC HUM"
+      }
+    },
+    {
+      "id": "park_city",
+      "title": "City park autumn",
+      "category": "urban",
+      "file": "core/park_city.ogg",
+      "tags": [
+        "park",
+        "city",
+        "urban",
+        "birds",
+        "wind",
+        "cars",
+        "autumn",
+        "ambient",
+        "freesound"
+      ],
+      "loop": {
+        "mode": "crossfade",
+        "crossfadeMs": 120
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "Garuda1982",
+        "sourceUrl": "https://freesound.org/people/Garuda1982/sounds/608854/",
+        "attribution": "\"leipzig city park autumn atmo with birds wind and cars\" by Garuda1982 (https://freesound.org/people/Garuda1982/sounds/608854/) — CC0-1.0",
+        "notes": "Freesound #608854. Packaged from public HQ preview; trimmed/normalized for ambient looping."
+      },
+      "freesound": {
+        "id": 608854,
+        "username": "Garuda1982",
+        "originalTitle": "leipzig city park autumn atmo with birds wind and cars"
       }
     },
     {
@@ -1154,206 +1618,35 @@
       }
     },
     {
-      "id": "event_thunder_crack",
-      "title": "Thunder crack",
-      "category": "thunder",
-      "file": "events/event_thunder_crack.ogg",
+      "id": "metro_cabin",
+      "title": "Metro cabin",
+      "category": "transport",
+      "file": "core/metro_cabin.ogg",
       "tags": [
-        "thunder",
-        "one-shot",
-        "event"
+        "metro",
+        "subway",
+        "train",
+        "interior",
+        "transport",
+        "cabin",
+        "ambient",
+        "freesound"
       ],
       "loop": {
-        "mode": "native",
-        "crossfadeMs": 40
+        "mode": "crossfade",
+        "crossfadeMs": 120
       },
       "license": {
         "spdx": "CC0-1.0",
-        "author": "SholeColtis",
-        "sourceUrl": "https://freesound.org/people/SholeColtis/sounds/683419/",
-        "attribution": "\"Thunder crack\" one-shot excerpt (CC0)",
-        "notes": "Short event clip extracted from thunder_distant.ogg for discrete one-shot playback."
+        "author": "crashoverride6",
+        "sourceUrl": "https://freesound.org/people/crashoverride6/sounds/219232/",
+        "attribution": "\"DC Metro - Interior 2\" by crashoverride6 (https://freesound.org/people/crashoverride6/sounds/219232/) — CC0-1.0",
+        "notes": "Freesound #219232. Packaged from public HQ preview; trimmed/normalized for ambient looping."
       },
-      "oneShot": {
-        "playFull": true,
-        "eventDurationSec": 3.5
-      }
-    },
-    {
-      "id": "event_thunder_roll",
-      "title": "Thunder roll",
-      "category": "thunder",
-      "file": "events/event_thunder_roll.ogg",
-      "tags": [
-        "thunder",
-        "one-shot",
-        "event"
-      ],
-      "loop": {
-        "mode": "native",
-        "crossfadeMs": 40
-      },
-      "license": {
-        "spdx": "CC0-1.0",
-        "author": "felix.blume",
-        "sourceUrl": "https://freesound.org/people/felix.blume/sounds/237242/",
-        "attribution": "\"Thunder roll\" one-shot excerpt (CC0)",
-        "notes": "Short event clip extracted from thunder_storm.ogg for discrete one-shot playback."
-      },
-      "oneShot": {
-        "playFull": true,
-        "eventDurationSec": 4
-      }
-    },
-    {
-      "id": "event_bird_chirp",
-      "title": "Bird chirp",
-      "category": "birds",
-      "file": "events/event_bird_chirp.ogg",
-      "tags": [
-        "birds",
-        "one-shot",
-        "event"
-      ],
-      "loop": {
-        "mode": "native",
-        "crossfadeMs": 40
-      },
-      "license": {
-        "spdx": "CC0-1.0",
-        "author": "Freesound",
-        "attribution": "\"Bird chirp\" one-shot excerpt (CC0)",
-        "notes": "Short event clip extracted from birds_morning.ogg for discrete one-shot playback."
-      },
-      "oneShot": {
-        "playFull": true,
-        "eventDurationSec": 2.2
-      }
-    },
-    {
-      "id": "event_owl_hoot",
-      "title": "Owl hoot",
-      "category": "birds",
-      "file": "events/event_owl_hoot.ogg",
-      "tags": [
-        "owls",
-        "one-shot",
-        "event"
-      ],
-      "loop": {
-        "mode": "native",
-        "crossfadeMs": 40
-      },
-      "license": {
-        "spdx": "CC0-1.0",
-        "author": "Freesound",
-        "attribution": "\"Owl hoot\" one-shot excerpt (CC0)",
-        "notes": "Short event clip extracted from owls_forest.ogg for discrete one-shot playback."
-      },
-      "oneShot": {
-        "playFull": true,
-        "eventDurationSec": 2.5
-      }
-    },
-    {
-      "id": "event_leaf_snap",
-      "title": "Leaf snap",
-      "category": "forest",
-      "file": "events/event_leaf_snap.ogg",
-      "tags": [
-        "leaves",
-        "one-shot",
-        "event"
-      ],
-      "loop": {
-        "mode": "native",
-        "crossfadeMs": 40
-      },
-      "license": {
-        "spdx": "CC0-1.0",
-        "author": "Freesound",
-        "attribution": "\"Leaf snap\" one-shot excerpt (CC0)",
-        "notes": "Short event clip extracted from leaves_rustle.ogg for discrete one-shot playback."
-      },
-      "oneShot": {
-        "playFull": true,
-        "eventDurationSec": 1.8
-      }
-    },
-    {
-      "id": "event_seagull_cry",
-      "title": "Seagull cry",
-      "category": "birds",
-      "file": "events/event_seagull_cry.ogg",
-      "tags": [
-        "seagulls",
-        "one-shot",
-        "event"
-      ],
-      "loop": {
-        "mode": "native",
-        "crossfadeMs": 40
-      },
-      "license": {
-        "spdx": "CC0-1.0",
-        "author": "Freesound",
-        "attribution": "\"Seagull cry\" one-shot excerpt (CC0)",
-        "notes": "Short event clip extracted from seagulls.ogg for discrete one-shot playback."
-      },
-      "oneShot": {
-        "playFull": true,
-        "eventDurationSec": 2
-      }
-    },
-    {
-      "id": "event_fire_pop",
-      "title": "Fire pop",
-      "category": "fire",
-      "file": "events/event_fire_pop.ogg",
-      "tags": [
-        "fire",
-        "one-shot",
-        "event"
-      ],
-      "loop": {
-        "mode": "native",
-        "crossfadeMs": 40
-      },
-      "license": {
-        "spdx": "CC0-1.0",
-        "author": "Freesound",
-        "attribution": "\"Fire pop\" one-shot excerpt (CC0)",
-        "notes": "Short event clip extracted from fire_camp.ogg for discrete one-shot playback."
-      },
-      "oneShot": {
-        "playFull": true,
-        "eventDurationSec": 1.6
-      }
-    },
-    {
-      "id": "event_cave_drip",
-      "title": "Cave drip",
-      "category": "cave",
-      "file": "events/event_cave_drip.ogg",
-      "tags": [
-        "cave",
-        "drip",
-        "one-shot",
-        "event"
-      ],
-      "loop": {
-        "mode": "native",
-        "crossfadeMs": 40
-      },
-      "license": {
-        "spdx": "CC0-1.0",
-        "author": "Freesound",
-        "attribution": "\"Cave drip\" one-shot excerpt (CC0)",
-        "notes": "Short event clip extracted from cave_drips.ogg for discrete one-shot playback."
-      },
-      "oneShot": {
-        "playFull": true,
-        "eventDurationSec": 1.4
+      "freesound": {
+        "id": 219232,
+        "username": "crashoverride6",
+        "originalTitle": "DC Metro - Interior 2"
       }
     }
   ]

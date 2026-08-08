@@ -282,6 +282,8 @@
 
   const CATEGORY_GROUPS: GroupDef[] = [
     { id: 'transport', label: 'Transport', categories: ['transport'] },
+    { id: 'indoor', label: 'Indoor', categories: ['indoor'] },
+    { id: 'urban', label: 'Urban', categories: ['urban'] },
     { id: 'rain', label: 'Rain & Thunder', categories: ['rain', 'thunder'] },
     { id: 'water', label: 'Water & Ocean', categories: ['ocean', 'water', 'stream', 'waterfall', 'cave'] },
     { id: 'wind', label: 'Wind & Forest', categories: ['wind', 'forest'] },

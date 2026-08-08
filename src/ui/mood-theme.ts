@@ -39,15 +39,29 @@ function bump(mood: keyof typeof MOOD_SCORES, amount: number): void {
 function scoreText(text: string, weight: number): void {
   const t = text.toLowerCase();
   if (/\brain|thunder|storm|drizzle/.test(t)) bump('rain', weight);
-  if (/\bfire|camp|hearth|ember|crackl/.test(t)) bump('fire', weight);
-  if (/\bforest|jungle|tree|leaves|bird|owl|insect|cicada|cricket|frog|amazon|bamboo/.test(t))
+  if (/\bfire|camp|hearth|ember|crackl|fireplace/.test(t)) bump('fire', weight);
+  if (/\bforest|jungle|tree|leaves|bird|owl|insect|cicada|cricket|frog|amazon|bamboo|meadow|grass/.test(t))
     bump('forest', weight);
-  if (/\bocean|sea|shore|wave|surf|beach|seagull|underwater|lake|stream|waterfall|water/.test(t))
+  if (
+    /\bocean|sea|shore|wave|surf|beach|seagull|underwater|lake|stream|waterfall|water|harbor|harbour|dock|fountain|river|creek/.test(
+      t,
+    )
+  )
     bump('ocean', weight);
   if (/\bnight|cricket|owl|moon|dark/.test(t)) bump('night', weight * 0.85);
-  if (/\btrain|bus|jet|airliner|transport|engine|rail/.test(t)) bump('train', weight);
+  // Indoor beds (cafe/library/temple/hvac) → calm night mood, not forest
+  if (
+    /\bcafe|library|indoor|murmur|restaurant|study|room-tone|hvac|cathedral|church|temple|ac_room|air.conditioner/.test(
+      t,
+    )
+  )
+    bump('night', weight * 1.1);
+  // Soft urban / park / distant traffic → train (city) mood
+  if (/\bcity|urban|traffic|neighbourhood|neighborhood|park_city|plaza/.test(t))
+    bump('train', weight * 0.95);
+  if (/\btrain|bus|jet|airliner|transport|engine|rail|metro|subway/.test(t)) bump('train', weight);
   if (/\bcave|drip|underwater/.test(t)) bump('cave', weight * 0.9);
-  if (/\bwind|desert|winter/.test(t)) bump('forest', weight * 0.4);
+  if (/\bwind|desert|winter|snow/.test(t)) bump('forest', weight * 0.4);
 }
 
 /**
