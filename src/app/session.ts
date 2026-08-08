@@ -795,18 +795,63 @@ export class Session {
     const includeBinaural = options?.includeBinaural ?? false;
     const includeOneShot = options?.includeOneShot ?? false;
 
-    // Curated complementary groups (asset ids that work well together)
+    // Curated complementary groups (asset ids that work well together across all core loop categories)
     const groups: string[][] = [
+      // Cozy Indoor & Study
+      ['cafe_murmur', 'rain_window'],
+      ['library_quiet', 'ac_room', 'rain_window'],
+      ['fireplace_indoor', 'rain_roof', 'ac_room'],
+      ['temple_soft', 'rain_light', 'ac_room'],
+      ['cafe_murmur', 'rain_roof', 'fireplace_indoor'],
+
+      // Urban & City Environments
+      ['city_soft', 'rain_roof', 'ac_room'],
+      ['metro_cabin', 'city_soft'],
+      ['bus_ride', 'rain_window'],
+      ['park_city', 'birds_morning', 'leaves_rustle'],
+      ['city_soft', 'rain_heavy', 'ac_room'],
+
+      // Rain & Atmospheric Storms
+      ['rain_heavy', 'thunder_distant', 'wind_trees'],
+      ['rain_window', 'fireplace_indoor'],
+      ['rain_tent', 'thunder_storm', 'leaves_rustle'],
+      ['rain_leaves', 'creek_rocks', 'wind_trees'],
       ['rain_light', 'fire_camp', 'stream_small'],
-      ['ocean_shore', 'seagulls', 'wind_trees'],
-      ['crickets_night', 'owls_forest', 'fire_camp'],
-      ['rain_tent', 'thunder_distant', 'wind_trees'],
-      ['train_ride', 'rain_roof'],
-      ['bus_ride', 'rain_light'],
-      ['amazon_forest', 'birds_morning', 'stream_small'],
-      ['cave_drips', 'underwater'],
-      ['winter_storm', 'fire_camp'],
+
+      // Coastal & Oceans
+      ['ocean_shore', 'seagulls_surf', 'wind_trees'],
+      ['harbor_night', 'pebble_beach'],
+      ['boat_sailboat', 'ocean_shore', 'seagulls'],
+      ['sea_stormy', 'wind_trees'],
+      ['pebble_beach', 'wind_trees', 'harbor_night'],
+
+      // Forest & Wilderness
+      ['meadow_day', 'stream_small', 'birds_morning'],
+      ['amazon_forest', 'river_wide', 'jungle_amazon'],
+      ['bamboo_forest', 'wind_trees', 'birds_morning'],
+      ['crickets_night', 'owls_forest', 'fireplace_indoor'],
+      ['summer_night_insects', 'frogs_pond', 'fire_camp'],
+      ['cicadas_summer', 'desert_wind', 'fire_camp'],
+
+      // Rivers, Streams & Waters
+      ['river_wide', 'meadow_day', 'birds_morning'],
+      ['creek_rocks', 'leaves_rustle', 'birds_morning'],
+      ['fountain_plaza', 'city_soft'],
       ['lake_shore', 'frogs_pond', 'cicadas_summer'],
+      ['cave_drips', 'underwater'],
+      ['waterfall', 'wind_trees'],
+
+      // Transport & Journeys
+      ['train_ride', 'rain_roof'],
+      ['train_steam_clickety', 'rain_light', 'wind_trees'],
+      ['train_romanian', 'wind_trees'],
+      ['jet_airliner', 'ac_room'],
+      ['bus_ride', 'rain_light'],
+
+      // Winter & Mountain Shelter
+      ['winter_storm', 'fireplace_indoor'],
+      ['snow_wind', 'fireplace_indoor', 'rain_window'],
+      ['winter_storm', 'fire_camp', 'desert_wind'],
     ];
 
     const available = new Set(this.catalog.assets.map((a) => a.id));
@@ -852,10 +897,11 @@ export class Session {
       }
     }
 
-    // ~30% chance of soft pink bed
+    // ~30% chance of soft noise bed (pink or brown)
     if (this.layers.length < MAX_MIXER_LAYERS && Math.random() < 0.3) {
-      const noise = createDefaultNoiseLayer(uid('noise'), 'pink');
-      noise.volumeLinear = 0.28;
+      const noiseType = Math.random() < 0.5 ? 'pink' : 'brown';
+      const noise = createDefaultNoiseLayer(uid('noise'), noiseType);
+      noise.volumeLinear = noiseType === 'brown' ? 0.22 : 0.28;
       this.layers.push({ kind: 'noise', params: noise });
     }
 

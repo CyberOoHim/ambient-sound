@@ -245,3 +245,80 @@ describe('Session binaural configuration state', () => {
   });
 });
 
+describe('Session surpriseMe behavior', () => {
+  let session: Session;
+
+  beforeEach(() => {
+    session = new Session();
+    session.catalog = {
+      version: 1,
+      packId: 'core-test',
+      title: 'Test Catalog',
+      assets: [
+        {
+          id: 'cafe_murmur',
+          title: 'Cafe murmur',
+          category: 'indoor',
+          file: 'core/cafe_murmur.ogg',
+          loop: { mode: 'crossfade', crossfadeMs: 100 },
+          license: { spdx: 'CC0-1.0', author: 'test' },
+        },
+        {
+          id: 'rain_window',
+          title: 'Rain on window',
+          category: 'rain',
+          file: 'core/rain_window.ogg',
+          loop: { mode: 'crossfade', crossfadeMs: 100 },
+          license: { spdx: 'CC0-1.0', author: 'test' },
+        },
+        {
+          id: 'ac_room',
+          title: 'Air conditioner hum',
+          category: 'indoor',
+          file: 'core/ac_room.ogg',
+          loop: { mode: 'crossfade', crossfadeMs: 100 },
+          license: { spdx: 'CC0-1.0', author: 'test' },
+        },
+        {
+          id: 'city_soft',
+          title: 'Soft city evening',
+          category: 'urban',
+          file: 'core/city_soft.ogg',
+          loop: { mode: 'crossfade', crossfadeMs: 100 },
+          license: { spdx: 'CC0-1.0', author: 'test' },
+        },
+      ],
+    };
+  });
+
+  it('sets notice when catalog is not ready', async () => {
+    const emptySession = new Session();
+    emptySession.catalog = null;
+    vi.spyOn(emptySession, 'ensureCatalogReady').mockImplementation(async () => {});
+
+    await emptySession.surpriseMe();
+    expect(emptySession.loadNotice).toBe('Catalog not ready — try again in a moment.');
+  });
+
+  it('builds a multi-layer surprise mix from available catalog items', async () => {
+    vi.spyOn(session, 'ensureCatalogReady').mockImplementation(async () => {});
+
+    await session.surpriseMe();
+
+    expect(session.layers.length).toBeGreaterThanOrEqual(2);
+    expect(session.loadNotice).toMatch(/^Surprise mix:/);
+  });
+
+  it('disables binaural and one-shot by default unless explicitly included', async () => {
+    vi.spyOn(session, 'ensureCatalogReady').mockImplementation(async () => {});
+    session.binauralConfig.enabled = true;
+    session.oneShotConfig.enabled = true;
+
+    await session.surpriseMe();
+
+    expect(session.binauralConfig.enabled).toBe(false);
+    expect(session.oneShotConfig.enabled).toBe(false);
+  });
+});
+
+

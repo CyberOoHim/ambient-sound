@@ -32,7 +32,7 @@ function artworkEntries(): MediaImage[] {
 
 export function installMediaSessionHandlers(h: MediaSessionHandlers): void {
   handlers = h;
-  if (!('mediaSession' in navigator)) return;
+  if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
 
   try {
     navigator.mediaSession.setActionHandler('play', () => {
@@ -61,7 +61,7 @@ export function setMediaSessionPlayback(
   title = 'Ambient sounds',
   artist = 'Ambient',
 ): void {
-  if (!('mediaSession' in navigator)) return;
+  if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
 
   try {
     navigator.mediaSession.metadata = new MediaMetadata({
