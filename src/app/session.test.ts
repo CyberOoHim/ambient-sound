@@ -294,14 +294,14 @@ describe('Session surpriseMe behavior', () => {
   it('sets notice when catalog is not ready', async () => {
     const emptySession = new Session();
     emptySession.catalog = null;
-    vi.spyOn(emptySession, 'ensureCatalogReady').mockImplementation(async () => {});
+    vi.spyOn(emptySession as any, 'ensureCatalogReady').mockImplementation(async () => {});
 
     await emptySession.surpriseMe();
     expect(emptySession.loadNotice).toBe('Catalog not ready — try again in a moment.');
   });
 
   it('builds a multi-layer surprise mix from available catalog items', async () => {
-    vi.spyOn(session, 'ensureCatalogReady').mockImplementation(async () => {});
+    vi.spyOn(session as any, 'ensureCatalogReady').mockImplementation(async () => {});
 
     await session.surpriseMe();
 
@@ -310,7 +310,7 @@ describe('Session surpriseMe behavior', () => {
   });
 
   it('disables binaural and one-shot by default unless explicitly included', async () => {
-    vi.spyOn(session, 'ensureCatalogReady').mockImplementation(async () => {});
+    vi.spyOn(session as any, 'ensureCatalogReady').mockImplementation(async () => {});
     session.binauralConfig.enabled = true;
     session.oneShotConfig.enabled = true;
 
