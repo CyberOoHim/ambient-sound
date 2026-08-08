@@ -56,10 +56,10 @@
     return 8 + ((pan + 1) / 2) * 84;
   }
 
-  /** volume 0..1 → top% 88..12 (loud near bottom) */
+  /** volume 0..1 → top% 12..88 (top quiet / far, bottom loud / near) */
   function volToY(vol: number): number {
     const v = Math.max(0, Math.min(1, vol));
-    return 88 - v * 76;
+    return 12 + v * 76;
   }
 
   function xyToParams(clientX: number, clientY: number): { pan: number; vol: number } {
@@ -69,7 +69,7 @@
     const nx = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
     const ny = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
     const pan = nx * 2 - 1;
-    const vol = 1 - ny; // top = 0, bottom = 1
+    const vol = ny; // top = 0 (far), bottom = 1 (near)
     return { pan, vol: Math.max(0.02, Math.min(1, vol)) };
   }
 
