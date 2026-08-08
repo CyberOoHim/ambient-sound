@@ -1,7 +1,7 @@
 <script lang="ts">
   import { session } from '../app/session';
   import type { PresetV1 } from '../app/presets';
-  import { buildShareUrl } from '../app/share';
+  import { buildShareUrl, shareUrlLength } from '../app/share';
 
   let presets = $state<PresetV1[]>(session.presets);
   let name = $state('');
@@ -24,9 +24,12 @@
     busy = true;
     message = null;
     try {
+      const wasPlaying = session.playing;
       await session.loadPreset(id);
       selectedId = id;
-      message = 'Loaded — press Play if paused';
+      message = wasPlaying
+        ? 'Loaded with crossfade'
+        : 'Loaded — press Play if paused';
     } finally {
       busy = false;
     }
@@ -94,11 +97,18 @@
           session.captureSceneSnapshot())
         : session.captureSceneSnapshot(name.trim() || 'Shared mix');
     const url = buildShareUrl(snap);
+    const len = shareUrlLength(snap);
     try {
       await navigator.clipboard.writeText(url);
-      message = 'Share link copied';
+      const longHint =
+        len > 2000
+          ? ' (long link — some apps may truncate)'
+          : len > 1200
+            ? ` (${Math.round(len / 100) / 10}k chars)`
+            : '';
+      message = `Share link copied${longHint}`;
     } catch {
-      message = 'Could not copy link';
+      message = 'Could not copy link — try Copy JSON instead';
     }
   }
 

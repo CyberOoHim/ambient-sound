@@ -1,4 +1,5 @@
 import type {
+  MasterToneParams,
   MixerLayer,
   NoiseLayerParams,
   NoiseType,
@@ -7,10 +8,16 @@ import type {
 import {
   clampHighpassHz,
   clampLowpassHz,
+  clampMasterEqDb,
   clampPanLfoDepth,
   clampPanLfoRateHz,
+  clampReverbWet,
+  defaultMasterTone,
   FILTER_HP_OPEN_HZ,
   FILTER_LP_OPEN_HZ,
+  MASTER_BASS_DB_DEFAULT,
+  MASTER_REVERB_WET_DEFAULT,
+  MASTER_TREBLE_DB_DEFAULT,
   PAN_LFO_DEPTH_DEFAULT,
   PAN_LFO_RATE_DEFAULT_HZ,
 } from '../audio/types';
@@ -45,21 +52,65 @@ export interface PresetTimerConfig {
  * Older presets omit binaural/oneShot; loaders leave current session values
  * unchanged when those fields are absent.
  */
+export interface PresetMaster {
+  volumeLinear: number;
+  /** Master low-shelf dB (ENH-17). Omitted / 0 = flat. */
+  bassDb?: number;
+  /** Master high-shelf dB (ENH-17). */
+  trebleDb?: number;
+  /** Master reverb wet 0…~0.55 (ENH-17). */
+  reverbWet?: number;
+}
+
 export interface PresetV1 {
   version: 1;
   id: string;
   name: string;
   createdAt: string;
   updatedAt: string;
-  master: {
-    volumeLinear: number;
-  };
+  master: PresetMaster;
   layers: MixerLayer[];
   timer?: PresetTimerConfig | null;
   /** Present when the preset captures tone-generator state. */
   binaural?: BinauralConfig | null;
   /** Present when the preset captures stochastic one-shot state. */
   oneShot?: OneShotConfig | null;
+}
+
+export function masterToneFromPreset(master: PresetMaster): MasterToneParams {
+  return {
+    bassDb:
+      master.bassDb != null
+        ? clampMasterEqDb(master.bassDb)
+        : MASTER_BASS_DB_DEFAULT,
+    trebleDb:
+      master.trebleDb != null
+        ? clampMasterEqDb(master.trebleDb)
+        : MASTER_TREBLE_DB_DEFAULT,
+    reverbWet:
+      master.reverbWet != null
+        ? clampReverbWet(master.reverbWet)
+        : MASTER_REVERB_WET_DEFAULT,
+  };
+}
+
+export function presetMasterFromSession(
+  volumeLinear: number,
+  tone: MasterToneParams,
+): PresetMaster {
+  const master: PresetMaster = {
+    volumeLinear: clampLinear(volumeLinear),
+  };
+  if (tone.bassDb !== MASTER_BASS_DB_DEFAULT) {
+    master.bassDb = clampMasterEqDb(tone.bassDb);
+  }
+  if (tone.trebleDb !== MASTER_TREBLE_DB_DEFAULT) {
+    master.trebleDb = clampMasterEqDb(tone.trebleDb);
+  }
+  if (tone.reverbWet !== MASTER_REVERB_WET_DEFAULT) {
+    master.reverbWet = clampReverbWet(tone.reverbWet);
+  }
+  return master;
 }
 
 export interface PresetStoreFile {
@@ -200,15 +251,26 @@ export function parsePreset(raw: unknown): PresetV1 | null {
   }
 
   const now = new Date().toISOString();
+  const parsedMaster: PresetMaster = {
+    volumeLinear: clampLinear(Number(master.volumeLinear) || 0),
+  };
+  if (master.bassDb != null && Number.isFinite(Number(master.bassDb))) {
+    parsedMaster.bassDb = clampMasterEqDb(Number(master.bassDb));
+  }
+  if (master.trebleDb != null && Number.isFinite(Number(master.trebleDb))) {
+    parsedMaster.trebleDb = clampMasterEqDb(Number(master.trebleDb));
+  }
+  if (master.reverbWet != null && Number.isFinite(Number(master.reverbWet))) {
+    parsedMaster.reverbWet = clampReverbWet(Number(master.reverbWet));
+  }
+
   return {
     version: 1,
     id: o.id,
     name: o.name,
     createdAt: typeof o.createdAt === 'string' ? o.createdAt : now,
     updatedAt: typeof o.updatedAt === 'string' ? o.updatedAt : now,
-    master: {
-      volumeLinear: clampLinear(Number(master.volumeLinear) || 0),
-    },
+    master: parsedMaster,
     layers,
     timer: timer ?? null,
     ...(binaural !== undefined ? { binaural } : {}),
@@ -323,6 +385,7 @@ export function createPresetId(): string {
 export interface SessionSnapshotInput {
   layers: MixerLayer[];
   masterVolumeLinear: number;
+  masterTone?: MasterToneParams;
   timerDefaults?: PresetTimerConfig | null;
   binaural?: BinauralConfig | null;
   oneShot?: OneShotConfig | null;
@@ -334,13 +397,14 @@ export interface SessionSnapshotInput {
 export function snapshotFromSession(input: SessionSnapshotInput): PresetV1 {
   const now = new Date().toISOString();
   const id = input.id ?? createPresetId();
+  const tone = input.masterTone ?? defaultMasterTone();
   return {
     version: 1,
     id,
     name: input.name ?? 'Session',
     createdAt: now,
     updatedAt: now,
-    master: { volumeLinear: clampLinear(input.masterVolumeLinear) },
+    master: presetMasterFromSession(input.masterVolumeLinear, tone),
     layers: input.layers.map((layer) => {
       if (layer.kind === 'noise') {
         return { kind: 'noise' as const, params: { ...layer.params } };

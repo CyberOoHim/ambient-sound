@@ -89,6 +89,23 @@ const sample: PresetV1 = {
 };
 
 describe('presets', () => {
+  it('parses optional master tone fields', () => {
+    const raw = {
+      ...sample,
+      master: {
+        volumeLinear: 0.7,
+        bassDb: 4,
+        trebleDb: -3,
+        reverbWet: 0.15,
+      },
+    };
+    const parsed = parsePreset(raw);
+    expect(parsed).not.toBeNull();
+    expect(parsed!.master.bassDb).toBe(4);
+    expect(parsed!.master.trebleDb).toBe(-3);
+    expect(parsed!.master.reverbWet).toBe(0.15);
+  });
+
   it('round-trips noise + sample layers', () => {
     const parsed = parsePreset(JSON.parse(JSON.stringify(sample)) as unknown);
     expect(parsed).not.toBeNull();

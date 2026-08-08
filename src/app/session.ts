@@ -2,23 +2,36 @@ import { audioEngine } from '../audio/engine';
 import {
   clampHighpassHz,
   clampLowpassHz,
+  clampMasterEqDb,
   clampPanLfoDepth,
   clampPanLfoRateHz,
+  clampReverbWet,
   createDefaultNoiseLayer,
   createDefaultSampleLayer,
+  defaultMasterTone,
   FILTER_HP_OPEN_HZ,
   FILTER_LP_OPEN_HZ,
   isLocalAssetId,
   MAX_MIXER_LAYERS,
+  PRESET_CROSSFADE_SEC,
+  type MasterToneParams,
   type MixerLayer,
   type NoiseType,
   type SampleLayerParams,
 } from '../audio/types';
 import {
   deleteLocalAudio,
+  deleteLocalAudioMany,
+  exportLocalAudioBackup,
+  getStorageQuotaInfo,
+  importLocalAudioBackup,
   importLocalAudioFile,
   listLocalAudio,
+  parseLocalAudioBackup,
+  type ImportBackupResult,
+  type LocalAudioBackup,
   type LocalAudioMeta,
+  type StorageQuotaInfo,
 } from '../audio/local-audio-store';
 import { clampLinear } from '../audio/dsp/curves';
 import {
@@ -33,6 +46,7 @@ import {
   loadDuplicateMinOffsetSec,
   loadLastSession,
   loadPresetsFromStorage,
+  masterToneFromPreset,
   parsePreset,
   saveDuplicateMinOffsetSec,
   saveLastSession,
@@ -123,6 +137,8 @@ export class Session {
   layers: MixerLayer[] = [];
   playing = false;
   masterVolumeLinear = 1;
+  /** Master EQ + reverb (ENH-17). */
+  masterTone: MasterToneParams = defaultMasterTone();
   catalog: SoundCatalog | null = null;
   catalogError: string | null = null;
   /**
@@ -215,6 +231,7 @@ export class Session {
         { kind: 'noise', params: createDefaultNoiseLayer(uid('noise'), 'pink') },
       ];
     }
+    audioEngine.setMasterTone(this.masterTone);
     audioEngine.oneShotEngine.setCustomPacks(this.customOneShotPacks);
     audioEngine.oneShotEngine.setConfig(this.oneShotConfig);
     audioEngine.binauralEngine.updateConfig(this.binauralConfig);
@@ -467,12 +484,29 @@ export class Session {
 
   /**
    * Import a local audio file into IndexedDB and refresh the library list.
+   * Surfaces clearer quota / size errors (ENH-16).
    */
   async importLocalAudio(file: File): Promise<LocalAudioMeta> {
-    const meta = await importLocalAudioFile(file);
-    this.localAudio = [meta, ...this.localAudio.filter((a) => a.id !== meta.id)];
-    this.notify();
-    return meta;
+    try {
+      const meta = await importLocalAudioFile(file);
+      this.localAudio = [meta, ...this.localAudio.filter((a) => a.id !== meta.id)];
+      this.notify();
+      return meta;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      const lower = msg.toLowerCase();
+      if (
+        lower.includes('quota') ||
+        lower.includes('storage') ||
+        lower.includes('exceeded') ||
+        (e instanceof DOMException && e.name === 'QuotaExceededError')
+      ) {
+        throw new Error(
+          'Storage full — free space or export/remove unused imports (max ~25 MB per file)',
+        );
+      }
+      throw e instanceof Error ? e : new Error(msg);
+    }
   }
 
   async removeLocalAudio(id: string): Promise<void> {
@@ -487,6 +521,61 @@ export class Session {
       this.removeLayer(lid);
     }
     this.notify();
+  }
+
+  /** Export all local clips as a portable backup object. */
+  async exportLocalAudioBackup(): Promise<LocalAudioBackup> {
+    await this.ensureLocalAudioReady();
+    return exportLocalAudioBackup();
+  }
+
+  /** Import clips from a backup JSON object. */
+  async importLocalAudioBackupData(
+    raw: unknown,
+    opts?: { overwrite?: boolean },
+  ): Promise<ImportBackupResult> {
+    const backup = parseLocalAudioBackup(raw);
+    if (!backup) {
+      return {
+        imported: 0,
+        skipped: 0,
+        errors: ['Not a valid Ambient Sound local backup'],
+      };
+    }
+    const result = await importLocalAudioBackup(backup, opts);
+    this.localAudio = await listLocalAudio();
+    this.notify();
+    return result;
+  }
+
+  async getLocalStorageQuotaInfo(): Promise<StorageQuotaInfo> {
+    await this.ensureLocalAudioReady();
+    return getStorageQuotaInfo();
+  }
+
+  /**
+   * Delete local imports that are not used by any current mix layer.
+   * @returns number of clips removed
+   */
+  async removeUnusedLocalAudio(): Promise<number> {
+    await this.ensureLocalAudioReady();
+    const used = new Set(
+      this.layers
+        .filter(
+          (l): l is { kind: 'sample'; params: SampleLayerParams } =>
+            l.kind === 'sample' && isLocalAssetId(l.params.assetId),
+        )
+        .map((l) => l.params.assetId),
+    );
+    const unused = this.localAudio.filter((c) => !used.has(c.id)).map((c) => c.id);
+    if (unused.length === 0) return 0;
+    await deleteLocalAudioMany(unused);
+    for (const id of unused) {
+      decodeCache.delete(`local-audio:${id}`);
+    }
+    this.localAudio = this.localAudio.filter((c) => used.has(c.id));
+    this.notify();
+    return unused.length;
   }
 
   /** Add an imported local clip as a sample layer. */
@@ -540,6 +629,7 @@ export class Session {
       name: 'Last session',
       layers: this.layers,
       masterVolumeLinear: this.masterVolumeLinear,
+      masterTone: this.masterTone,
       timerDefaults: this.timerDefaults,
       binaural: this.binauralConfig,
       oneShot: this.oneShotConfig,
@@ -547,7 +637,10 @@ export class Session {
     saveLastSession(snap);
   }
 
-  async play(): Promise<void> {
+  /**
+   * @param opts.holdSilent — leave master at 0 after start (caller runs fade-in).
+   */
+  async play(opts?: { holdSilent?: boolean }): Promise<void> {
     if (this.layers.length === 0) {
       this.playing = false;
       setMediaSessionPlayback(false);
@@ -556,8 +649,14 @@ export class Session {
     }
     await this.ensureCatalogReady();
     await audioEngine.resume();
-    audioEngine.restoreMasterGain();
     audioEngine.setMasterVolumeLinear(this.masterVolumeLinear);
+    audioEngine.setMasterTone(this.masterTone);
+    if (opts?.holdSilent) {
+      // Keep muted until startFadeIn; target volume remains in masterVolumeLinear.
+      audioEngine.setMasterGainImmediate(0);
+    } else {
+      audioEngine.restoreMasterGain();
+    }
     this.enableHint = null;
 
     // Snapshot ids at start; layers may be removed while samples download.
@@ -603,6 +702,21 @@ export class Session {
   setMasterVolumeLinear(linear: number): void {
     this.masterVolumeLinear = clampLinear(linear);
     audioEngine.setMasterVolumeLinear(this.masterVolumeLinear);
+    this.notify();
+    this.schedulePersist();
+  }
+
+  setMasterTone(partial: Partial<MasterToneParams>): void {
+    if (partial.bassDb != null) {
+      this.masterTone.bassDb = clampMasterEqDb(partial.bassDb);
+    }
+    if (partial.trebleDb != null) {
+      this.masterTone.trebleDb = clampMasterEqDb(partial.trebleDb);
+    }
+    if (partial.reverbWet != null) {
+      this.masterTone.reverbWet = clampReverbWet(partial.reverbWet);
+    }
+    audioEngine.setMasterTone(this.masterTone);
     this.notify();
     this.schedulePersist();
   }
@@ -1186,6 +1300,7 @@ export class Session {
 
   private applyPresetData(preset: PresetV1): void {
     this.masterVolumeLinear = clampLinear(preset.master.volumeLinear);
+    this.masterTone = masterToneFromPreset(preset.master);
     this.layers = preset.layers.map((l) => {
       if (l.kind === 'noise') {
         return {
@@ -1239,20 +1354,40 @@ export class Session {
     }
   }
 
+  /**
+   * Crossfade out → swap scene → optionally restart with fade-in (ENH-18).
+   */
+  private async swapSceneWithCrossfade(preset: PresetV1): Promise<void> {
+    const wasPlaying = this.playing;
+    this.cancelTimer();
+
+    if (wasPlaying && this.layers.length > 0) {
+      await audioEngine.startFadeOut(PRESET_CROSSFADE_SEC);
+    }
+
+    audioEngine.stopAll();
+    this.applyPresetData(preset);
+    audioEngine.setMasterVolumeLinear(this.masterVolumeLinear);
+    audioEngine.setMasterTone(this.masterTone);
+    this.playing = false;
+
+    if (wasPlaying && this.layers.length > 0) {
+      await this.play({ holdSilent: true });
+      if (this.playing) {
+        await audioEngine.startFadeIn(PRESET_CROSSFADE_SEC);
+      } else {
+        audioEngine.restoreMasterGain();
+      }
+    } else {
+      audioEngine.restoreMasterGain();
+    }
+  }
+
   async loadPreset(id: string): Promise<void> {
     const preset = this.presets.find((p) => p.id === id);
     if (!preset) return;
 
-    const wasPlaying = this.playing;
-    this.cancelTimer();
-    audioEngine.stopAll();
-    this.applyPresetData(preset);
-    audioEngine.setMasterVolumeLinear(this.masterVolumeLinear);
-    this.playing = false;
-
-    if (wasPlaying && this.layers.length > 0) {
-      await this.play();
-    }
+    await this.swapSceneWithCrossfade(preset);
     this.notify();
     this.schedulePersist();
   }
@@ -1267,6 +1402,7 @@ export class Session {
       name: name.trim() || 'Untitled',
       layers: this.layers,
       masterVolumeLinear: this.masterVolumeLinear,
+      masterTone: this.masterTone,
       timerDefaults: this.timerDefaults,
       binaural: this.binauralConfig,
       oneShot: this.oneShotConfig,
@@ -1291,16 +1427,7 @@ export class Session {
    * optional binaural/one-shot). Does not add to the saved presets list.
    */
   async applySharedScene(preset: PresetV1): Promise<void> {
-    const wasPlaying = this.playing;
-    this.cancelTimer();
-    audioEngine.stopAll();
-    this.applyPresetData(preset);
-    audioEngine.setMasterVolumeLinear(this.masterVolumeLinear);
-    this.playing = false;
-
-    if (wasPlaying && this.layers.length > 0) {
-      await this.play();
-    }
+    await this.swapSceneWithCrossfade(preset);
     this.notify();
     this.schedulePersist();
   }
@@ -1311,6 +1438,7 @@ export class Session {
       name,
       layers: this.layers,
       masterVolumeLinear: this.masterVolumeLinear,
+      masterTone: this.masterTone,
       timerDefaults: this.timerDefaults,
       binaural: this.binauralConfig,
       oneShot: this.oneShotConfig,

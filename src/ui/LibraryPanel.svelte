@@ -16,6 +16,8 @@
   let layerCount = $state(session.layers.length);
   let dragOver = $state(false);
   let fileInput: HTMLInputElement | undefined = $state();
+  let backupInput: HTMLInputElement | undefined = $state();
+  let storageLabel = $state<string | null>(null);
 
   export function sync() {
     assets = session.catalog?.assets ?? [];
@@ -24,8 +26,33 @@
     layerCount = session.layers.length;
   }
 
+  async function refreshStorageLabel() {
+    try {
+      const info = await session.getLocalStorageQuotaInfo();
+      const clipMb = info.localClipsBytes / (1024 * 1024);
+      const clipPart =
+        info.localClipsBytes > 0
+          ? clipMb >= 1
+            ? `${clipMb.toFixed(1)} MB imported`
+            : `${Math.round(info.localClipsBytes / 1024)} KB imported`
+          : 'No imports yet';
+      if (info.quota != null && info.usage != null) {
+        const usedMb = info.usage / (1024 * 1024);
+        const quotaMb = info.quota / (1024 * 1024);
+        storageLabel = `${clipPart} · ~${usedMb.toFixed(0)} / ${quotaMb.toFixed(0)} MB site storage`;
+      } else {
+        storageLabel = clipPart;
+      }
+    } catch {
+      storageLabel = null;
+    }
+  }
+
   onMount(() => {
-    void session.ensureLocalAudioReady().then(() => sync());
+    void session.ensureLocalAudioReady().then(() => {
+      sync();
+      void refreshStorageLabel();
+    });
   });
 
   function labelNoise(t: NoiseType): string {
@@ -107,6 +134,7 @@
       }
       if (ok > 1) message = `Imported ${ok} files`;
       localClips = session.localAudio;
+      void refreshStorageLabel();
     } finally {
       busy = false;
     }
@@ -138,6 +166,85 @@
       localClips = session.localAudio;
       layerCount = session.layers.length;
       message = `Deleted “${meta.title}”`;
+      void refreshStorageLabel();
+    } catch (e) {
+      message = e instanceof Error ? e.message : String(e);
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function exportBackup() {
+    busy = true;
+    message = null;
+    try {
+      const backup = await session.exportLocalAudioBackup();
+      if (backup.clips.length === 0) {
+        message = 'No local files to export';
+        return;
+      }
+      const blob = new Blob([JSON.stringify(backup)], {
+        type: 'application/json',
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ambient-local-sounds-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      message = `Exported ${backup.clips.length} file${backup.clips.length === 1 ? '' : 's'}`;
+    } catch (e) {
+      message = e instanceof Error ? e.message : String(e);
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function onBackupPick(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    busy = true;
+    message = null;
+    try {
+      const text = await file.text();
+      const raw = JSON.parse(text) as unknown;
+      const result = await session.importLocalAudioBackupData(raw);
+      localClips = session.localAudio;
+      void refreshStorageLabel();
+      if (result.errors.length && result.imported === 0) {
+        message = result.errors[0] ?? 'Import failed';
+      } else {
+        message = `Backup restored: ${result.imported} added${
+          result.skipped ? `, ${result.skipped} skipped` : ''
+        }`;
+      }
+    } catch {
+      message = 'Could not read backup file';
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function removeUnusedLocals() {
+    if (
+      !confirm(
+        'Remove imported files that are not in the current mix? This cannot be undone.',
+      )
+    ) {
+      return;
+    }
+    busy = true;
+    message = null;
+    try {
+      const n = await session.removeUnusedLocalAudio();
+      localClips = session.localAudio;
+      void refreshStorageLabel();
+      message =
+        n === 0
+          ? 'Nothing unused — all imports are in the mix (or library empty)'
+          : `Removed ${n} unused import${n === 1 ? '' : 's'}`;
     } catch (e) {
       message = e instanceof Error ? e.message : String(e);
     } finally {
@@ -299,6 +406,9 @@
         onchange={onFilePick}
       />
     </div>
+    {#if storageLabel}
+      <p class="storage-meta">{storageLabel}</p>
+    {/if}
     {#if localClips.length > 0}
       <div class="local-list">
         {#each localClips as clip (clip.id)}
@@ -327,6 +437,43 @@
         {/each}
       </div>
     {/if}
+    <div class="local-tools">
+      {#if localClips.length > 0}
+        <button
+          type="button"
+          class="tool-btn"
+          disabled={busy}
+          onclick={() => void exportBackup()}
+        >
+          Export backup
+        </button>
+      {/if}
+      <button
+        type="button"
+        class="tool-btn"
+        disabled={busy}
+        onclick={() => backupInput?.click()}
+      >
+        Import backup
+      </button>
+      {#if localClips.length > 0}
+        <button
+          type="button"
+          class="tool-btn"
+          disabled={busy}
+          onclick={() => void removeUnusedLocals()}
+        >
+          Remove unused
+        </button>
+      {/if}
+      <input
+        bind:this={backupInput}
+        type="file"
+        accept="application/json,.json"
+        class="file-hidden"
+        onchange={(e) => void onBackupPick(e)}
+      />
+    </div>
   </div>
 
   <div class="section">
@@ -694,5 +841,41 @@
     border-color: var(--danger);
     color: var(--danger);
     background: var(--danger-dim);
+  }
+
+  .storage-meta {
+    margin: 0.35rem 0 0;
+    font-size: 0.65rem;
+    color: var(--muted-soft);
+    line-height: 1.3;
+  }
+
+  .local-tools {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-top: 0.4rem;
+  }
+
+  .tool-btn {
+    font: inherit;
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 0.22rem 0.5rem;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--muted);
+    cursor: pointer;
+  }
+
+  .tool-btn:hover:not(:disabled) {
+    color: var(--text-soft);
+    border-color: var(--border-soft);
+  }
+
+  .tool-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 </style>

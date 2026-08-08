@@ -105,4 +105,36 @@ describe('share codec', () => {
       true,
     );
   });
+
+  it('compact encode still restores default filter / LFO fields', () => {
+    const decoded = decodeSharePayload(
+      encodeSharePayload(presetToSharePayload(sample)),
+    );
+    expect(decoded).not.toBeNull();
+    const layer = decoded!.layers[0];
+    expect(layer.kind).toBe('noise');
+    if (layer.kind === 'noise') {
+      expect(layer.params.lowpassHz).toBe(20000);
+      expect(layer.params.highpassHz).toBe(20);
+      expect(layer.params.panLfoEnabled).toBe(false);
+    }
+  });
+
+  it('round-trips master tone fields', () => {
+    const withTone: PresetV1 = {
+      ...sample,
+      master: {
+        volumeLinear: 0.75,
+        bassDb: 3,
+        trebleDb: -2,
+        reverbWet: 0.2,
+      },
+    };
+    const decoded = decodeSharePayload(
+      encodeSharePayload(presetToSharePayload(withTone)),
+    );
+    expect(decoded!.master.bassDb).toBe(3);
+    expect(decoded!.master.trebleDb).toBe(-2);
+    expect(decoded!.master.reverbWet).toBe(0.2);
+  });
 });

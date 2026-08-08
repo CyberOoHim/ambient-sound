@@ -8,8 +8,11 @@ import {
 import {
   clampHighpassHz,
   clampLowpassHz,
+  clampMasterEqDb,
   clampPanLfoDepth,
   clampPanLfoRateHz,
+  clampReverbWet,
+  defaultMasterTone,
   effectiveMuteSolo,
   FILTER_HP_OPEN_HZ,
   FILTER_LP_OPEN_HZ,
@@ -17,6 +20,7 @@ import {
   layerId,
   layerMuted,
   layerSolo,
+  type MasterToneParams,
   type MixerLayer,
   type NoiseLayerParams,
   type SampleLayerParams,
@@ -33,6 +37,25 @@ import { loadOneShotConfigFromStorage } from '../app/one-shot';
 import { BinauralEngine } from './binaural-engine';
 import { loadBinauralConfigFromStorage } from '../app/binaural';
 import { getLocalAudioData } from './local-audio-store';
+
+/** Synthetic stereo impulse for a light ambient reverb (no asset file). */
+function createReverbImpulse(
+  ctx: BaseAudioContext,
+  durationSec = 1.6,
+  decay = 2.4,
+): AudioBuffer {
+  const rate = ctx.sampleRate;
+  const length = Math.max(1, Math.floor(rate * durationSec));
+  const impulse = ctx.createBuffer(2, length, rate);
+  for (let ch = 0; ch < impulse.numberOfChannels; ch++) {
+    const data = impulse.getChannelData(ch);
+    for (let i = 0; i < length; i++) {
+      const t = 1 - i / length;
+      data[i] = (Math.random() * 2 - 1) * t ** decay;
+    }
+  }
+  return impulse;
+}
 
 interface PanLfoNodes {
   osc: OscillatorNode;
@@ -78,15 +101,26 @@ export interface SampleStartOptions {
 }
 
 /**
- * Web Audio engine: master bus + noise and sample layers.
+ * Web Audio engine: mix bus + master tone (EQ/reverb) + noise/sample layers.
+ *
+ * Graph: layers → mixBus → bass → treble → dry/wet reverb → masterGain → analyser → out
  */
 export class AudioEngine {
   private ctx: AudioContext | null = null;
+  /** Sum of all layers / tones / one-shots (unity gain). */
+  private mixBus: GainNode | null = null;
+  private bassEq: BiquadFilterNode | null = null;
+  private trebleEq: BiquadFilterNode | null = null;
+  private dryGain: GainNode | null = null;
+  private wetGain: GainNode | null = null;
+  private convolver: ConvolverNode | null = null;
+  /** Final volume control (sleep timer fade, preset crossfade). */
   private master: GainNode | null = null;
   private analyser: AnalyserNode | null = null;
   private workletReady = false;
   private layers = new Map<string, LayerNodes>();
   private masterVolumeLinear = 1;
+  private masterTone: MasterToneParams = defaultMasterTone();
   private fadeToken = 0;
   private fading = false;
   private catalog: SoundCatalog | null = null;
@@ -131,35 +165,93 @@ export class AudioEngine {
     return this.analyser;
   }
 
+  getMasterTone(): MasterToneParams {
+    return { ...this.masterTone };
+  }
+
   setCatalog(catalog: SoundCatalog): void {
     this.catalog = catalog;
-    if (this.ctx && this.master) {
-      this.oneShotEngine.setAudioTarget(this.ctx, this.master, catalog);
+    if (this.ctx && this.mixBus) {
+      this.oneShotEngine.setAudioTarget(this.ctx, this.mixBus, catalog);
     }
   }
 
   async ensureContext(): Promise<AudioContext> {
     if (!this.ctx) {
       this.ctx = new AudioContext();
+
+      this.mixBus = this.ctx.createGain();
+      this.mixBus.gain.value = 1;
+
+      this.bassEq = this.ctx.createBiquadFilter();
+      this.bassEq.type = 'lowshelf';
+      this.bassEq.frequency.value = 220;
+      this.bassEq.gain.value = this.masterTone.bassDb;
+
+      this.trebleEq = this.ctx.createBiquadFilter();
+      this.trebleEq.type = 'highshelf';
+      this.trebleEq.frequency.value = 3200;
+      this.trebleEq.gain.value = this.masterTone.trebleDb;
+
+      this.dryGain = this.ctx.createGain();
+      this.wetGain = this.ctx.createGain();
+      this.applyReverbMix(this.masterTone.reverbWet);
+
+      this.convolver = this.ctx.createConvolver();
+      this.convolver.buffer = createReverbImpulse(this.ctx);
+
       this.master = this.ctx.createGain();
       this.master.gain.value = this.masterVolumeLinear;
+
       this.analyser = this.ctx.createAnalyser();
       this.analyser.fftSize = 2048;
       this.analyser.smoothingTimeConstant = 0.82;
+
+      // mixBus → EQ → dry + wet reverb → master → analyser → out
+      this.mixBus.connect(this.bassEq);
+      this.bassEq.connect(this.trebleEq);
+      this.trebleEq.connect(this.dryGain);
+      this.trebleEq.connect(this.convolver);
+      this.convolver.connect(this.wetGain);
+      this.dryGain.connect(this.master);
+      this.wetGain.connect(this.master);
       this.master.connect(this.analyser);
+
       // Mobile (iOS + Android): route via HTMLAudioElement for background
       // playback / media controls. Desktop: analyser → destination.
       this.mediaOutput.attach(this.ctx, this.analyser);
       this.mediaOutput.connectDestination(this.ctx, this.analyser);
       this.bindStateChange(this.ctx);
-      this.oneShotEngine.setAudioTarget(this.ctx, this.master, this.catalog);
-      this.binauralEngine.setAudioTarget(this.ctx, this.master);
+      this.oneShotEngine.setAudioTarget(this.ctx, this.mixBus, this.catalog);
+      this.binauralEngine.setAudioTarget(this.ctx, this.mixBus);
     }
     if (!this.workletReady) {
       await this.ctx.audioWorklet.addModule(workletUrl);
       this.workletReady = true;
     }
     return this.ctx;
+  }
+
+  private applyReverbMix(wet: number): void {
+    const w = clampReverbWet(wet);
+    if (this.dryGain) this.dryGain.gain.value = 1 - w * 0.9;
+    if (this.wetGain) this.wetGain.gain.value = w;
+  }
+
+  /** Bass / treble / reverb on the master chain (ENH-17). */
+  setMasterTone(tone: Partial<MasterToneParams>): void {
+    if (tone.bassDb != null) {
+      this.masterTone.bassDb = clampMasterEqDb(tone.bassDb);
+    }
+    if (tone.trebleDb != null) {
+      this.masterTone.trebleDb = clampMasterEqDb(tone.trebleDb);
+    }
+    if (tone.reverbWet != null) {
+      this.masterTone.reverbWet = clampReverbWet(tone.reverbWet);
+    }
+    if (this.bassEq) this.bassEq.gain.value = this.masterTone.bassDb;
+    if (this.trebleEq) this.trebleEq.gain.value = this.masterTone.trebleDb;
+    this.applyReverbMix(this.masterTone.reverbWet);
   }
 
   private bindStateChange(ctx: AudioContext): void {
@@ -264,6 +356,45 @@ export class AudioEngine {
     g.setValueAtTime(this.masterVolumeLinear, t);
   }
 
+  /** Set absolute master gain immediately (cancels any in-flight fade). */
+  setMasterGainImmediate(linear: number): void {
+    this.fadeToken++;
+    this.fading = false;
+    if (!this.master || !this.ctx) return;
+    const g = this.master.gain;
+    const t = this.ctx.currentTime;
+    g.cancelScheduledValues(t);
+    g.setValueAtTime(clampLinear(linear), t);
+  }
+
+  /**
+   * Ramp master gain from silence to the current master volume (ENH-18).
+   * Resolves when the ramp finishes (or is superseded).
+   */
+  startFadeIn(seconds: number): Promise<boolean> {
+    if (!this.master || !this.ctx) return Promise.resolve(false);
+    const sec = Math.max(0.05, seconds);
+    const token = ++this.fadeToken;
+    this.fading = true;
+
+    const g = this.master.gain;
+    const t0 = this.ctx.currentTime;
+    g.cancelScheduledValues(t0);
+    g.setValueAtTime(0, t0);
+    g.linearRampToValueAtTime(this.masterVolumeLinear, t0 + sec);
+
+    return new Promise((resolve) => {
+      window.setTimeout(() => {
+        if (token !== this.fadeToken) {
+          resolve(false);
+          return;
+        }
+        this.fading = false;
+        resolve(true);
+      }, sec * 1000 + 20);
+    });
+  }
+
   async addLayer(
     layer: MixerLayer,
     onProgress?: DecodeProgressCallback,
@@ -278,7 +409,7 @@ export class AudioEngine {
 
   async addNoiseLayer(params: NoiseLayerParams): Promise<void> {
     const ctx = await this.ensureContext();
-    if (!this.master) throw new Error('Master bus missing');
+    if (!this.mixBus) throw new Error('Mix bus missing');
     if (this.layers.has(params.id)) {
       this.updateNoiseLayer(params);
       return;
@@ -311,14 +442,14 @@ export class AudioEngine {
     const muteSolo = ctx.createGain();
     muteSolo.gain.value = 1;
 
-    // worklet → type filter → user HP → user LP → volume → pan → muteSolo → master
+    // worklet → type filter → user HP → user LP → volume → pan → muteSolo → mixBus
     worklet.connect(filter);
     filter.connect(userHp);
     userHp.connect(userLp);
     userLp.connect(volume);
     volume.connect(pan);
     pan.connect(muteSolo);
-    muteSolo.connect(this.master);
+    muteSolo.connect(this.mixBus);
 
     const nodes: NoiseNodes = {
       kind: 'noise',
@@ -365,7 +496,7 @@ export class AudioEngine {
     startOpts?: SampleStartOptions,
   ): Promise<void> {
     const ctx = await this.ensureContext();
-    if (!this.master) throw new Error('Master bus missing');
+    if (!this.mixBus) throw new Error('Mix bus missing');
     if (this.layers.has(params.id)) {
       this.updateSampleLayer(params);
       return;
@@ -400,12 +531,12 @@ export class AudioEngine {
       const muteSolo = ctx.createGain();
       muteSolo.gain.value = 1;
 
-      // player → user HP → user LP → volume → pan → muteSolo → master
+      // player → user HP → user LP → volume → pan → muteSolo → mixBus
       userHp.connect(userLp);
       userLp.connect(volume);
       volume.connect(pan);
       pan.connect(muteSolo);
-      muteSolo.connect(this.master);
+      muteSolo.connect(this.mixBus);
 
       const player = new SamplePlayer(ctx, buffer, userHp, {
         loopMode: params.loopMode,
@@ -699,6 +830,12 @@ export class AudioEngine {
       this.ctx.onstatechange = null;
       await this.ctx.close();
       this.ctx = null;
+      this.mixBus = null;
+      this.bassEq = null;
+      this.trebleEq = null;
+      this.dryGain = null;
+      this.wetGain = null;
+      this.convolver = null;
       this.master = null;
       this.analyser = null;
       this.workletReady = false;

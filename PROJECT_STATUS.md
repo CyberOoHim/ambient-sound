@@ -4,7 +4,7 @@
 |-------|--------|
 | **Last updated** | 2026-08-08 |
 | **Branch** | `main` |
-| **Latest related work** | Phase 3 complete (immersion + spatial + local import) · app `0.2.0` |
+| **Latest related work** | Phase 4 polish shipped (QA, docs, share, local backup, EQ/reverb, crossfade) · app `0.2.1` · content (CNT-*) deferred |
 | **Product scope** | Web / PWA only |
 | **How to use this file** | Assign work by **phase** or by **item ID**. Check off items when done; move them to [Done](#done--shipped). |
 
@@ -19,8 +19,19 @@
 | FIX-01 … FIX-08 | Phase 2 fixes | 2 | — | — | **done** |
 | ENH-01 … ENH-10 | Phase 2 enhancements | 2 | — | — | **done** |
 | ENH-11 … ENH-15 | Phase 3 features | 3 | — | — | **done** |
+| POL-01 | Full QA pass (esp. Phase 3) | 4 | Low | High | **done** |
+| DOC-01 | Resync FEATURE_RECOMMENDATIONS | 4 | Low | Low | **done** |
+| CNT-01 | Expand default scene presets | 4 | Low | High | **open** (deferred) |
+| CNT-02 | Grow one-shot event library | 4 | Medium | High | **open** (deferred) |
+| CNT-03 | Optional new core loops | 4 | Medium | Medium | **open** (deferred) |
+| POL-02 | Share-link discovery polish | 4 | Medium | Medium | **done** |
+| ENH-16 | Local-import backup / quota UX | 4 | Medium | Medium | **done** |
+| ENH-17 | Global EQ / light reverb bus | 4 | High | Medium | **done** |
+| ENH-18 | Preset crossfade on load | 4 | Medium | Medium | **done** |
 
-**All planned phases (0–3) are shipped.** New work is ad-hoc product polish, content, or bugfixes — not a deferred desktop shell.
+**Phases 0–3 shipped.** Phase 4 **polish** shipped in `0.2.1`. Remaining Phase 4 work is **content only** (CNT-01…03). Desktop / Tauri remains out of scope.
+
+**Next default assign:** Bundle I — content depth (`CNT-01` · `CNT-02` · optional `CNT-03`).
 
 ---
 
@@ -28,9 +39,9 @@
 
 Pick one of:
 
-1. **Whole phase** — e.g. “Do all of Phase 3”
-2. **Single item** — e.g. “Do ENH-11”
-3. **Bundle** — e.g. “Do ENH-11 + ENH-12 (immersion)”
+1. **Whole phase** — e.g. “Do all of Phase 4”
+2. **Single item** — e.g. “Do CNT-01”
+3. **Bundle** — e.g. “Do Bundle I (content depth)”
 
 When finishing an item, update its **Status** to `done` and add a one-line note under [Done — shipped](#done--shipped).
 
@@ -99,11 +110,129 @@ When finishing an item, update its **Status** to `done` and add a one-line note 
 
 **Primary files:** `src/ui/Visualizer.svelte`, `src/ui/SpatialCanvas.svelte`, `src/ui/mood-theme.ts`, `src/audio/local-audio-store.ts`, `src/audio/engine.ts`, `src/audio/types.ts`, `src/app/session.ts`, `src/app.css`
 
+### Phase 4 polish — shipped 2026-08-08 (web `0.2.1`)
+
+| ID | Title | Notes |
+|----|--------|--------|
+| POL-01 | Full QA pass | Expanded `docs/qa-checklist.md` for Phase 3–4; automated suite green (`check` / `test` / `build` / manifests) |
+| DOC-01 | Resync FEATURE_RECOMMENDATIONS | Aligned with shipped Phase 2–3 + Phase 4 IDs |
+| POL-02 | Share-link polish | Compact hash encode (drop defaults); OG/meta in `index.html`; open-toast auto-dismiss; copy-link length hint |
+| ENH-16 | Local-import backup & storage UX | Export/import JSON backup; storage usage line; remove unused; clearer quota errors |
+| ENH-17 | Global EQ / light reverb | Master bass/treble shelves + synthetic convolver wet; ⚙ Mix settings; preset/share/last-session |
+| ENH-18 | Preset crossfade | ~0.4s fade out → swap → fade in when loading preset / shared scene while playing |
+
+**Primary files:** `src/audio/engine.ts`, `src/audio/types.ts`, `src/audio/local-audio-store.ts`, `src/app/session.ts`, `src/app/presets.ts`, `src/app/share.ts`, `src/ui/Mixer.svelte`, `src/ui/LibraryPanel.svelte`, `src/ui/PresetsPanel.svelte`, `index.html`, `docs/*`
+
 ---
 
-## Phase 3 — Larger features
+## Phase 4 — remaining content (deferred)
 
-Higher effort or lower urgency. **Complete** as of 2026-08-08.
+Asset / catalog expansion deliberately left open. Prefer Freesound import skill + existing scripts when ready.
+
+### CNT-01 — Expand default scene presets
+
+| | |
+|--|--|
+| **Status** | **open** (deferred) |
+| **Effort** | Low |
+| **Impact** | High |
+| **Area** | Content |
+
+**Work:** Add **3–5** curated presets in `config/default-presets.json` that exercise Phase 3–4 controls (spatial, LFO, master tone, filters, one-shots).
+
+**Primary files:** `config/default-presets.json`
+
+---
+
+### CNT-02 — Grow one-shot event library
+
+| | |
+|--|--|
+| **Status** | **open** (deferred) |
+| **Effort** | Medium |
+| **Impact** | High |
+| **Area** | Content |
+
+**Work:** Grow beyond ~8 clips under `public/sounds/events/`. Target **+4–8** short events. Use Freesound skill / `pnpm sounds:events` / `validate-manifests`.
+
+**Primary files:** `public/sounds/events/*`, catalog, attributions
+
+---
+
+### CNT-03 — Optional new core loops
+
+| | |
+|--|--|
+| **Status** | **open** (deferred) |
+| **Effort** | Medium |
+| **Impact** | Medium |
+| **Area** | Content |
+
+**Work:** **2–3+** core ambient loops for library gaps (cafe/indoor, soft city, water variants, etc.).
+
+**Primary files:** `public/sounds/core/*`, catalog, Freesound skill
+
+---
+
+## Phase 4 polish detail (shipped reference)
+
+### POL-01 — Full QA pass — **done**
+
+Automated gate green; checklist updated for Phase 3–4 manual paths. Full manual/device matrix still recommended before a marketing release.
+
+### DOC-01 — Resync FEATURE_RECOMMENDATIONS — **done**
+
+### POL-02 — Share-link discovery polish — **done**
+
+Compact layer/master encoding; OG description tags; share toast; copy feedback with long-URL warning.
+
+### ENH-16 — Local-import backup & storage UX — **done**
+
+Library: Export / Import backup, Remove unused, storage estimate line, quota-friendly import errors.
+
+### ENH-17 — Global EQ / light reverb — **done**
+
+Graph: layers → mixBus → bass → treble → dry/wet reverb → masterGain → analyser. Controls in ⚙ Mix settings.
+
+### ENH-18 — Preset crossfade — **done**
+
+`PRESET_CROSSFADE_SEC` (~0.4s) on `loadPreset` / `applySharedScene` when already playing.
+
+---
+
+## Suggested assignment bundles
+
+### Bundle F — “Immersion” (Phase 3) — **shipped**
+
+`ENH-11` · `ENH-12` · `ENH-15`
+
+### Bundle G — “Custom audio” (Phase 3) — **shipped**
+
+`ENH-13`
+
+### Bundle H — “Spatial” (Phase 3) — **shipped**
+
+`ENH-14` · `ENH-15`
+
+### Bundle I — “Content depth” (Phase 4) — **open** *(next product work)*
+
+`CNT-01` · `CNT-02` · optional `CNT-03`
+
+### Bundle J — “Ship confidence” (Phase 4) — **shipped**
+
+`POL-01` · `DOC-01`
+
+### Bundle K — “Share & custom durability” (Phase 4) — **shipped**
+
+`POL-02` · `ENH-16`
+
+### Bundle L — “Mix glue” (Phase 4) — **shipped**
+
+`ENH-17` · `ENH-18`
+
+---
+
+## Phase 3 detail (shipped reference)
 
 ### ENH-11 — Generative visualizer
 
@@ -180,22 +309,6 @@ Higher effort or lower urgency. **Complete** as of 2026-08-08.
 
 ---
 
-## Suggested assignment bundles
-
-### Bundle F — “Immersion” (Phase 3) — **shipped**
-
-`ENH-11` · `ENH-12` · `ENH-15`
-
-### Bundle G — “Custom audio” (Phase 3) — **shipped**
-
-`ENH-13`
-
-### Bundle H — “Spatial” (Phase 3) — **shipped**
-
-`ENH-14` · `ENH-15`
-
----
-
 ## Verification checklist (any phase)
 
 Before merging assigned work:
@@ -223,6 +336,10 @@ Manual smoke (web):
 11. Space canvas drag updates pan + volume
 12. Auto-pan LFO on a layer
 13. Import local mp3/wav/ogg → add to mix → survives reload
+14. Master tone (bass / treble / space) via ⚙; survives reload
+15. Load preset while playing → short crossfade
+16. Local Export / Import backup; Remove unused
+17. (When content ships) New default presets + `event_*` one-shots validate cleanly
 
 See also [docs/qa-checklist.md](docs/qa-checklist.md).
 
@@ -233,9 +350,9 @@ See also [docs/qa-checklist.md](docs/qa-checklist.md).
 | Doc | Role |
 |-----|------|
 | [README.md](README.md) | User-facing features & scripts |
-| [docs/FEATURE_RECOMMENDATIONS.md](docs/FEATURE_RECOMMENDATIONS.md) | Feature ideation (synced with this plan) |
+| [docs/FEATURE_RECOMMENDATIONS.md](docs/FEATURE_RECOMMENDATIONS.md) | Feature ideation (synced via DOC-01) |
 | [docs/design-ambient-sound-app.md](docs/design-ambient-sound-app.md) | Architecture & original DoD |
-| [docs/qa-checklist.md](docs/qa-checklist.md) | Web 0.1.0 QA / release checklist |
+| [docs/qa-checklist.md](docs/qa-checklist.md) | Web QA / release checklist (0.2.x) |
 | [docs/FREESOUND_IMPORT_GUIDE.md](docs/FREESOUND_IMPORT_GUIDE.md) | Asset pipeline |
 | [.agents/skills/freesound-import/SKILL.md](.agents/skills/freesound-import/SKILL.md) | Agent skill for Freesound import |
 
@@ -249,3 +366,5 @@ See also [docs/qa-checklist.md](docs/qa-checklist.md).
 | 2026-08-07 | Phase 2 complete: all FIX-01…08 + ENH-01…10; version 0.1.0 |
 | 2026-08-08 | Phase 3 complete: ENH-11…15; version 0.2.0 |
 | 2026-08-08 | Dropped Tauri / desktop architecture track (ARCH-01…03); product is web/PWA only |
+| 2026-08-08 | Phase 4 opened: content depth (CNT-01…03), QA/docs (POL-01, DOC-01), share & local durability (POL-02, ENH-16), optional mix glue (ENH-17, ENH-18); Bundles I–L |
+| 2026-08-08 | Phase 4 polish shipped: POL-01, DOC-01, POL-02, ENH-16…18; version 0.2.1; CNT-01…03 remain deferred |

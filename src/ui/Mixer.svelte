@@ -11,6 +11,9 @@
   import {
     FILTER_HP_OPEN_HZ,
     FILTER_LP_OPEN_HZ,
+    MASTER_EQ_DB_MAX,
+    MASTER_EQ_DB_MIN,
+    MASTER_REVERB_WET_MAX,
     PAN_LFO_RATE_MAX_HZ,
     PAN_LFO_RATE_MIN_HZ,
     type MixerLayer,
@@ -54,6 +57,10 @@
   let showMobileTip = $state(false);
   let showMixSettings = $state(false);
   let minOffsetSec = $state(session.duplicateMinOffsetSec);
+  let masterBassDb = $state(session.masterTone.bassDb);
+  let masterTrebleDb = $state(session.masterTone.trebleDb);
+  let masterReverbWet = $state(session.masterTone.reverbWet);
+  let shareNoticeTimer: ReturnType<typeof setTimeout> | null = null;
   /** Mobile accordion: which side panels are expanded */
   let panelOpen = $state<Record<string, boolean>>({
     library: true,
@@ -87,6 +94,9 @@
     enableHint = session.enableHint;
     oneShotFireToast = session.oneShotFireToast;
     minOffsetSec = session.duplicateMinOffsetSec;
+    masterBassDb = session.masterTone.bassDb;
+    masterTrebleDb = session.masterTone.trebleDb;
+    masterReverbWet = session.masterTone.reverbWet;
     timerStatus = session.timer.status;
     timerRemainingMs = session.remainingMs();
     catalog = session.catalog;
@@ -106,6 +116,24 @@
     const raw = Number((e.target as HTMLInputElement).value);
     session.setDuplicateMinOffsetSec(raw);
     minOffsetSec = session.duplicateMinOffsetSec;
+  }
+
+  function onMasterBass(e: Event) {
+    const v = Number((e.target as HTMLInputElement).value);
+    session.setMasterTone({ bassDb: v });
+    masterBassDb = session.masterTone.bassDb;
+  }
+
+  function onMasterTreble(e: Event) {
+    const v = Number((e.target as HTMLInputElement).value);
+    session.setMasterTone({ trebleDb: v });
+    masterTrebleDb = session.masterTone.trebleDb;
+  }
+
+  function onMasterReverb(e: Event) {
+    const v = Number((e.target as HTMLInputElement).value);
+    session.setMasterTone({ reverbWet: v });
+    masterReverbWet = session.masterTone.reverbWet;
   }
 
   function dismissMobileTip() {
@@ -156,7 +184,15 @@
     if (intent.kind === 'mix') {
       try {
         await session.applySharedScene(intent.preset);
-        shareNotice = `Loaded shared mix “${intent.preset.name}” — press Play`;
+        const playingNow = session.playing;
+        shareNotice = playingNow
+          ? `Opened shared mix “${intent.preset.name}”`
+          : `Opened shared mix “${intent.preset.name}” — press Play`;
+        if (shareNoticeTimer) clearTimeout(shareNoticeTimer);
+        shareNoticeTimer = setTimeout(() => {
+          shareNotice = null;
+          shareNoticeTimer = null;
+        }, 6000);
         clearMixHashFromLocation();
         syncFromSession();
       } catch (e) {
@@ -468,6 +504,54 @@
 
     {#if showMixSettings}
       <div class="mix-settings">
+        <p class="settings-section-label">Master tone</p>
+        <label class="dup-label" for="master-bass">
+          Bass
+          <span class="dup-unit">{masterBassDb > 0 ? '+' : ''}{masterBassDb.toFixed(0)} dB</span>
+        </label>
+        <input
+          id="master-bass"
+          class="tone-slider"
+          type="range"
+          min={MASTER_EQ_DB_MIN}
+          max={MASTER_EQ_DB_MAX}
+          step="0.5"
+          value={masterBassDb}
+          oninput={onMasterBass}
+        />
+        <label class="dup-label" for="master-treble">
+          Treble
+          <span class="dup-unit"
+            >{masterTrebleDb > 0 ? '+' : ''}{masterTrebleDb.toFixed(0)} dB</span
+          >
+        </label>
+        <input
+          id="master-treble"
+          class="tone-slider"
+          type="range"
+          min={MASTER_EQ_DB_MIN}
+          max={MASTER_EQ_DB_MAX}
+          step="0.5"
+          value={masterTrebleDb}
+          oninput={onMasterTreble}
+        />
+        <label class="dup-label" for="master-reverb">
+          Space
+          <span class="dup-unit">{Math.round(masterReverbWet * 100)}%</span>
+        </label>
+        <input
+          id="master-reverb"
+          class="tone-slider"
+          type="range"
+          min="0"
+          max={MASTER_REVERB_WET_MAX}
+          step="0.01"
+          value={masterReverbWet}
+          oninput={onMasterReverb}
+        />
+        <p class="dup-hint">Bass / treble / light reverb on the whole mix. Saved with presets.</p>
+
+        <p class="settings-section-label">Duplicates</p>
         <label class="dup-label" for="dup-min-offset">
           Min offset (same sound)
         </label>
@@ -1110,8 +1194,28 @@
     background: var(--card);
   }
 
-  .dup-label {
+  .settings-section-label {
+    margin: 0.45rem 0 0.35rem;
+    font-size: 0.72rem;
+    font-weight: 650;
+    color: var(--text-soft);
+  }
+
+  .settings-section-label:first-child {
+    margin-top: 0;
+  }
+
+  .tone-slider {
+    width: 100%;
+    margin: 0 0 0.45rem;
     display: block;
+  }
+
+  .dup-label {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
     font-size: 0.68rem;
     font-weight: 600;
     color: var(--muted-soft);

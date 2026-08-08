@@ -3,10 +3,22 @@
  *
  * Format: `#mix=<base64url(JSON SharePayload)>`
  * Also recognizes `#attributions` for the in-app credits panel.
+ *
+ * Encode path strips default layer / master fields so hashes stay shorter (POL-02).
  */
 import type { MixerLayer } from '../audio/types';
 import {
+  FILTER_HP_OPEN_HZ,
+  FILTER_LP_OPEN_HZ,
+  MASTER_BASS_DB_DEFAULT,
+  MASTER_REVERB_WET_DEFAULT,
+  MASTER_TREBLE_DB_DEFAULT,
+  PAN_LFO_DEPTH_DEFAULT,
+  PAN_LFO_RATE_DEFAULT_HZ,
+} from '../audio/types';
+import {
   parsePreset,
+  type PresetMaster,
   type PresetTimerConfig,
   type PresetV1,
 } from './presets';
@@ -20,7 +32,7 @@ export const ATTRIBUTIONS_HASH = 'attributions';
 export interface SharePayload {
   v: 1;
   name?: string;
-  master: { volumeLinear: number };
+  master: PresetMaster;
   layers: MixerLayer[];
   timer?: PresetTimerConfig | null;
   binaural?: BinauralConfig | null;
@@ -92,12 +104,88 @@ function base64UrlToUtf8(b64url: string): string {
   return new TextDecoder().decode(base64UrlToBytes(b64url));
 }
 
+/** Drop defaulted fields from a layer so share hashes stay shorter. */
+function compactLayer(layer: MixerLayer): Record<string, unknown> {
+  if (layer.kind === 'noise') {
+    const p = layer.params;
+    const params: Record<string, unknown> = {
+      id: p.id,
+      type: p.type,
+      volumeLinear: p.volumeLinear,
+      muted: p.muted,
+      solo: p.solo,
+      stereoWidth: p.stereoWidth,
+      pan: p.pan,
+    };
+    if (p.lowpassHz < FILTER_LP_OPEN_HZ - 100) params.lowpassHz = p.lowpassHz;
+    if (p.highpassHz > FILTER_HP_OPEN_HZ + 5) params.highpassHz = p.highpassHz;
+    if (p.panLfoEnabled) {
+      params.panLfoEnabled = true;
+      if (p.panLfoRateHz !== PAN_LFO_RATE_DEFAULT_HZ) {
+        params.panLfoRateHz = p.panLfoRateHz;
+      }
+      if (p.panLfoDepth !== PAN_LFO_DEPTH_DEFAULT) {
+        params.panLfoDepth = p.panLfoDepth;
+      }
+    }
+    return { kind: 'noise', params };
+  }
+  const p = layer.params;
+  const params: Record<string, unknown> = {
+    id: p.id,
+    assetId: p.assetId,
+    label: p.label,
+    volumeLinear: p.volumeLinear,
+    muted: p.muted,
+    solo: p.solo,
+    pan: p.pan,
+    loopMode: p.loopMode,
+    crossfadeMs: p.crossfadeMs,
+    playbackRate: p.playbackRate,
+  };
+  if (p.lowpassHz < FILTER_LP_OPEN_HZ - 100) params.lowpassHz = p.lowpassHz;
+  if (p.highpassHz > FILTER_HP_OPEN_HZ + 5) params.highpassHz = p.highpassHz;
+  if (p.panLfoEnabled) {
+    params.panLfoEnabled = true;
+    if (p.panLfoRateHz !== PAN_LFO_RATE_DEFAULT_HZ) {
+      params.panLfoRateHz = p.panLfoRateHz;
+    }
+    if (p.panLfoDepth !== PAN_LFO_DEPTH_DEFAULT) {
+      params.panLfoDepth = p.panLfoDepth;
+    }
+  }
+  return { kind: 'sample', params };
+}
+
+function compactMaster(master: PresetMaster): PresetMaster {
+  const out: PresetMaster = { volumeLinear: master.volumeLinear };
+  if (
+    master.bassDb != null &&
+    master.bassDb !== MASTER_BASS_DB_DEFAULT
+  ) {
+    out.bassDb = master.bassDb;
+  }
+  if (
+    master.trebleDb != null &&
+    master.trebleDb !== MASTER_TREBLE_DB_DEFAULT
+  ) {
+    out.trebleDb = master.trebleDb;
+  }
+  if (
+    master.reverbWet != null &&
+    master.reverbWet !== MASTER_REVERB_WET_DEFAULT
+  ) {
+    out.reverbWet = master.reverbWet;
+  }
+  return out;
+}
+
 /** Build a share payload from a full preset / session snapshot. */
 export function presetToSharePayload(preset: PresetV1): SharePayload {
   return {
     v: 1,
     name: preset.name,
-    master: { volumeLinear: preset.master.volumeLinear },
+    master: compactMaster(preset.master),
     layers: preset.layers,
     timer: preset.timer ?? null,
     ...(preset.binaural !== undefined ? { binaural: preset.binaural } : {}),
@@ -107,7 +195,16 @@ export function presetToSharePayload(preset: PresetV1): SharePayload {
 
 /** Encode a share payload as a base64url string (no `#mix=` prefix). */
 export function encodeSharePayload(payload: SharePayload): string {
-  return utf8ToBase64Url(JSON.stringify(payload));
+  const compact = {
+    v: payload.v,
+    ...(payload.name ? { name: payload.name } : {}),
+    master: compactMaster(payload.master),
+    layers: payload.layers.map((l) => compactLayer(l)),
+    ...(payload.timer ? { timer: payload.timer } : {}),
+    ...(payload.binaural != null ? { binaural: payload.binaural } : {}),
+    ...(payload.oneShot != null ? { oneShot: payload.oneShot } : {}),
+  };
+  return utf8ToBase64Url(JSON.stringify(compact));
 }
 
 /** Decode base64url share body into a validated PresetV1, or null. */
@@ -152,6 +249,14 @@ export function buildShareUrl(
 ): string {
   const hash = encodeMixHash(preset);
   return `${locationLike.origin}${locationLike.pathname}${locationLike.search}${hash}`;
+}
+
+/** Character length of the full share URL (for UI feedback). */
+export function shareUrlLength(
+  preset: PresetV1,
+  locationLike?: Pick<Location, 'origin' | 'pathname' | 'search'>,
+): number {
+  return buildShareUrl(preset, locationLike).length;
 }
 
 /**

@@ -197,3 +197,41 @@ export const LOCAL_ASSET_PREFIX = 'local:';
 export function isLocalAssetId(assetId: string): boolean {
   return assetId.startsWith(LOCAL_ASSET_PREFIX);
 }
+
+/** Master-bus tone shaping (ENH-17). */
+export const MASTER_BASS_DB_DEFAULT = 0;
+export const MASTER_TREBLE_DB_DEFAULT = 0;
+export const MASTER_REVERB_WET_DEFAULT = 0;
+export const MASTER_EQ_DB_MIN = -12;
+export const MASTER_EQ_DB_MAX = 12;
+export const MASTER_REVERB_WET_MAX = 0.55;
+
+export interface MasterToneParams {
+  /** Low-shelf gain dB (−12…+12). */
+  bassDb: number;
+  /** High-shelf gain dB (−12…+12). */
+  trebleDb: number;
+  /** Convolver wet amount 0…{@link MASTER_REVERB_WET_MAX}. */
+  reverbWet: number;
+}
+
+export function defaultMasterTone(): MasterToneParams {
+  return {
+    bassDb: MASTER_BASS_DB_DEFAULT,
+    trebleDb: MASTER_TREBLE_DB_DEFAULT,
+    reverbWet: MASTER_REVERB_WET_DEFAULT,
+  };
+}
+
+export function clampMasterEqDb(db: number): number {
+  if (!Number.isFinite(db)) return 0;
+  return Math.max(MASTER_EQ_DB_MIN, Math.min(MASTER_EQ_DB_MAX, db));
+}
+
+export function clampReverbWet(wet: number): number {
+  if (!Number.isFinite(wet)) return MASTER_REVERB_WET_DEFAULT;
+  return Math.max(0, Math.min(MASTER_REVERB_WET_MAX, wet));
+}
+
+/** Short crossfade when loading a preset while playing (ENH-18). */
+export const PRESET_CROSSFADE_SEC = 0.4;
