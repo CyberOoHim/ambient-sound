@@ -61,6 +61,9 @@
   let masterTrebleDb = $state(session.masterTone.trebleDb);
   let masterReverbWet = $state(session.masterTone.reverbWet);
   let shareNoticeTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Rotating idle tip index for the always-visible status strip. */
+  let idleTipIndex = $state(0);
+  let idleTipTimer: ReturnType<typeof setInterval> | null = null;
   /** Mobile accordion: which side panels are expanded */
   let panelOpen = $state<Record<string, boolean>>({
     library: true,
@@ -79,6 +82,97 @@
 
   let meterRaf = 0;
   let unsub: (() => void) | undefined;
+
+  /** Ambient tips shown when no live status/info is active. */
+  const STATUS_IDLE_MESSAGES = [
+    'Soft sounds for focus, rest, and wind-down.',
+    'Space toggles play and pause.',
+    'Stack layers — mute, solo, and pan each one.',
+    'Try Surprise me for a complementary mix.',
+    'Sleep timer fades out when you are ready to rest.',
+    'One-shot packs sprinkle distant events into the mix.',
+    'Binaural tones work best with headphones.',
+    'Drag on the spatial canvas to place layers in stereo.',
+    'Import your own loops from the library.',
+    'Copy link to share your current mix.',
+    'Mix settings ⚙: master tone and duplicate offset.',
+    'Lowpass softens highs; highpass clears rumble.',
+    'Solo a layer to hear it alone in the mix.',
+    'Add a second copy of a loop for richer texture.',
+  ] as const;
+
+  type StatusKind = 'error' | 'notice' | 'info' | 'fire' | 'idle';
+  type StatusPayload = {
+    text: string;
+    kind: StatusKind;
+    dismiss?: () => void;
+    dismissLabel?: string;
+  };
+
+  /** Stable strip between player bar and mix layers — never unmounts. */
+  const statusPayload = $derived.by((): StatusPayload => {
+    if (error) {
+      return {
+        text: error,
+        kind: 'error',
+        dismiss: () => {
+          error = null;
+        },
+        dismissLabel: 'Dismiss',
+      };
+    }
+    if (loadNotice) {
+      return {
+        text: loadNotice,
+        kind: 'notice',
+        dismiss: dismissNotice,
+        dismissLabel: 'Dismiss',
+      };
+    }
+    if (shareNotice) {
+      return {
+        text: shareNotice,
+        kind: 'notice',
+        dismiss: () => {
+          shareNotice = null;
+          if (shareNoticeTimer) {
+            clearTimeout(shareNoticeTimer);
+            shareNoticeTimer = null;
+          }
+        },
+        dismissLabel: 'Dismiss',
+      };
+    }
+    if (showMobileTip) {
+      return {
+        text: 'Tap Play once — then you can lock the screen. Audio keeps going.',
+        kind: 'info',
+        dismiss: dismissMobileTip,
+        dismissLabel: 'Got it',
+      };
+    }
+    if (enableHint) {
+      return {
+        text: enableHint,
+        kind: 'info',
+        dismiss: () => session.clearEnableHint(),
+        dismissLabel: 'Dismiss',
+      };
+    }
+    if (oneShotFireToast) {
+      return { text: `✦ ${oneShotFireToast}`, kind: 'fire' };
+    }
+    if (loadingIds.length > 0) {
+      return {
+        text: `Downloading sound${loadingIds.length > 1 ? 's' : ''}…`,
+        kind: 'info',
+      };
+    }
+    return {
+      text: STATUS_IDLE_MESSAGES[idleTipIndex % STATUS_IDLE_MESSAGES.length]!,
+      kind: 'idle',
+    };
+  });
 
   function syncFromSession() {
     layers = session.layers;
@@ -320,6 +414,10 @@
     });
     void applyHashIntent();
     showMobileTip = !session.isMobileTipDismissed();
+    idleTipIndex = Math.floor(Math.random() * STATUS_IDLE_MESSAGES.length);
+    idleTipTimer = setInterval(() => {
+      idleTipIndex = (idleTipIndex + 1) % STATUS_IDLE_MESSAGES.length;
+    }, 14_000);
     const tick = () => {
       if (session.playing) {
         peak = session.getPeakLevel();
@@ -343,6 +441,8 @@
   onDestroy(() => {
     window.removeEventListener('keydown', onKey);
     cancelAnimationFrame(meterRaf);
+    if (idleTipTimer) clearInterval(idleTipTimer);
+    if (shareNoticeTimer) clearTimeout(shareNoticeTimer);
     unsub?.();
   });
 
@@ -415,67 +515,28 @@
     </div>
   </header>
 
-  {#if error}
-    <div class="error" role="alert">{error}</div>
-  {/if}
-
-  {#if loadNotice}
-    <div class="notice" role="status">
-      <p>{loadNotice}</p>
-      <button type="button" class="text-btn notice-dismiss" onclick={dismissNotice}>
-        Dismiss
-      </button>
-    </div>
-  {/if}
-
-  {#if shareNotice}
-    <div class="notice" role="status">
-      <p>{shareNotice}</p>
+  <!-- Always-visible strip: keeps layout stable between player bar and mix layers -->
+  <div
+    class="status-strip"
+    class:error={statusPayload.kind === 'error'}
+    class:notice={statusPayload.kind === 'notice'}
+    class:info={statusPayload.kind === 'info'}
+    class:fire={statusPayload.kind === 'fire'}
+    class:idle={statusPayload.kind === 'idle'}
+    role={statusPayload.kind === 'error' ? 'alert' : 'status'}
+    aria-live="polite"
+  >
+    <p class="status-strip-text">{statusPayload.text}</p>
+    {#if statusPayload.dismiss}
       <button
         type="button"
         class="text-btn notice-dismiss"
-        onclick={() => {
-          shareNotice = null;
-        }}
+        onclick={statusPayload.dismiss}
       >
-        Dismiss
+        {statusPayload.dismissLabel ?? 'Dismiss'}
       </button>
-    </div>
-  {/if}
-
-  {#if showMobileTip}
-    <div class="mobile-tip" role="status">
-      <p>Tap <strong>Play</strong> once — then you can lock the screen. Audio keeps going.</p>
-      <button type="button" class="text-btn notice-dismiss" onclick={dismissMobileTip}>
-        Got it
-      </button>
-    </div>
-  {/if}
-
-  {#if enableHint}
-    <div class="status-line soft" role="status">
-      {enableHint}
-      <button
-        type="button"
-        class="text-btn notice-dismiss"
-        onclick={() => session.clearEnableHint()}
-      >
-        Dismiss
-      </button>
-    </div>
-  {/if}
-
-  {#if oneShotFireToast}
-    <div class="fire-toast" role="status" aria-live="polite">
-      ✦ {oneShotFireToast}
-    </div>
-  {/if}
-
-  {#if loadingIds.length > 0}
-    <div class="status-line" role="status">
-      Downloading sound{loadingIds.length > 1 ? 's' : ''}…
-    </div>
-  {/if}
+    {/if}
+  </div>
 
   <section class="layers">
     <div class="layers-head">
@@ -1269,60 +1330,67 @@
     text-align: right;
   }
 
-  .mobile-tip {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 0.75rem;
-    background: var(--accent-dim);
-    border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
-    color: var(--text-soft);
-    border-radius: var(--radius);
-    padding: 0.55rem 0.75rem;
-    margin-bottom: 0.65rem;
-    font-size: 0.82rem;
-  }
-
-  .mobile-tip p {
-    margin: 0;
-    line-height: 1.35;
-  }
-
-  .status-line.soft {
+  /* Fixed-height strip between player bar and mix layers — never mounts/unmounts */
+  .status-strip {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.5rem;
-    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    gap: 0.75rem;
+    min-height: 2.55rem;
+    box-sizing: border-box;
+    margin-bottom: 0.65rem;
+    padding: 0.45rem 0.75rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text-soft);
+    font-size: 0.82rem;
+    transition:
+      background 0.2s ease,
+      border-color 0.2s ease,
+      color 0.2s ease;
   }
 
-  .fire-toast {
-    position: sticky;
-    top: 4.5rem;
-    z-index: 15;
-    margin: 0 auto 0.55rem;
-    max-width: 20rem;
-    text-align: center;
-    padding: 0.4rem 0.85rem;
-    border-radius: var(--radius-pill);
-    background: color-mix(in srgb, var(--accent) 22%, var(--card));
-    border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  .status-strip-text {
+    margin: 0;
+    line-height: 1.35;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .status-strip.idle {
+    background: color-mix(in srgb, var(--card) 70%, transparent);
+    border-color: color-mix(in srgb, var(--border) 70%, transparent);
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  .status-strip.info {
+    background: color-mix(in srgb, var(--accent) 12%, var(--card));
+    border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+    color: var(--text-soft);
+    font-weight: 600;
+  }
+
+  .status-strip.fire {
+    background: color-mix(in srgb, var(--accent) 18%, var(--card));
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
     color: var(--accent);
-    font-size: 0.78rem;
     font-weight: 650;
-    box-shadow: var(--shadow-soft);
-    animation: toast-in 0.25s ease;
   }
 
-  @keyframes toast-in {
-    from {
-      opacity: 0;
-      transform: translateY(-6px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+  .status-strip.notice {
+    background: var(--danger-dim, color-mix(in srgb, var(--danger) 14%, transparent));
+    border-color: var(--danger);
+    color: var(--danger);
+    font-weight: 600;
+  }
+
+  .status-strip.error {
+    background: var(--danger-dim);
+    border-color: var(--danger);
+    color: var(--danger);
+    font-weight: 650;
   }
 
   .accordion-toggle {
@@ -1621,46 +1689,6 @@
     display: flex;
     flex-direction: column;
     gap: 0.65rem;
-  }
-
-  .error {
-    background: var(--danger-dim);
-    border: 1px solid var(--danger);
-    color: var(--danger);
-    border-radius: var(--radius);
-    padding: 0.5rem 0.75rem;
-    margin-bottom: 0.65rem;
-    font-size: 0.85rem;
-  }
-
-  .status-line {
-    background: var(--accent-dim);
-    border: 1px solid var(--border);
-    color: var(--accent);
-    border-radius: var(--radius);
-    padding: 0.45rem 0.75rem;
-    margin-bottom: 0.65rem;
-    font-size: 0.82rem;
-    font-weight: 600;
-  }
-
-  .notice {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 0.75rem;
-    background: var(--danger-dim, color-mix(in srgb, var(--danger) 14%, transparent));
-    border: 1px solid var(--danger);
-    color: var(--danger);
-    border-radius: var(--radius);
-    padding: 0.5rem 0.75rem;
-    margin-bottom: 0.65rem;
-    font-size: 0.82rem;
-  }
-
-  .notice p {
-    margin: 0;
-    line-height: 1.35;
   }
 
   .notice-dismiss {
