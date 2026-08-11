@@ -1851,12 +1851,14 @@
   }
 
   .yt-host-container {
-    position: absolute;
-    width: 1px;
-    height: 1px;
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    width: 200px;
+    height: 112px;
     overflow: hidden;
-    opacity: 0.01;
+    opacity: 0.001;
     pointer-events: none;
-    clip: rect(0 0 0 0);
+    z-index: -1;
   }
 </style>

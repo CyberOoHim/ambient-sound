@@ -41,6 +41,7 @@ import {
   installMediaSessionHandlers,
   setMediaSessionPlayback,
 } from '../audio/media-session';
+import { youtubePlayerManager } from '../audio/youtube-player';
 import {
   createPresetId,
   deletePreset,
@@ -240,6 +241,15 @@ export class Session {
 
     this.ensureMediaSession();
     this.bindPageLifecycle();
+    youtubePlayerManager.onError((layerId, errorCode) => {
+      const layer = this.layers.find((l) => l.params.id === layerId);
+      const label = layer?.params.label ?? 'YouTube stream';
+      this.removeLayer(layerId);
+      this.setLoadNotice(
+        `Couldn't play “${label}” (video unavailable or embedding restricted). Layer removed.`,
+      );
+      this.notify();
+    });
     audioEngine.oneShotEngine.addListener((evt) => {
       if (evt) {
         this.lastOneShotTrigger = evt;

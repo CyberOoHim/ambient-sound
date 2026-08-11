@@ -301,7 +301,9 @@ export class AudioEngine {
 
   setMasterVolumeLinear(linear: number): void {
     this.masterVolumeLinear = clampLinear(linear);
-    if (this.fading) return;
+    if (!this.fading) {
+      youtubePlayerManager.setMasterVolumeLinear(this.masterVolumeLinear);
+    }
     if (this.master && this.ctx) {
       const g = this.master.gain;
       const t = this.ctx.currentTime;
@@ -327,6 +329,19 @@ export class AudioEngine {
     g.setValueAtTime(from, t0);
     g.linearRampToValueAtTime(0, t0 + sec);
 
+    const startMs = Date.now();
+    const interval = setInterval(() => {
+      const elapsedSec = (Date.now() - startMs) / 1000;
+      const ratio = Math.max(0, 1 - elapsedSec / sec);
+      youtubePlayerManager.setMasterVolumeLinear(from * ratio);
+      if (elapsedSec >= sec || token !== this.fadeToken) {
+        clearInterval(interval);
+        if (token === this.fadeToken) {
+          youtubePlayerManager.setMasterVolumeLinear(0);
+        }
+      }
+    }, 50);
+
     return new Promise((resolve) => {
       window.setTimeout(() => {
         if (token !== this.fadeToken) {
@@ -342,6 +357,7 @@ export class AudioEngine {
   cancelFadeOut(): void {
     this.fadeToken++;
     this.fading = false;
+    youtubePlayerManager.setMasterVolumeLinear(this.masterVolumeLinear);
     if (!this.master || !this.ctx) return;
     const g = this.master.gain;
     const t = this.ctx.currentTime;
@@ -358,6 +374,7 @@ export class AudioEngine {
 
   restoreMasterGain(): void {
     this.fading = false;
+    youtubePlayerManager.setMasterVolumeLinear(this.masterVolumeLinear);
     if (!this.master || !this.ctx) return;
     const g = this.master.gain;
     const t = this.ctx.currentTime;
@@ -369,6 +386,7 @@ export class AudioEngine {
   setMasterGainImmediate(linear: number): void {
     this.fadeToken++;
     this.fading = false;
+    youtubePlayerManager.setMasterVolumeLinear(clampLinear(linear));
     if (!this.master || !this.ctx) return;
     const g = this.master.gain;
     const t = this.ctx.currentTime;
@@ -391,6 +409,20 @@ export class AudioEngine {
     g.cancelScheduledValues(t0);
     g.setValueAtTime(0, t0);
     g.linearRampToValueAtTime(this.masterVolumeLinear, t0 + sec);
+
+    const startMs = Date.now();
+    const targetVol = this.masterVolumeLinear;
+    const interval = setInterval(() => {
+      const elapsedSec = (Date.now() - startMs) / 1000;
+      const ratio = Math.min(1, elapsedSec / sec);
+      youtubePlayerManager.setMasterVolumeLinear(targetVol * ratio);
+      if (elapsedSec >= sec || token !== this.fadeToken) {
+        clearInterval(interval);
+        if (token === this.fadeToken) {
+          youtubePlayerManager.setMasterVolumeLinear(targetVol);
+        }
+      }
+    }, 50);
 
     return new Promise((resolve) => {
       window.setTimeout(() => {

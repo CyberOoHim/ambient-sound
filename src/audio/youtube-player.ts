@@ -88,18 +88,71 @@ export function loadYouTubeApi(): Promise<void> {
   return apiLoadingPromise;
 }
 
+interface PlayerEntry {
+  player: YTPlayerInstance | null;
+  isReady: boolean;
+  layerVolumeLinear: number;
+  pendingMuted: boolean;
+}
+
 export class YouTubePlayerManager {
-  private players = new Map<string, { player: YTPlayerInstance; isReady: boolean; pendingVolume?: number; pendingMuted?: boolean }>();
+  private players = new Map<string, PlayerEntry>();
   private globalPlaying = false;
+  private masterVolumeLinear = 1;
+  private errorCallback?: (layerId: string, errorCode: number) => void;
+
+  public onError(cb: (layerId: string, errorCode: number) => void): void {
+    this.errorCallback = cb;
+  }
+
+  public setMasterVolumeLinear(masterVolumeLinear: number): void {
+    this.masterVolumeLinear = Math.max(0, Math.min(1, masterVolumeLinear));
+    for (const layerId of this.players.keys()) {
+      this.applyPlayerState(layerId);
+    }
+  }
+
+  private calculateEffectiveVolumePercent(layerVolumeLinear: number): number {
+    const effectiveLinear = Math.max(
+      0,
+      Math.min(1, layerVolumeLinear * this.masterVolumeLinear),
+    );
+    return Math.round(effectiveLinear * 100);
+  }
+
+  private applyPlayerState(layerId: string): void {
+    const entry = this.players.get(layerId);
+    if (!entry || !entry.isReady || !entry.player) return;
+
+    try {
+      const volumePercent = this.calculateEffectiveVolumePercent(
+        entry.layerVolumeLinear,
+      );
+      entry.player.setVolume(volumePercent);
+
+      if (entry.pendingMuted || this.masterVolumeLinear === 0) {
+        entry.player.mute();
+      } else {
+        entry.player.unMute();
+      }
+    } catch (err) {
+      console.warn(`Error applying YT player state for ${layerId}:`, err);
+    }
+  }
 
   public setGlobalPlaying(playing: boolean): void {
     this.globalPlaying = playing;
     for (const [id, entry] of this.players.entries()) {
-      if (entry.isReady) {
-        if (playing) {
-          entry.player.playVideo();
-        } else {
-          entry.player.pauseVideo();
+      if (entry.isReady && entry.player) {
+        try {
+          if (playing) {
+            this.applyPlayerState(id);
+            entry.player.playVideo();
+          } else {
+            entry.player.pauseVideo();
+          }
+        } catch (err) {
+          console.warn(`Error updating play state for YT player ${id}:`, err);
         }
       }
     }
@@ -135,59 +188,88 @@ export class YouTubePlayerManager {
 
     this.globalPlaying = isPlaying;
 
+    const entry: PlayerEntry = {
+      player: null,
+      isReady: false,
+      layerVolumeLinear: Math.max(0, Math.min(1, initialVolumeLinear)),
+      pendingMuted: initialMuted,
+    };
+    this.players.set(layerId, entry);
+
     return new Promise((resolve) => {
-      const initialVolumePercent = Math.round(Math.max(0, Math.min(1, initialVolumeLinear)) * 100);
+      let validOrigin: string | undefined;
+      if (
+        typeof window !== 'undefined' &&
+        window.location.origin &&
+        window.location.origin !== 'null' &&
+        /^https?:\/\//i.test(window.location.origin)
+      ) {
+        validOrigin = window.location.origin;
+      }
 
       const player = new window.YT!.Player(frameDiv, {
         videoId,
         playerVars: {
           autoplay: isPlaying ? 1 : 0,
           controls: 0,
+          enablejsapi: 1,
           loop: 1,
           playlist: videoId, // Required for loop=1 to work in YT iframe api
           modestbranding: 1,
           playsinline: 1,
           rel: 0,
-          origin: window.location.origin,
+          ...(validOrigin ? { origin: validOrigin } : {}),
         },
         events: {
           onReady: (event) => {
-            const entry = this.players.get(layerId);
-            if (entry) {
-              entry.isReady = true;
-              event.target.setVolume(initialVolumePercent);
-              if (initialMuted) {
-                event.target.mute();
-              } else {
-                event.target.unMute();
+            entry.isReady = true;
+            try {
+              const iframe = event.target.getIframe?.();
+              if (iframe && typeof iframe.setAttribute === 'function') {
+                iframe.setAttribute(
+                  'allow',
+                  'autoplay; encrypted-media; picture-in-picture',
+                );
               }
-              if (this.globalPlaying) {
-                event.target.playVideo();
-              } else {
-                event.target.pauseVideo();
-              }
+            } catch {
+              /* */
+            }
+            this.applyPlayerState(layerId);
+            if (this.globalPlaying) {
+              event.target.playVideo();
+            } else {
+              event.target.pauseVideo();
             }
             resolve();
           },
           onStateChange: (event) => {
             // Loop fallback if YT loop option stops at end
-            if (event.data === window.YT?.PlayerState?.ENDED && this.globalPlaying) {
-              player.playVideo();
+            if (
+              event.data === window.YT?.PlayerState?.ENDED &&
+              this.globalPlaying
+            ) {
+              try {
+                player.playVideo();
+              } catch {
+                /* */
+              }
             }
           },
-          onError: (err) => {
-            console.warn(`YouTube player error for layer ${layerId}:`, err);
+          onError: (errEvent) => {
+            const errCode =
+              errEvent && typeof errEvent.data === 'number'
+                ? errEvent.data
+                : -1;
+            console.warn(
+              `YouTube player error for layer ${layerId}: code ${errCode}`,
+            );
+            this.errorCallback?.(layerId, errCode);
             resolve();
           },
         },
       });
 
-      this.players.set(layerId, {
-        player,
-        isReady: false,
-        pendingVolume: initialVolumePercent,
-        pendingMuted: initialMuted,
-      });
+      entry.player = player;
     });
   }
 
@@ -198,12 +280,8 @@ export class YouTubePlayerManager {
     const entry = this.players.get(layerId);
     if (!entry) return;
 
-    const volumePercent = Math.round(Math.max(0, Math.min(1, volumeLinear)) * 100);
-    entry.pendingVolume = volumePercent;
-
-    if (entry.isReady) {
-      entry.player.setVolume(volumePercent);
-    }
+    entry.layerVolumeLinear = Math.max(0, Math.min(1, volumeLinear));
+    this.applyPlayerState(layerId);
   }
 
   /**
@@ -214,14 +292,7 @@ export class YouTubePlayerManager {
     if (!entry) return;
 
     entry.pendingMuted = muted;
-
-    if (entry.isReady) {
-      if (muted) {
-        entry.player.mute();
-      } else {
-        entry.player.unMute();
-      }
-    }
+    this.applyPlayerState(layerId);
   }
 
   /**
@@ -230,10 +301,12 @@ export class YouTubePlayerManager {
   public destroyPlayer(layerId: string): void {
     const entry = this.players.get(layerId);
     if (entry) {
-      try {
-        entry.player.destroy();
-      } catch (err) {
-        console.warn(`Error destroying YT player for ${layerId}:`, err);
+      if (entry.player) {
+        try {
+          entry.player.destroy();
+        } catch (err) {
+          console.warn(`Error destroying YT player for ${layerId}:`, err);
+        }
       }
       this.players.delete(layerId);
     }
