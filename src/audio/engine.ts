@@ -287,6 +287,9 @@ export class AudioEngine {
           this.oneShotEngine.start();
           this.binauralEngine.start();
           youtubePlayerManager.setGlobalPlaying(true);
+          if (!this.fading) {
+            this.restoreMasterGain();
+          }
         });
       }
     };
@@ -302,6 +305,11 @@ export class AudioEngine {
     this.oneShotEngine.start();
     this.binauralEngine.start();
     youtubePlayerManager.setGlobalPlaying(true);
+    // Unmute Web Audio after transport pause. Session.play may immediately
+    // re-zero for holdSilent crossfades; visibility/onstatechange need this.
+    if (!this.fading) {
+      this.restoreMasterGain();
+    }
   }
 
   private isAppleTouch(): boolean {
@@ -312,17 +320,46 @@ export class AudioEngine {
     return false;
   }
 
+  /**
+   * Silence or restore the master bus for transport pause/play.
+   *
+   * Required because:
+   * - MediaOutput always keeps analyser → destination connected (YouTube
+   *   coexistence / dual-route), so pausing the background <audio> element
+   *   alone does not stop sample/noise loops.
+   * - On iOS/iPadOS we skip AudioContext.suspend() (hard to resume without a
+   *   new gesture), so the graph keeps rendering unless gain is gated.
+   */
+  private setTransportAudible(audible: boolean, immediate = true): void {
+    if (!this.master || !this.ctx) return;
+    this.fadeToken++;
+    this.fading = false;
+    const g = this.master.gain;
+    const t = this.ctx.currentTime;
+    g.cancelScheduledValues(t);
+    const target = audible ? this.masterVolumeLinear : 0;
+    if (immediate) {
+      g.setValueAtTime(target, t);
+    } else {
+      g.setTargetAtTime(target, t, 0.015);
+    }
+    youtubePlayerManager.setMasterVolumeLinear(audible ? this.masterVolumeLinear : 0);
+  }
+
   async suspend(): Promise<void> {
     this.wantRunning = false;
     this.oneShotEngine.stop();
     this.binauralEngine.stop();
+    // Pause every external + internal source together with the transport.
     youtubePlayerManager.setGlobalPlaying(false);
     this.mediaOutput.pause();
+    // Gate the Web Audio master bus so core loops / noise stop being audible
+    // even when the context stays running (iOS) or destination is dual-routed.
+    this.setTransportAudible(false, true);
     if (this.ctx && this.ctx.state === 'running') {
       // On iOS/iPadOS, fully suspending the AudioContext makes it very
-      // difficult to resume without a new user gesture.  Skipping
-      // ctx.suspend() is safe because iOS already manages audio power
-      // when no sources are connected / producing samples.
+      // difficult to resume without a new user gesture. Master-gain gate
+      // above is the real silence; desktop/Android still suspend for CPU.
       if (!this.isAppleTouch()) {
         await this.ctx.suspend();
       }
@@ -331,6 +368,13 @@ export class AudioEngine {
 
   setMasterVolumeLinear(linear: number): void {
     this.masterVolumeLinear = clampLinear(linear);
+    // While transport is paused, only store the target — do not un-silence.
+    if (!this.wantRunning) {
+      if (!this.fading) {
+        youtubePlayerManager.setMasterVolumeLinear(0);
+      }
+      return;
+    }
     if (!this.fading) {
       youtubePlayerManager.setMasterVolumeLinear(this.masterVolumeLinear);
     }
@@ -404,6 +448,17 @@ export class AudioEngine {
 
   restoreMasterGain(): void {
     this.fading = false;
+    // Transport pause owns silence; do not un-mute while paused.
+    if (!this.wantRunning) {
+      youtubePlayerManager.setMasterVolumeLinear(0);
+      if (this.master && this.ctx) {
+        const g = this.master.gain;
+        const t = this.ctx.currentTime;
+        g.cancelScheduledValues(t);
+        g.setValueAtTime(0, t);
+      }
+      return;
+    }
     youtubePlayerManager.setMasterVolumeLinear(this.masterVolumeLinear);
     if (!this.master || !this.ctx) return;
     const g = this.master.gain;
@@ -416,12 +471,15 @@ export class AudioEngine {
   setMasterGainImmediate(linear: number): void {
     this.fadeToken++;
     this.fading = false;
-    youtubePlayerManager.setMasterVolumeLinear(clampLinear(linear));
+    // holdSilent crossfades intentionally zero while playing; otherwise
+    // respect transport pause so volume UI cannot re-open the gate.
+    const value = this.wantRunning ? clampLinear(linear) : 0;
+    youtubePlayerManager.setMasterVolumeLinear(value);
     if (!this.master || !this.ctx) return;
     const g = this.master.gain;
     const t = this.ctx.currentTime;
     g.cancelScheduledValues(t);
-    g.setValueAtTime(clampLinear(linear), t);
+    g.setValueAtTime(value, t);
   }
 
   /**

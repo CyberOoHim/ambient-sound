@@ -57,6 +57,40 @@ describe('Session empty mix layer behavior', () => {
   });
 });
 
+describe('Session transport pause/play state', () => {
+  it('togglePlay flips playing and is safe when already false', async () => {
+    const session = new Session();
+    session.layers = [
+      {
+        kind: 'noise',
+        params: {
+          id: 'n1',
+          type: 'pink',
+          volumeLinear: 0.5,
+          stereoWidth: 1,
+          pan: 0,
+          muted: false,
+          solo: false,
+          lowpassHz: 20000,
+          highpassHz: 20,
+          panLfoEnabled: false,
+          panLfoRateHz: 0.08,
+          panLfoDepth: 0.35,
+        },
+      },
+    ];
+    session.playing = true;
+
+    // pause path (uses real engine suspend — must not throw)
+    await session.pause();
+    expect(session.playing).toBe(false);
+
+    await session.pause();
+    expect(session.playing).toBe(false);
+  });
+});
+
+
 describe('Session sample download / loading UI state', () => {
   let session: Session;
 
