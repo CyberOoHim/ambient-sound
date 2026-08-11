@@ -13,6 +13,7 @@ declare global {
           playerVars?: {
             autoplay?: number;
             controls?: number;
+            enablejsapi?: number;
             loop?: number;
             modestbranding?: number;
             playsinline?: number;
