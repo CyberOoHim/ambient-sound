@@ -33,7 +33,7 @@ import {
 } from './decode-cache';
 import { assetUrl, findAsset, type SoundCatalog } from '../assets/catalog';
 import { MediaOutput } from './media-output';
-import { OneShotEngine } from './one-shot-engine';
+import { OneShotEngine, type OneShotTriggerEvent } from './one-shot-engine';
 import { loadOneShotConfigFromStorage } from '../app/one-shot';
 import { BinauralEngine } from './binaural-engine';
 import { loadBinauralConfigFromStorage } from '../app/binaural';
@@ -118,6 +118,12 @@ export class AudioEngine {
   private convolver: ConvolverNode | null = null;
   /** Final volume control (sleep timer fade, preset crossfade). */
   private master: GainNode | null = null;
+  /**
+   * One-shot test/preview bus → analyser, bypassing masterGain.
+   * Lets "Test random event" play while transport is paused without
+   * unmuting core loops / noise still feeding the silent master bus.
+   */
+  private oneShotPreviewBus: GainNode | null = null;
   private analyser: AnalyserNode | null = null;
   private workletReady = false;
   private layers = new Map<string, LayerNodes>();
@@ -234,6 +240,11 @@ export class AudioEngine {
       this.wetGain.connect(this.master);
       this.master.connect(this.analyser);
 
+      // Parallel preview path (one-shots only) that ignores transport mute.
+      this.oneShotPreviewBus = this.ctx.createGain();
+      this.oneShotPreviewBus.gain.value = 0;
+      this.oneShotPreviewBus.connect(this.analyser);
+
       // Mobile (iOS + Android): route via HTMLAudioElement for background
       // playback / media controls. Desktop: analyser → destination.
       this.mediaOutput.attach(this.ctx, this.analyser);
@@ -309,6 +320,55 @@ export class AudioEngine {
     // re-zero for holdSilent crossfades; visibility/onstatechange need this.
     if (!this.fading) {
       this.restoreMasterGain();
+    }
+  }
+
+  /**
+   * Wake AudioContext after a user gesture without starting mix transport.
+   * Does not unmute master, start schedulers, play media output, or touch YT.
+   */
+  async resumeContextOnly(): Promise<void> {
+    const ctx = await this.ensureContext();
+    if (ctx.state !== 'running') {
+      await ctx.resume();
+    }
+  }
+
+  /**
+   * Play a one-shot for the test button while the mix may be stopped.
+   *
+   * When transport is paused, routes through {@link oneShotPreviewBus}
+   * (bypasses master gain) so the event is audible without unmuting loops
+   * / noise still connected to the silent master bus. Does not set
+   * wantRunning, start one-shot/binaural schedulers, or resume YouTube.
+   */
+  async previewOneShot(
+    specificAssetId?: string,
+  ): Promise<OneShotTriggerEvent | null> {
+    await this.resumeContextOnly();
+    if (!this.ctx || !this.analyser || !this.mixBus) {
+      return null;
+    }
+    // Mix already audible — fire on the normal bus through master.
+    if (this.wantRunning) {
+      return this.oneShotEngine.triggerRandomEvent(specificAssetId);
+    }
+    if (!this.oneShotPreviewBus) {
+      this.oneShotPreviewBus = this.ctx.createGain();
+      this.oneShotPreviewBus.connect(this.analyser);
+    }
+    const t = this.ctx.currentTime;
+    this.oneShotPreviewBus.gain.cancelScheduledValues(t);
+    this.oneShotPreviewBus.gain.setValueAtTime(this.masterVolumeLinear, t);
+    this.oneShotEngine.setAudioTarget(this.ctx, this.oneShotPreviewBus, this.catalog);
+    try {
+      return await this.oneShotEngine.triggerRandomEvent(specificAssetId);
+    } finally {
+      // Restore default routing; zero preview bus so nothing leaks after.
+      this.oneShotEngine.setAudioTarget(this.ctx, this.mixBus, this.catalog);
+      // Leave gain up briefly so in-flight bursts/tails finish; they use
+      // their own per-burst envelopes and will end themselves.
+      // (Zeroing immediately would click-cut long thunder tails.)
     }
   }
 

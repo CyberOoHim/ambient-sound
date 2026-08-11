@@ -89,25 +89,70 @@ describe('Session transport pause/play state', () => {
     expect(session.playing).toBe(false);
   });
 
-  it('triggerOneShotNow does not resume transport while paused', async () => {
+  it('triggerOneShotNow previews without resuming transport while paused', async () => {
     const session = new Session();
     session.playing = false;
 
     const { audioEngine } = await import('../audio/engine');
     const resumeSpy = vi.spyOn(audioEngine, 'resume').mockResolvedValue(undefined);
+    const previewSpy = vi.spyOn(audioEngine, 'previewOneShot').mockResolvedValue({
+      packId: 'birds',
+      packLabel: 'Birds',
+      assetId: 'birds_morning',
+      assetLabel: 'Morning birds',
+      timestamp: Date.now(),
+      pan: 0,
+      pitch: 1,
+      distanceFilterCutoff: 8000,
+      burstCount: 1,
+    });
     const triggerSpy = vi
       .spyOn(audioEngine.oneShotEngine, 'triggerRandomEvent')
       .mockResolvedValue(null);
 
     const evt = await session.triggerOneShotNow();
 
-    expect(evt).toBeNull();
+    expect(evt?.assetId).toBe('birds_morning');
     expect(session.playing).toBe(false);
-    expect(session.enableHint).toMatch(/Test random event/i);
     expect(resumeSpy).not.toHaveBeenCalled();
+    expect(previewSpy).toHaveBeenCalled();
     expect(triggerSpy).not.toHaveBeenCalled();
 
     resumeSpy.mockRestore();
+    previewSpy.mockRestore();
+    triggerSpy.mockRestore();
+  });
+
+  it('triggerOneShotNow uses full transport path while playing', async () => {
+    const session = new Session();
+    session.playing = true;
+
+    const { audioEngine } = await import('../audio/engine');
+    const resumeSpy = vi.spyOn(audioEngine, 'resume').mockResolvedValue(undefined);
+    const previewSpy = vi.spyOn(audioEngine, 'previewOneShot').mockResolvedValue(null);
+    const triggerSpy = vi
+      .spyOn(audioEngine.oneShotEngine, 'triggerRandomEvent')
+      .mockResolvedValue({
+        packId: 'birds',
+        packLabel: 'Birds',
+        assetId: 'birds_morning',
+        assetLabel: 'Morning birds',
+        timestamp: Date.now(),
+        pan: 0,
+        pitch: 1,
+        distanceFilterCutoff: 8000,
+        burstCount: 1,
+      });
+
+    const evt = await session.triggerOneShotNow();
+
+    expect(evt?.assetId).toBe('birds_morning');
+    expect(resumeSpy).toHaveBeenCalled();
+    expect(previewSpy).not.toHaveBeenCalled();
+    expect(triggerSpy).toHaveBeenCalled();
+
+    resumeSpy.mockRestore();
+    previewSpy.mockRestore();
     triggerSpy.mockRestore();
   });
 });
