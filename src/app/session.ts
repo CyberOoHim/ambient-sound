@@ -41,7 +41,12 @@ import {
   installMediaSessionHandlers,
   setMediaSessionPlayback,
 } from '../audio/media-session';
-import { youtubePlayerManager } from '../audio/youtube-player';
+import {
+  loadYouTubeApi,
+  youtubePlayerManager,
+  type YoutubePlayerStatus,
+} from '../audio/youtube-player';
+import { playbackOwner } from './playback-owner';
 import {
   createPresetId,
   deletePreset,
@@ -155,6 +160,10 @@ export class Session {
    */
   loadingProgress = new Map<string, { ratio: number; determinate: boolean }>();
   /**
+   * Per YouTube layer player status for mix UI (loading / playing / blocked…).
+   */
+  youtubeStatus = new Map<string, YoutubePlayerStatus>();
+  /**
    * Short user-facing notice (e.g. download failed and layer was removed).
    * Cleared by {@link clearLoadNotice} or the next notice.
    */
@@ -247,11 +256,38 @@ export class Session {
         layer && layer.kind === 'youtube'
           ? layer.params.label
           : 'YouTube stream';
+      // Soft timeouts (-3) and API failures (-2): keep layer so user can retry Play.
+      if (errorCode === -2 || errorCode === -3) {
+        this.youtubeStatus.set(layerId, 'error');
+        this.setLoadNotice(
+          `YouTube stream “${label}” is slow to load. Tap Play again to retry.`,
+        );
+        this.notify();
+        return;
+      }
+      this.youtubeStatus.delete(layerId);
       this.removeLayer(layerId);
       this.setLoadNotice(
         `Couldn't play “${label}” (video unavailable or embedding restricted). Layer removed.`,
       );
       this.notify();
+    });
+    youtubePlayerManager.onStatusChange((layerId, status) => {
+      this.youtubeStatus.set(layerId, status);
+      if (status === 'blocked' && this.playing) {
+        this.setLoadNotice(
+          'Browser blocked YouTube autoplay — tap Play again to start the stream.',
+        );
+      }
+      this.notify();
+    });
+    playbackOwner.subscribe((otherActive) => {
+      if (otherActive && !this.playing) {
+        this.setLoadNotice(
+          'Another window is already playing this app. YouTube may only play in one place at a time.',
+        );
+        this.notify();
+      }
     });
     audioEngine.oneShotEngine.addListener((evt) => {
       if (evt) {
@@ -659,10 +695,23 @@ export class Session {
     if (this.layers.length === 0) {
       this.playing = false;
       setMediaSessionPlayback(false);
+      playbackOwner.release();
       this.notify();
       return;
     }
+
+    if (playbackOwner.isOtherOwnerActive()) {
+      this.setLoadNotice(
+        'Another window is already playing this app. YouTube may only play in one place at a time.',
+      );
+    }
+
     await this.ensureCatalogReady();
+    // Before resume(): if YT layers exist, free exclusive media focus so iframes can audibly play.
+    const hasYt = this.layers.some((l) => l.kind === 'youtube');
+    if (hasYt) {
+      audioEngine.prepareYoutubeCoexistence(true);
+    }
     await audioEngine.resume();
     audioEngine.setMasterVolumeLinear(this.masterVolumeLinear);
     audioEngine.setMasterTone(this.masterTone);
@@ -676,8 +725,18 @@ export class Session {
 
     // Snapshot ids at start; layers may be removed while samples download.
     // Failed sample downloads auto-remove that layer and continue the rest.
+    // YouTube starts in parallel and must NOT block the transport UI / busy flag.
     const toStart = [...this.layers];
-    for (const layer of toStart) {
+    const youtubeLayers = toStart.filter((l) => l.kind === 'youtube');
+    const otherLayers = toStart.filter((l) => l.kind !== 'youtube');
+
+    // Kick YT first (sync playVideo on already-ready players stays near the gesture).
+    for (const layer of youtubeLayers) {
+      if (!this.hasLayer(layer.params.id)) continue;
+      void this.ensureYoutubeInEngine(layer, true);
+    }
+
+    for (const layer of otherLayers) {
       if (!this.hasLayer(layer.params.id)) continue;
       await this.ensureSampleInEngine(layer);
     }
@@ -687,12 +746,16 @@ export class Session {
       this.clearAllLoading();
       this.playing = false;
       setMediaSessionPlayback(false);
+      playbackOwner.release();
       this.notify();
       return;
     }
 
     audioEngine.applyMuteSolo(this.layers);
+    // Re-assert YT play after mute/solo (and after any async sample work).
+    youtubePlayerManager.setGlobalPlaying(true);
     this.playing = true;
+    playbackOwner.claim();
     setMediaSessionPlayback(true, this.mediaTitle());
     this.notify();
     this.schedulePersist();
@@ -701,6 +764,7 @@ export class Session {
   async pause(): Promise<void> {
     await audioEngine.suspend();
     this.playing = false;
+    playbackOwner.release();
     setMediaSessionPlayback(false);
     this.notify();
     this.schedulePersist();
@@ -781,9 +845,21 @@ export class Session {
     };
 
     this.layers = [...this.layers, layer];
+    this.youtubeStatus.set(id, 'loading');
+
+    // Warm the iframe API immediately so the next Play can call playVideo
+    // closer to the user gesture (and while paused, pre-create the player).
+    void loadYouTubeApi().catch(() => {
+      /* non-fatal; ensureYoutubeInEngine will surface errors */
+    });
+
     if (this.playing) {
-      await audioEngine.addLayer(layer);
-      audioEngine.applyMuteSolo(this.layers);
+      void this.ensureYoutubeInEngine(layer, true).then(() => {
+        audioEngine.applyMuteSolo(this.layers);
+      });
+    } else {
+      // Preload iframe while paused so Play can reuse a ready player.
+      void this.ensureYoutubeInEngine(layer, false);
     }
     this.notify();
     this.schedulePersist();
@@ -925,6 +1001,7 @@ export class Session {
     const wasPlaying = this.playing;
     this.cancelTimer();
     audioEngine.stopAll();
+    this.youtubeStatus.clear();
     this.layers = [];
 
     const pans = [-0.35, 0.35, 0, -0.15, 0.2];
@@ -1070,10 +1147,12 @@ export class Session {
   removeLayer(id: string): void {
     this.layers = this.layers.filter((l) => l.params.id !== id);
     this.clearLayerLoadState(id);
+    this.youtubeStatus.delete(id);
     audioEngine.removeLayer(id);
     if (this.layers.length === 0 && this.playing) {
       this.cancelTimer();
       this.playing = false;
+      playbackOwner.release();
       void audioEngine.suspend();
       setMediaSessionPlayback(false);
     } else if (this.playing) {
@@ -1088,9 +1167,11 @@ export class Session {
     audioEngine.stopAll();
     this.layers = [];
     this.clearAllLoading();
+    this.youtubeStatus.clear();
     if (this.playing) {
       this.cancelTimer();
       this.playing = false;
+      playbackOwner.release();
       void audioEngine.suspend();
       setMediaSessionPlayback(false);
     }
@@ -1157,7 +1238,8 @@ export class Session {
     const layer = this.layers.find((l) => l.params.id === id);
     if (!layer || layer.kind !== 'youtube') return;
 
-    if (this.playing) {
+    // Volume/mute apply whenever the iframe exists (including while paused).
+    if (youtubePlayerManager.hasPlayer(id)) {
       audioEngine.updateYoutubeLayer(layer.params);
       if ('muted' in patch || 'solo' in patch) {
         audioEngine.applyMuteSolo(this.layers);
@@ -1165,6 +1247,25 @@ export class Session {
     }
     this.notify();
     this.schedulePersist();
+  }
+
+  getYoutubeStatus(id: string): YoutubePlayerStatus {
+    return this.youtubeStatus.get(id) ?? youtubePlayerManager.getStatus(id);
+  }
+
+  /**
+   * Preload iframes for all YouTube mix layers (call after host element is bound).
+   * Safe while paused — Play then reuses ready players for reliable audio start.
+   */
+  preloadYoutubeLayers(): void {
+    void loadYouTubeApi().catch(() => {
+      /* non-fatal */
+    });
+    for (const layer of this.layers) {
+      if (layer.kind === 'youtube') {
+        void this.ensureYoutubeInEngine(layer, this.playing);
+      }
+    }
   }
 
   /** Generic mute/solo/volume helpers for UI */
@@ -1401,9 +1502,11 @@ export class Session {
     }
 
     audioEngine.stopAll();
+    this.youtubeStatus.clear();
     audioEngine.restoreMasterGain();
     await audioEngine.suspend();
     this.playing = false;
+    playbackOwner.release();
     setMediaSessionPlayback(false);
     clearMediaSession();
     this.timer = {
@@ -1417,6 +1520,7 @@ export class Session {
   }
 
   private applyPresetData(preset: PresetV1): void {
+    this.youtubeStatus.clear();
     this.masterVolumeLinear = clampLinear(preset.master.volumeLinear);
     this.masterTone = masterToneFromPreset(preset.master);
     // Enforce YouTube layer limit from presets/share links
@@ -1509,10 +1613,17 @@ export class Session {
     }
 
     audioEngine.stopAll();
+    this.youtubeStatus.clear();
     this.applyPresetData(preset);
     audioEngine.setMasterVolumeLinear(this.masterVolumeLinear);
     audioEngine.setMasterTone(this.masterTone);
     this.playing = false;
+    // Preload any YT layers from the new scene while paused.
+    for (const layer of this.layers) {
+      if (layer.kind === 'youtube') {
+        void this.ensureYoutubeInEngine(layer, false);
+      }
+    }
 
     if (wasPlaying && this.layers.length > 0) {
       await this.play({ holdSilent: true });
@@ -1761,12 +1872,43 @@ export class Session {
   }
 
   /**
+   * Ensure YouTube iframe for a layer. Safe to call repeatedly (reuses player).
+   * Does not throw — timeouts/errors surface via status + loadNotice.
+   */
+  private async ensureYoutubeInEngine(
+    layer: MixerLayer,
+    wantPlay: boolean,
+  ): Promise<void> {
+    if (layer.kind !== 'youtube') return;
+    if (!this.hasLayer(layer.params.id)) return;
+    this.youtubeStatus.set(
+      layer.params.id,
+      youtubePlayerManager.getStatus(layer.params.id) === 'idle'
+        ? 'loading'
+        : youtubePlayerManager.getStatus(layer.params.id),
+    );
+    try {
+      await audioEngine.addYoutubeLayer(layer.params, {
+        wantPlay,
+        preloadOnly: !wantPlay && !this.playing,
+      });
+    } catch (err) {
+      console.warn('ensureYoutubeInEngine failed:', err);
+      this.youtubeStatus.set(layer.params.id, 'error');
+    }
+  }
+
+  /**
    * Start a sample layer in the engine if still present in the mix.
    * Discards the engine node if the user removed/cleared the layer mid-download.
    * On fetch/decode failure, auto-removes the layer and sets {@link loadNotice}.
    */
   private async ensureSampleInEngine(layer: MixerLayer): Promise<void> {
-    if (layer.kind === 'noise' || layer.kind === 'youtube') {
+    if (layer.kind === 'youtube') {
+      await this.ensureYoutubeInEngine(layer, this.playing);
+      return;
+    }
+    if (layer.kind === 'noise') {
       await audioEngine.addLayer(layer);
       return;
     }

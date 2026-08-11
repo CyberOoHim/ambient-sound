@@ -155,6 +155,16 @@ export class AudioEngine {
     this.youtubeHostElement = el;
   }
 
+  /**
+   * Pause the mobile background <audio> element when YouTube layers will play,
+   * before resume() so MediaStream output cannot steal exclusive media focus.
+   */
+  prepareYoutubeCoexistence(hasYoutubeLayers: boolean): void {
+    this.mediaOutput.setHasYoutubeLayers(
+      hasYoutubeLayers || youtubePlayerManager.hasActivePlayers(),
+    );
+  }
+
   get context(): AudioContext | null {
     return this.ctx;
   }
@@ -470,20 +480,40 @@ export class AudioEngine {
     }
   }
 
-  async addYoutubeLayer(params: YoutubeLayerParams): Promise<void> {
+  /**
+   * Ensure a YouTube iframe exists for the layer (reuses when videoId matches).
+   * @param opts.wantPlay — override transport; defaults to engine wantRunning
+   * @param opts.preloadOnly — create/reuse without forcing global play
+   */
+  async addYoutubeLayer(
+    params: YoutubeLayerParams,
+    opts?: { wantPlay?: boolean; preloadOnly?: boolean },
+  ): Promise<void> {
     const host = this.youtubeHostElement ?? document.body;
+    const wantPlay =
+      opts?.preloadOnly === true
+        ? false
+        : (opts?.wantPlay ?? this.wantRunning);
     try {
-      await youtubePlayerManager.createPlayer(
+      // Mark media-output coexistence before iframe starts so the background
+      // <audio> element cannot steal exclusive focus on mobile.
+      this.mediaOutput.setHasYoutubeLayers(true);
+      await youtubePlayerManager.ensurePlayer(
         params.id,
         params.videoId,
         host,
         params.volumeLinear,
         params.muted,
-        this.wantRunning,
+        wantPlay,
       );
-      this.mediaOutput.setHasYoutubeLayers(youtubePlayerManager.hasActivePlayers());
+      this.mediaOutput.setHasYoutubeLayers(
+        youtubePlayerManager.hasActivePlayers(),
+      );
     } catch (err) {
       console.warn('YouTube player creation failed:', err);
+      this.mediaOutput.setHasYoutubeLayers(
+        youtubePlayerManager.hasActivePlayers(),
+      );
     }
   }
 

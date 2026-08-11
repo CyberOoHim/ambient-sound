@@ -1,6 +1,12 @@
 /**
  * YouTube IFrame Player API Wrapper
  * Dynamic lazy-loading of YouTube API and manager for player instances per layer.
+ *
+ * Design notes:
+ * - Players are reused across Play/Pause (same videoId) so start stays inside
+ *   the user-gesture chain when possible.
+ * - API load + onReady are time-bounded; failures never hang the transport UI.
+ * - Status is exposed for mix-layer UX.
  */
 
 declare global {
@@ -52,14 +58,36 @@ export interface YTPlayerInstance {
   isMuted: () => boolean;
   destroy: () => void;
   getIframe: () => HTMLIFrameElement;
+  getPlayerState?: () => number;
 }
+
+/** Lifecycle status for a layer's YouTube player (UI + diagnostics). */
+export type YoutubePlayerStatus =
+  | 'idle'
+  | 'loading'
+  | 'ready'
+  | 'playing'
+  | 'paused'
+  | 'blocked'
+  | 'error';
+
+export const YOUTUBE_API_LOAD_TIMEOUT_MS = 10_000;
+export const YOUTUBE_PLAYER_READY_TIMEOUT_MS = 12_000;
+/** After playVideo, if still not PLAYING, treat as autoplay-blocked. */
+export const YOUTUBE_AUTOPLAY_PROBE_MS = 4_500;
 
 let apiLoadingPromise: Promise<void> | null = null;
 
 /**
- * Lazy-loads YouTube IFrame API script on demand.
+ * Lazy-loads YouTube IFrame API script on demand (with timeout).
  */
-export function loadYouTubeApi(): Promise<void> {
+export function loadYouTubeApi(
+  timeoutMs: number = YOUTUBE_API_LOAD_TIMEOUT_MS,
+): Promise<void> {
+  if (typeof window === 'undefined') {
+    return Promise.reject(new Error('YouTube API requires a browser window'));
+  }
+
   if (window.YT && window.YT.Player) {
     return Promise.resolve();
   }
@@ -68,42 +96,124 @@ export function loadYouTubeApi(): Promise<void> {
     return apiLoadingPromise;
   }
 
-  apiLoadingPromise = new Promise((resolve, reject) => {
-    // If API ready callback already defined or pending
-    const existingCallback = window.onYouTubeIframeAPIReady;
-    window.onYouTubeIframeAPIReady = () => {
-      if (existingCallback) existingCallback();
+  apiLoadingPromise = new Promise<void>((resolve, reject) => {
+    let settled = false;
+    let pollId: ReturnType<typeof setInterval> | null = null;
+
+    const finishOk = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (pollId != null) clearInterval(pollId);
       resolve();
     };
 
-    const script = document.createElement('script');
-    script.src = 'https://www.youtube.com/iframe_api';
-    script.async = true;
-    script.onerror = () => {
+    const finishErr = (err: Error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (pollId != null) clearInterval(pollId);
       apiLoadingPromise = null;
-      reject(new Error('Failed to load YouTube IFrame API'));
+      reject(err);
     };
-    document.head.appendChild(script);
+
+    const timer = setTimeout(() => {
+      finishErr(new Error('YouTube IFrame API load timed out'));
+    }, timeoutMs);
+
+    const existingCallback = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      try {
+        if (existingCallback) existingCallback();
+      } catch {
+        /* */
+      }
+      finishOk();
+    };
+
+    if (!document.querySelector('script[data-ambient-yt-api]')) {
+      const script = document.createElement('script');
+      script.src = 'https://www.youtube.com/iframe_api';
+      script.async = true;
+      script.dataset.ambientYtApi = '1';
+      script.onerror = () => {
+        finishErr(new Error('Failed to load YouTube IFrame API'));
+      };
+      document.head.appendChild(script);
+    }
+
+    // Cached/partial loads may expose YT.Player without the global callback.
+    pollId = setInterval(() => {
+      if (window.YT && window.YT.Player) {
+        finishOk();
+      }
+    }, 100);
   });
 
   return apiLoadingPromise;
 }
 
+/** Reset API loader state (tests only). */
+export function __resetYouTubeApiLoaderForTests(): void {
+  apiLoadingPromise = null;
+}
+
 interface PlayerEntry {
   player: YTPlayerInstance | null;
+  videoId: string;
   isReady: boolean;
   layerVolumeLinear: number;
   pendingMuted: boolean;
+  status: YoutubePlayerStatus;
+  /** Bumps on each create attempt so stale timeouts ignore old players. */
+  generation: number;
+  autoplayProbeTimer: ReturnType<typeof setTimeout> | null;
 }
+
+export type YoutubeStatusListener = (
+  layerId: string,
+  status: YoutubePlayerStatus,
+) => void;
 
 export class YouTubePlayerManager {
   private players = new Map<string, PlayerEntry>();
   private globalPlaying = false;
   private masterVolumeLinear = 1;
   private errorCallback?: (layerId: string, errorCode: number) => void;
+  private statusListeners = new Set<YoutubeStatusListener>();
 
   public onError(cb: (layerId: string, errorCode: number) => void): void {
     this.errorCallback = cb;
+  }
+
+  public onStatusChange(cb: YoutubeStatusListener): void {
+    this.statusListeners.add(cb);
+  }
+
+  public offStatusChange(cb: YoutubeStatusListener): void {
+    this.statusListeners.delete(cb);
+  }
+
+  public getStatus(layerId: string): YoutubePlayerStatus {
+    return this.players.get(layerId)?.status ?? 'idle';
+  }
+
+  public getVideoId(layerId: string): string | null {
+    return this.players.get(layerId)?.videoId ?? null;
+  }
+
+  private setStatus(layerId: string, status: YoutubePlayerStatus): void {
+    const entry = this.players.get(layerId);
+    if (!entry) return;
+    if (entry.status === status) return;
+    entry.status = status;
+    for (const cb of this.statusListeners) {
+      try {
+        cb(layerId, status);
+      } catch {
+        /* */
+      }
+    }
   }
 
   public setMasterVolumeLinear(masterVolumeLinear: number): void {
@@ -141,22 +251,75 @@ export class YouTubePlayerManager {
     }
   }
 
+  private clearAutoplayProbe(entry: PlayerEntry): void {
+    if (entry.autoplayProbeTimer != null) {
+      clearTimeout(entry.autoplayProbeTimer);
+      entry.autoplayProbeTimer = null;
+    }
+  }
+
+  private scheduleAutoplayProbe(layerId: string, generation: number): void {
+    const entry = this.players.get(layerId);
+    if (!entry) return;
+    this.clearAutoplayProbe(entry);
+    entry.autoplayProbeTimer = setTimeout(() => {
+      const e = this.players.get(layerId);
+      if (!e || e.generation !== generation || !this.globalPlaying) return;
+      if (e.status === 'playing' || e.status === 'error') return;
+      // Still not PLAYING after playVideo — browser likely blocked unmuted autoplay.
+      this.setStatus(layerId, 'blocked');
+    }, YOUTUBE_AUTOPLAY_PROBE_MS);
+  }
+
+  private tryPlayEntry(layerId: string): void {
+    const entry = this.players.get(layerId);
+    if (!entry || !entry.isReady || !entry.player) return;
+    try {
+      this.applyPlayerState(layerId);
+      entry.player.playVideo();
+      this.scheduleAutoplayProbe(layerId, entry.generation);
+    } catch (err) {
+      console.warn(`Error playing YT player ${layerId}:`, err);
+    }
+  }
+
+  private tryPauseEntry(layerId: string): void {
+    const entry = this.players.get(layerId);
+    if (!entry) return;
+    this.clearAutoplayProbe(entry);
+    if (!entry.isReady || !entry.player) return;
+    try {
+      entry.player.pauseVideo();
+      this.setStatus(layerId, 'paused');
+    } catch (err) {
+      console.warn(`Error pausing YT player ${layerId}:`, err);
+    }
+  }
+
   public setGlobalPlaying(playing: boolean): void {
     this.globalPlaying = playing;
-    for (const [id, entry] of this.players.entries()) {
-      if (entry.isReady && entry.player) {
-        try {
-          if (playing) {
-            this.applyPlayerState(id);
-            entry.player.playVideo();
-          } else {
-            entry.player.pauseVideo();
+    for (const id of this.players.keys()) {
+      const entry = this.players.get(id);
+      if (!entry) continue;
+      if (playing) {
+        if (entry.isReady && entry.player) {
+          this.tryPlayEntry(id);
+        } else if (entry.status === 'loading') {
+          // onReady will honor globalPlaying
+        } else if (entry.status === 'blocked') {
+          // Retry play on existing ready player (second user gesture path)
+          if (entry.isReady && entry.player) {
+            this.tryPlayEntry(id);
           }
-        } catch (err) {
-          console.warn(`Error updating play state for YT player ${id}:`, err);
         }
+      } else {
+        this.tryPauseEntry(id);
       }
     }
+  }
+
+  public isGlobalPlaying(): boolean {
+    return this.globalPlaying;
   }
 
   public hasActivePlayers(): boolean {
@@ -167,8 +330,63 @@ export class YouTubePlayerManager {
     return this.players.has(layerId);
   }
 
+  public isPlayerReady(layerId: string): boolean {
+    const e = this.players.get(layerId);
+    return Boolean(e?.isReady && e.player);
+  }
+
+  /**
+   * Ensure a player exists for the layer. Reuses an existing ready player when
+   * the videoId matches (Play/Pause must not tear down the iframe).
+   *
+   * Resolves when the player is ready, reused, or after a timeout/error —
+   * never hangs indefinitely.
+   */
+  public async ensurePlayer(
+    layerId: string,
+    videoId: string,
+    hostElement: HTMLElement,
+    initialVolumeLinear: number,
+    initialMuted: boolean,
+    wantPlay: boolean,
+  ): Promise<void> {
+    this.globalPlaying = wantPlay || this.globalPlaying;
+
+    const existing = this.players.get(layerId);
+    if (
+      existing &&
+      existing.videoId === videoId &&
+      (existing.isReady || existing.status === 'loading')
+    ) {
+      existing.layerVolumeLinear = Math.max(0, Math.min(1, initialVolumeLinear));
+      existing.pendingMuted = initialMuted;
+      if (existing.isReady) {
+        this.applyPlayerState(layerId);
+        if (wantPlay || this.globalPlaying) {
+          this.tryPlayEntry(layerId);
+        } else {
+          this.tryPauseEntry(layerId);
+        }
+        return;
+      }
+      // Still loading same video — wait for current create (bounded by its timeout).
+      return this.waitForReady(layerId, YOUTUBE_PLAYER_READY_TIMEOUT_MS);
+    }
+
+    // Different video or no player: (re)create
+    return this.createPlayer(
+      layerId,
+      videoId,
+      hostElement,
+      initialVolumeLinear,
+      initialMuted,
+      wantPlay || this.globalPlaying,
+    );
+  }
+
   /**
    * Create a YouTube player instance inside a container element for a layer.
+   * Prefer {@link ensurePlayer} from call sites.
    */
   public async createPlayer(
     layerId: string,
@@ -178,129 +396,249 @@ export class YouTubePlayerManager {
     initialMuted: boolean,
     isPlaying: boolean,
   ): Promise<void> {
-    await loadYouTubeApi();
-
-    if (!window.YT || !window.YT.Player) {
-      console.error('YouTube IFrame API failed to load');
-      return;
-    }
-
     // Destroy existing player if re-creating for layer
     if (this.players.has(layerId)) {
       this.destroyPlayer(layerId);
     }
 
+    const entry: PlayerEntry = {
+      player: null,
+      videoId,
+      isReady: false,
+      layerVolumeLinear: Math.max(0, Math.min(1, initialVolumeLinear)),
+      pendingMuted: initialMuted,
+      status: 'idle',
+      generation: 1,
+      autoplayProbeTimer: null,
+    };
+    this.players.set(layerId, entry);
+    this.setStatus(layerId, 'loading');
+
+    try {
+      await loadYouTubeApi();
+    } catch (err) {
+      console.error('YouTube IFrame API failed to load', err);
+      this.setStatus(layerId, 'error');
+      this.players.delete(layerId);
+      this.errorCallback?.(layerId, -2);
+      return;
+    }
+
+    // Layer may have been destroyed while API was loading
+    if (this.players.get(layerId) !== entry) return;
+
+    if (!window.YT || !window.YT.Player) {
+      console.error('YouTube IFrame API failed to load');
+      this.setStatus(layerId, 'error');
+      this.players.delete(layerId);
+      this.errorCallback?.(layerId, -2);
+      return;
+    }
+
+    this.globalPlaying = isPlaying || this.globalPlaying;
+
     const containerId = `yt-player-frame-${layerId}`;
+    // Remove any orphan node with same id
+    document.getElementById(containerId)?.remove();
     const frameDiv = document.createElement('div');
     frameDiv.id = containerId;
     hostElement.appendChild(frameDiv);
 
-    this.globalPlaying = isPlaying;
+    const generation = entry.generation;
 
-    const entry: PlayerEntry = {
-      player: null,
-      isReady: false,
-      layerVolumeLinear: Math.max(0, Math.min(1, initialVolumeLinear)),
-      pendingMuted: initialMuted,
-    };
-    this.players.set(layerId, entry);
+    return new Promise<void>((resolve) => {
+      let settled = false;
+      const settle = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(readyTimer);
+        resolve();
+      };
 
-    return new Promise((resolve) => {
+      const readyTimer = setTimeout(() => {
+        const e = this.players.get(layerId);
+        if (!e || e.generation !== generation) {
+          settle();
+          return;
+        }
+        if (!e.isReady) {
+          console.warn(
+            `YouTube player ready timed out for layer ${layerId}`,
+          );
+          this.setStatus(layerId, 'error');
+          try {
+            e.player?.destroy();
+          } catch {
+            /* */
+          }
+          this.players.delete(layerId);
+          document.getElementById(containerId)?.remove();
+          this.errorCallback?.(layerId, -3);
+        }
+        settle();
+      }, YOUTUBE_PLAYER_READY_TIMEOUT_MS);
+
       let validOrigin: string | undefined;
-      if (
-        typeof window !== 'undefined' &&
-        window.location.origin &&
-        window.location.origin !== 'null' &&
-        /^https?:\/\//i.test(window.location.origin)
-      ) {
-        validOrigin = window.location.origin;
+      try {
+        const origin = typeof window !== 'undefined' ? window.location?.origin : undefined;
+        if (
+          origin &&
+          origin !== 'null' &&
+          /^https?:\/\//i.test(origin)
+        ) {
+          validOrigin = origin;
+        }
+      } catch {
+        /* no location in test / worker envs */
       }
 
-      const player = new window.YT!.Player(frameDiv, {
-        videoId,
-        playerVars: {
-          autoplay: isPlaying ? 1 : 0,
-          controls: 0,
-          enablejsapi: 1,
-          loop: 1,
-          playlist: videoId, // Required for loop=1 to work in YT iframe api
-          modestbranding: 1,
-          playsinline: 1,
-          rel: 0,
-          ...(validOrigin ? { origin: validOrigin } : {}),
-        },
-        events: {
-          onReady: (event) => {
-            entry.isReady = true;
-            try {
-              const iframe = event.target.getIframe?.();
-              if (iframe && typeof iframe.setAttribute === 'function') {
-                iframe.setAttribute(
-                  'allow',
-                  'autoplay; encrypted-media; picture-in-picture; accelerometer; clipboard-write; gyroscope',
-                );
-                iframe.setAttribute('playsinline', '1');
-                iframe.setAttribute('webkit-playsinline', '1');
-              }
-            } catch {
-              /* */
-            }
-            this.applyPlayerState(layerId);
-            if (this.globalPlaying) {
-              try {
-                event.target.playVideo();
-              } catch {
-                /* */
-              }
-            } else {
-              try {
-                event.target.pauseVideo();
-              } catch {
-                /* */
-              }
-            }
-            resolve();
+      let player: YTPlayerInstance;
+      try {
+        player = new window.YT!.Player(frameDiv, {
+          videoId,
+          playerVars: {
+            autoplay: isPlaying ? 1 : 0,
+            controls: 0,
+            enablejsapi: 1,
+            loop: 1,
+            playlist: videoId, // Required for loop=1 to work in YT iframe api
+            modestbranding: 1,
+            playsinline: 1,
+            rel: 0,
+            ...(validOrigin ? { origin: validOrigin } : {}),
           },
-          onStateChange: (event) => {
-            if (event.data === window.YT?.PlayerState?.PLAYING) {
-              // If the master transport is paused, iOS may still
-              // auto-resume the iframe.  Force it back to paused so
-              // the user doesn't hear random YouTube audio.
-              if (!this.globalPlaying) {
-                try {
-                  player.pauseVideo();
-                } catch { /* */ }
+          events: {
+            onReady: (event) => {
+              const e = this.players.get(layerId);
+              if (!e || e.generation !== generation) {
+                settle();
                 return;
               }
-              this.applyPlayerState(layerId);
-            }
-            // Loop fallback if YT loop option stops at end
-            if (
-              event.data === window.YT?.PlayerState?.ENDED &&
-              this.globalPlaying
-            ) {
+              e.isReady = true;
+              e.player = event.target;
               try {
-                player.playVideo();
+                const iframe = event.target.getIframe?.();
+                if (iframe && typeof iframe.setAttribute === 'function') {
+                  iframe.setAttribute(
+                    'allow',
+                    'autoplay; encrypted-media; picture-in-picture; accelerometer; clipboard-write; gyroscope',
+                  );
+                  iframe.setAttribute('playsinline', '1');
+                  iframe.setAttribute('webkit-playsinline', '1');
+                }
               } catch {
                 /* */
               }
-            }
+              this.setStatus(layerId, 'ready');
+              this.applyPlayerState(layerId);
+              if (this.globalPlaying) {
+                this.tryPlayEntry(layerId);
+              } else {
+                try {
+                  event.target.pauseVideo();
+                } catch {
+                  /* */
+                }
+                this.setStatus(layerId, 'paused');
+              }
+              settle();
+            },
+            onStateChange: (event) => {
+              const e = this.players.get(layerId);
+              if (!e || e.generation !== generation) return;
+
+              const state = event.data;
+              const PS = window.YT?.PlayerState;
+
+              if (PS && state === PS.PLAYING) {
+                if (!this.globalPlaying) {
+                  try {
+                    player.pauseVideo();
+                  } catch {
+                    /* */
+                  }
+                  return;
+                }
+                this.clearAutoplayProbe(e);
+                this.applyPlayerState(layerId);
+                this.setStatus(layerId, 'playing');
+                return;
+              }
+
+              if (PS && state === PS.PAUSED) {
+                if (!this.globalPlaying) {
+                  this.setStatus(layerId, 'paused');
+                }
+                return;
+              }
+
+              if (PS && state === PS.BUFFERING && this.globalPlaying) {
+                this.setStatus(layerId, 'loading');
+                return;
+              }
+
+              // Loop fallback if YT loop option stops at end
+              if (PS && state === PS.ENDED && this.globalPlaying) {
+                try {
+                  player.playVideo();
+                } catch {
+                  /* */
+                }
+              }
+            },
+            onError: (errEvent) => {
+              const e = this.players.get(layerId);
+              if (!e || e.generation !== generation) {
+                settle();
+                return;
+              }
+              const errCode =
+                errEvent && typeof errEvent.data === 'number'
+                  ? errEvent.data
+                  : -1;
+              console.warn(
+                `YouTube player error for layer ${layerId}: code ${errCode}`,
+              );
+              this.setStatus(layerId, 'error');
+              this.errorCallback?.(layerId, errCode);
+              settle();
+            },
           },
-          onError: (errEvent) => {
-            const errCode =
-              errEvent && typeof errEvent.data === 'number'
-                ? errEvent.data
-                : -1;
-            console.warn(
-              `YouTube player error for layer ${layerId}: code ${errCode}`,
-            );
-            this.errorCallback?.(layerId, errCode);
-            resolve();
-          },
-        },
-      });
+        });
+      } catch (err) {
+        console.warn(`YouTube Player constructor failed for ${layerId}:`, err);
+        this.setStatus(layerId, 'error');
+        this.players.delete(layerId);
+        document.getElementById(containerId)?.remove();
+        this.errorCallback?.(layerId, -4);
+        settle();
+        return;
+      }
 
       entry.player = player;
+    });
+  }
+
+  private waitForReady(layerId: string, timeoutMs: number): Promise<void> {
+    return new Promise((resolve) => {
+      const start = Date.now();
+      const tick = () => {
+        const e = this.players.get(layerId);
+        if (!e) {
+          resolve();
+          return;
+        }
+        if (e.isReady || e.status === 'error' || e.status === 'blocked') {
+          resolve();
+          return;
+        }
+        if (Date.now() - start >= timeoutMs) {
+          resolve();
+          return;
+        }
+        setTimeout(tick, 50);
+      };
+      tick();
     });
   }
 
@@ -332,6 +670,8 @@ export class YouTubePlayerManager {
   public destroyPlayer(layerId: string): void {
     const entry = this.players.get(layerId);
     if (entry) {
+      this.clearAutoplayProbe(entry);
+      entry.generation += 1;
       if (entry.player) {
         try {
           entry.player.destroy();
@@ -340,6 +680,13 @@ export class YouTubePlayerManager {
         }
       }
       this.players.delete(layerId);
+      for (const cb of this.statusListeners) {
+        try {
+          cb(layerId, 'idle');
+        } catch {
+          /* */
+        }
+      }
     }
     // Fallback: remove orphaned DOM element if player wasn't fully initialized
     if (typeof document !== 'undefined') {
@@ -358,4 +705,3 @@ export class YouTubePlayerManager {
 }
 
 export const youtubePlayerManager = new YouTubePlayerManager();
-

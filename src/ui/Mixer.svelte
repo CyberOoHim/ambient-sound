@@ -49,6 +49,8 @@
     Record<string, { ratio: number; determinate: boolean }>
   >({});
   let loadNotice = $state<string | null>(null);
+  /** layerId → YouTube player status for mix strip labels */
+  let youtubeStatus = $state<Record<string, string>>({});
   let enableHint = $state<string | null>(session.enableHint);
   let oneShotFireToast = $state<string | null>(session.oneShotFireToast);
   let timerStatus = $state(session.timer.status);
@@ -189,6 +191,11 @@
     }
     loadProgress = prog;
     loadNotice = session.loadNotice;
+    const ytStat: Record<string, string> = {};
+    for (const [id, s] of session.youtubeStatus) {
+      ytStat[id] = s;
+    }
+    youtubeStatus = ytStat;
     enableHint = session.enableHint;
     oneShotFireToast = session.oneShotFireToast;
     minOffsetSec = session.duplicateMinOffsetSec;
@@ -407,6 +414,8 @@
   onMount(() => {
     if (ytHostDiv) {
       audioEngine.setYoutubeHostElement(ytHostDiv);
+      // Create/reuse YT iframes early so Play can start audio near the user gesture.
+      session.preloadYoutubeLayers();
     }
     window.addEventListener('keydown', onKey);
     window.addEventListener('hashchange', () => {
@@ -665,11 +674,21 @@
                 {/each}
               </select>
             {:else if layer.kind === 'youtube'}
+              {@const ytStatus = youtubeStatus[layer.params.id] ?? 'idle'}
               <div class="yt-layer-head">
                 <img src={layer.params.thumbnailUrl} alt={layer.params.label} class="yt-strip-thumb" />
                 <div class="yt-title-group">
                   <span class="badge-yt">▶ YOUTUBE</span>
                   <span class="name" title={layer.params.label}>{layer.params.label}</span>
+                  {#if ytStatus === 'loading'}
+                    <span class="yt-status loading">Loading stream…</span>
+                  {:else if ytStatus === 'blocked'}
+                    <span class="yt-status blocked">Tap Play to unlock audio</span>
+                  {:else if ytStatus === 'error'}
+                    <span class="yt-status error">Stream error — retry Play</span>
+                  {:else if ytStatus === 'playing' && playing}
+                    <span class="yt-status live">Live</span>
+                  {/if}
                 </div>
               </div>
             {:else}
@@ -1850,6 +1869,7 @@
     align-self: center;
   }
 
+  /* Keep a real on-screen box so browsers do not throttle the iframe as off-screen media. */
   .yt-host-container {
     position: fixed;
     bottom: 0;
@@ -1857,8 +1877,29 @@
     width: 200px;
     height: 112px;
     overflow: hidden;
-    opacity: 0.01;
+    opacity: 0.04;
     pointer-events: none;
     z-index: 1;
+  }
+
+  .yt-status {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 500;
+    margin-top: 0.15rem;
+    letter-spacing: 0.02em;
+  }
+
+  .yt-status.loading {
+    color: #94a3b8;
+  }
+
+  .yt-status.live {
+    color: #4ade80;
+  }
+
+  .yt-status.blocked,
+  .yt-status.error {
+    color: #fbbf24;
   }
 </style>

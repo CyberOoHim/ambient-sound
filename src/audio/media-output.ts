@@ -6,6 +6,11 @@
  * Pure AudioContext → destination often suspends or loses media-session
  * priority as soon as the tab is hidden; a live MediaStream on <audio>
  * plus the Media Session API is the usual workaround.
+ *
+ * When YouTube iframe layers are active, the background <audio> element is
+ * paused on all platforms that use it — an active HTMLMediaElement often
+ * takes exclusive media focus and silences cross-origin YouTube iframes
+ * (iOS, Android, some desktop PWAs).
  */
 
 function isAppleTouchBrowser(): boolean {
@@ -88,27 +93,26 @@ export class MediaOutput {
     }
   }
 
-  /** Update state when YouTube iframe layers are added or removed. */
+  /**
+   * Update state when YouTube iframe layers are added or removed.
+   * Pauses the background <audio> element whenever YT is active so the
+   * iframe can produce sound (exclusive media focus on mobile WebViews).
+   * Web Audio ambient layers still reach speakers via ctx.destination.
+   */
   setHasYoutubeLayers(hasYoutube: boolean): void {
     const wasYoutube = this.hasYoutubeLayers;
     this.hasYoutubeLayers = hasYoutube;
-    if (hasYoutube && isAppleTouchBrowser()) {
-      // On iOS WebKit, an active <audio> element forces exclusive media playback
-      // and mutes any iframe YouTube video. Pause the background <audio> element
-      // when YouTube layers are active on iOS, letting YouTube iframe handle media playback
-      // while Web Audio outputs directly through ctx.destination.
+    if (hasYoutube) {
       this.pause();
-    } else if (!hasYoutube && wasYoutube && isAppleTouchBrowser()) {
-      // YouTube layers removed on iOS — resume the <audio> element so
-      // ambient layers are audible again through the MediaStream path.
+    } else if (!hasYoutube && wasYoutube) {
       void this.play();
     }
   }
 
   async play(): Promise<void> {
     if (!this.audioEl) return;
-    // On iOS, if YouTube layers are active, skip audioEl.play() to prevent muting YT iframe
-    if (this.hasYoutubeLayers && isAppleTouchBrowser()) {
+    // Active YouTube iframes lose audio when this element holds media focus.
+    if (this.hasYoutubeLayers) {
       return;
     }
     try {
@@ -143,5 +147,8 @@ export class MediaOutput {
   get usesElement(): boolean {
     return this.audioEl != null;
   }
-}
 
+  get hasYoutube(): boolean {
+    return this.hasYoutubeLayers;
+  }
+}
