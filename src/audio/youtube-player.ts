@@ -159,6 +159,14 @@ export class YouTubePlayerManager {
     }
   }
 
+  public hasActivePlayers(): boolean {
+    return this.players.size > 0;
+  }
+
+  public hasPlayer(layerId: string): boolean {
+    return this.players.has(layerId);
+  }
+
   /**
    * Create a YouTube player instance inside a container element for a layer.
    */
@@ -229,21 +237,34 @@ export class YouTubePlayerManager {
               if (iframe && typeof iframe.setAttribute === 'function') {
                 iframe.setAttribute(
                   'allow',
-                  'autoplay; encrypted-media; picture-in-picture',
+                  'autoplay; encrypted-media; picture-in-picture; accelerometer; clipboard-write; gyroscope',
                 );
+                iframe.setAttribute('playsinline', '1');
+                iframe.setAttribute('webkit-playsinline', '1');
               }
             } catch {
               /* */
             }
             this.applyPlayerState(layerId);
             if (this.globalPlaying) {
-              event.target.playVideo();
+              try {
+                event.target.playVideo();
+              } catch {
+                /* */
+              }
             } else {
-              event.target.pauseVideo();
+              try {
+                event.target.pauseVideo();
+              } catch {
+                /* */
+              }
             }
             resolve();
           },
           onStateChange: (event) => {
+            if (event.data === window.YT?.PlayerState?.PLAYING) {
+              this.applyPlayerState(layerId);
+            }
             // Loop fallback if YT loop option stops at end
             if (
               event.data === window.YT?.PlayerState?.ENDED &&
@@ -328,3 +349,4 @@ export class YouTubePlayerManager {
 }
 
 export const youtubePlayerManager = new YouTubePlayerManager();
+

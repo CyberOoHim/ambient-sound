@@ -1857,8 +1857,8 @@
     width: 200px;
     height: 112px;
     overflow: hidden;
-    opacity: 0.001;
+    opacity: 0.01;
     pointer-events: none;
-    z-index: -1;
+    z-index: 1;
   }
 </style>

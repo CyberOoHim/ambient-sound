@@ -461,6 +461,7 @@ export class AudioEngine {
         params.muted,
         this.wantRunning,
       );
+      this.mediaOutput.setHasYoutubeLayers(youtubePlayerManager.hasActivePlayers());
     } catch (err) {
       console.warn('YouTube player creation failed:', err);
     }
@@ -801,6 +802,7 @@ export class AudioEngine {
     // even when engine nodes do not exist yet (download still in progress).
     this.cancelledLoads.add(id);
     youtubePlayerManager.destroyPlayer(id);
+    this.mediaOutput.setHasYoutubeLayers(youtubePlayerManager.hasActivePlayers());
     const nodes = this.layers.get(id);
     if (!nodes) return;
     try {
@@ -879,6 +881,7 @@ export class AudioEngine {
     this.oneShotEngine.stop();
     this.binauralEngine.stop();
     youtubePlayerManager.destroyAll();
+    this.mediaOutput.setHasYoutubeLayers(false);
     // Cancel every sample still downloading, not only layers already wired.
     for (const id of this.inflightLoads) {
       this.cancelledLoads.add(id);

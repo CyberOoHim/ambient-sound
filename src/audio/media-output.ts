@@ -36,20 +36,28 @@ export class MediaOutput {
   private streamDest: MediaStreamAudioDestinationNode | null = null;
   /** True when we use <audio> as the sole speakers path (avoid double audio). */
   private exclusiveStream = false;
+  private hasYoutubeLayers = false;
 
   /**
    * Attach stream routing on mobile browsers (iOS + Android).
    * Desktop keeps AudioContext.destination only (lower latency).
    */
   attach(ctx: AudioContext, fromNode: AudioNode): void {
-    if (this.streamDest || this.exclusiveStream) return;
+    if (this.streamDest) return;
+
+    // Always connect fromNode to ctx.destination as well, ensuring Web Audio graph remains audible
+    try {
+      fromNode.connect(ctx.destination);
+    } catch {
+      /* already connected */
+    }
 
     const mobile = needsBackgroundMediaElement();
-    this.exclusiveStream = mobile;
-
     if (!mobile) {
       return;
     }
+
+    this.exclusiveStream = true;
 
     this.streamDest = ctx.createMediaStreamDestination();
     fromNode.connect(this.streamDest);
@@ -71,9 +79,8 @@ export class MediaOutput {
     this.audioEl = el;
   }
 
-  /** Ensure graph ends at destination when not using exclusive stream. */
+  /** Ensure graph ends at destination. */
   connectDestination(ctx: AudioContext, fromNode: AudioNode): void {
-    if (this.exclusiveStream) return;
     try {
       fromNode.connect(ctx.destination);
     } catch {
@@ -81,8 +88,24 @@ export class MediaOutput {
     }
   }
 
+  /** Update state when YouTube iframe layers are added or removed. */
+  setHasYoutubeLayers(hasYoutube: boolean): void {
+    this.hasYoutubeLayers = hasYoutube;
+    if (hasYoutube && isAppleTouchBrowser()) {
+      // On iOS WebKit, an active <audio> element forces exclusive media playback
+      // and mutes any iframe YouTube video. Pause the background <audio> element
+      // when YouTube layers are active on iOS, letting YouTube iframe handle media playback
+      // while Web Audio outputs directly through ctx.destination.
+      this.pause();
+    }
+  }
+
   async play(): Promise<void> {
     if (!this.audioEl) return;
+    // On iOS, if YouTube layers are active, skip audioEl.play() to prevent muting YT iframe
+    if (this.hasYoutubeLayers && isAppleTouchBrowser()) {
+      return;
+    }
     try {
       this.audioEl.muted = false;
       await this.audioEl.play();
@@ -109,9 +132,11 @@ export class MediaOutput {
     }
     this.streamDest = null;
     this.exclusiveStream = false;
+    this.hasYoutubeLayers = false;
   }
 
   get usesElement(): boolean {
     return this.audioEl != null;
   }
 }
+

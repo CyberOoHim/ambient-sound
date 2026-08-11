@@ -24,4 +24,10 @@ describe('YouTubePlayerManager', () => {
     manager.onError(errorFn);
     expect(errorFn).not.toHaveBeenCalled();
   });
+
+  it('tracks active player instances', () => {
+    expect(manager.hasActivePlayers()).toBe(false);
+    expect(manager.hasPlayer('layer-1')).toBe(false);
+  });
 });
+
