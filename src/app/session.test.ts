@@ -88,6 +88,28 @@ describe('Session transport pause/play state', () => {
     await session.pause();
     expect(session.playing).toBe(false);
   });
+
+  it('triggerOneShotNow does not resume transport while paused', async () => {
+    const session = new Session();
+    session.playing = false;
+
+    const { audioEngine } = await import('../audio/engine');
+    const resumeSpy = vi.spyOn(audioEngine, 'resume').mockResolvedValue(undefined);
+    const triggerSpy = vi
+      .spyOn(audioEngine.oneShotEngine, 'triggerRandomEvent')
+      .mockResolvedValue(null);
+
+    const evt = await session.triggerOneShotNow();
+
+    expect(evt).toBeNull();
+    expect(session.playing).toBe(false);
+    expect(session.enableHint).toMatch(/Test random event/i);
+    expect(resumeSpy).not.toHaveBeenCalled();
+    expect(triggerSpy).not.toHaveBeenCalled();
+
+    resumeSpy.mockRestore();
+    triggerSpy.mockRestore();
+  });
 });
 
 

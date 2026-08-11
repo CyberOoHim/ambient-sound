@@ -404,6 +404,13 @@ export class Session {
   }
 
   async triggerOneShotNow(specificAssetId?: string): Promise<OneShotTriggerEvent | null> {
+    // Never start transport from the test button — that unexpectedly un-pauses
+    // core loops / noise / YT when the mix is paused. Preview only while playing.
+    if (!this.playing) {
+      this.setEnableHintIfPaused('Test random event');
+      this.notify();
+      return null;
+    }
     await this.ensureCatalogReady();
     await audioEngine.resume();
     const evt = await audioEngine.oneShotEngine.triggerRandomEvent(specificAssetId);
