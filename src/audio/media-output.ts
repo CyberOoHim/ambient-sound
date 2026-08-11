@@ -90,6 +90,7 @@ export class MediaOutput {
 
   /** Update state when YouTube iframe layers are added or removed. */
   setHasYoutubeLayers(hasYoutube: boolean): void {
+    const wasYoutube = this.hasYoutubeLayers;
     this.hasYoutubeLayers = hasYoutube;
     if (hasYoutube && isAppleTouchBrowser()) {
       // On iOS WebKit, an active <audio> element forces exclusive media playback
@@ -97,6 +98,10 @@ export class MediaOutput {
       // when YouTube layers are active on iOS, letting YouTube iframe handle media playback
       // while Web Audio outputs directly through ctx.destination.
       this.pause();
+    } else if (!hasYoutube && wasYoutube && isAppleTouchBrowser()) {
+      // YouTube layers removed on iOS — resume the <audio> element so
+      // ambient layers are audible again through the MediaStream path.
+      void this.play();
     }
   }
 

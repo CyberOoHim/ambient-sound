@@ -271,7 +271,13 @@ export class AudioEngine {
       // "interrupted" is WebKit-specific (not in the standard union type).
       const state = ctx.state as string;
       if (this.wantRunning && (state === 'interrupted' || state === 'suspended')) {
-        void ctx.resume().then(() => this.mediaOutput.play());
+        void ctx.resume().then(() => {
+          this.mediaOutput.play();
+          // Restart sub-engines that were torn down during the interruption
+          this.oneShotEngine.start();
+          this.binauralEngine.start();
+          youtubePlayerManager.setGlobalPlaying(true);
+        });
       }
     };
   }
@@ -288,6 +294,14 @@ export class AudioEngine {
     youtubePlayerManager.setGlobalPlaying(true);
   }
 
+  private isAppleTouch(): boolean {
+    if (typeof navigator === 'undefined') return false;
+    const ua = navigator.userAgent;
+    if (/iPad|iPhone|iPod/.test(ua)) return true;
+    if (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) return true;
+    return false;
+  }
+
   async suspend(): Promise<void> {
     this.wantRunning = false;
     this.oneShotEngine.stop();
@@ -295,7 +309,13 @@ export class AudioEngine {
     youtubePlayerManager.setGlobalPlaying(false);
     this.mediaOutput.pause();
     if (this.ctx && this.ctx.state === 'running') {
-      await this.ctx.suspend();
+      // On iOS/iPadOS, fully suspending the AudioContext makes it very
+      // difficult to resume without a new user gesture.  Skipping
+      // ctx.suspend() is safe because iOS already manages audio power
+      // when no sources are connected / producing samples.
+      if (!this.isAppleTouch()) {
+        await this.ctx.suspend();
+      }
     }
   }
 

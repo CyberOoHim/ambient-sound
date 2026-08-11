@@ -707,7 +707,7 @@ export class Session {
   }
 
   async togglePlay(): Promise<void> {
-    if (this.playing && audioEngine.isRunning) {
+    if (this.playing) {
       await this.pause();
     } else {
       await this.play();

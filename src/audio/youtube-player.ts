@@ -263,6 +263,15 @@ export class YouTubePlayerManager {
           },
           onStateChange: (event) => {
             if (event.data === window.YT?.PlayerState?.PLAYING) {
+              // If the master transport is paused, iOS may still
+              // auto-resume the iframe.  Force it back to paused so
+              // the user doesn't hear random YouTube audio.
+              if (!this.globalPlaying) {
+                try {
+                  player.pauseVideo();
+                } catch { /* */ }
+                return;
+              }
               this.applyPlayerState(layerId);
             }
             // Loop fallback if YT loop option stops at end

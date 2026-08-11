@@ -198,6 +198,10 @@ export class BinauralEngine {
   private teardown(): void {
     if (!this.activeNodes) return;
     try {
+      // Immediately zero the volume gain to ensure instant silence,
+      // especially on iOS where OscillatorNode.stop() can be slightly
+      // asynchronous and leak a brief burst of audio.
+      this.activeNodes.volumeGain.gain.value = 0;
       if (this.activeNodes.mode === 'binaural') {
         this.activeNodes.leftOsc.stop();
         this.activeNodes.rightOsc.stop();
