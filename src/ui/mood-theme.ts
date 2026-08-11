@@ -103,6 +103,11 @@ export function detectMood(
       continue;
     }
 
+    if (layer.kind === 'youtube') {
+      scoreText(layer.params.label, vol * 1.4);
+      continue;
+    }
+
     const asset = catalog ? findAsset(catalog, layer.params.assetId) : undefined;
     scoreText(layer.params.label, vol * 1.4);
     scoreText(layer.params.assetId, vol * 1.2);

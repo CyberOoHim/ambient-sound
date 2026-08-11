@@ -8,11 +8,13 @@ import {
   clampReverbWet,
   createDefaultNoiseLayer,
   createDefaultSampleLayer,
+  createDefaultYoutubeLayer,
   defaultMasterTone,
   FILTER_HP_OPEN_HZ,
   FILTER_LP_OPEN_HZ,
   isLocalAssetId,
   MAX_MIXER_LAYERS,
+  MAX_YOUTUBE_LAYERS,
   PRESET_CROSSFADE_SEC,
   type MasterToneParams,
   type MixerLayer,
@@ -740,6 +742,41 @@ export class Session {
     this.schedulePersist();
   }
 
+  async addYoutubeLayer(
+    videoId: string,
+    url: string,
+    label: string,
+    thumbnailUrl: string,
+  ): Promise<string> {
+    if (!this.canAddLayer()) {
+      this.setLoadNotice(this.layerCapMessage());
+      this.notify();
+      return '';
+    }
+
+    const youtubeCount = this.layers.filter((l) => l.kind === 'youtube').length;
+    if (youtubeCount >= MAX_YOUTUBE_LAYERS) {
+      this.setLoadNotice(`Maximum ${MAX_YOUTUBE_LAYERS} YouTube channels allowed.`);
+      this.notify();
+      return '';
+    }
+
+    const id = uid('yt');
+    const layer: MixerLayer = {
+      kind: 'youtube',
+      params: createDefaultYoutubeLayer(id, videoId, url, label, thumbnailUrl),
+    };
+
+    this.layers = [...this.layers, layer];
+    if (this.playing) {
+      await audioEngine.addLayer(layer);
+      audioEngine.applyMuteSolo(this.layers);
+    }
+    this.notify();
+    this.schedulePersist();
+    return id;
+  }
+
   /** @deprecated use addNoiseLayer */
   async addLayer(type: NoiseType = 'white'): Promise<void> {
     await this.addNoiseLayer(type);
@@ -921,7 +958,7 @@ export class Session {
     }
     this.setLoadNotice(
       `Surprise mix: ${this.layers
-        .map((l) => (l.kind === 'sample' ? l.params.label : `${l.params.type} noise`))
+        .map((l) => (l.kind === 'noise' ? `${l.params.type} noise` : l.params.label))
         .join(' · ')}`,
     );
     this.notify();
@@ -1096,6 +1133,27 @@ export class Session {
     this.schedulePersist();
   }
 
+  updateYoutubeLayer(
+    id: string,
+    patch: Partial<Omit<import('../audio/types').YoutubeLayerParams, 'id' | 'videoId' | 'url'>>,
+  ): void {
+    this.layers = this.layers.map((l) => {
+      if (l.kind !== 'youtube' || l.params.id !== id) return l;
+      return { kind: 'youtube', params: { ...l.params, ...patch } };
+    });
+    const layer = this.layers.find((l) => l.params.id === id);
+    if (!layer || layer.kind !== 'youtube') return;
+
+    if (this.playing) {
+      audioEngine.updateYoutubeLayer(layer.params);
+      if ('muted' in patch || 'solo' in patch) {
+        audioEngine.applyMuteSolo(this.layers);
+      }
+    }
+    this.notify();
+    this.schedulePersist();
+  }
+
   /** Generic mute/solo/volume helpers for UI */
   updateLayerCommon(
     id: string,
@@ -1127,6 +1185,7 @@ export class Session {
       normalized.panLfoDepth = clampPanLfoDepth(patch.panLfoDepth);
     }
     if (layer.kind === 'noise') this.updateNoiseLayer(id, normalized);
+    else if (layer.kind === 'youtube') this.updateYoutubeLayer(id, normalized);
     else this.updateSampleLayer(id, normalized);
   }
 
@@ -1347,7 +1406,16 @@ export class Session {
   private applyPresetData(preset: PresetV1): void {
     this.masterVolumeLinear = clampLinear(preset.master.volumeLinear);
     this.masterTone = masterToneFromPreset(preset.master);
-    this.layers = preset.layers.map((l) => {
+    // Enforce YouTube layer limit from presets/share links
+    let youtubeCount = 0;
+    const filteredLayers = preset.layers.filter((l) => {
+      if (l.kind === 'youtube') {
+        youtubeCount++;
+        return youtubeCount <= MAX_YOUTUBE_LAYERS;
+      }
+      return true;
+    });
+    this.layers = filteredLayers.map((l) => {
       if (l.kind === 'noise') {
         return {
           kind: 'noise' as const,
@@ -1356,6 +1424,22 @@ export class Session {
             id: uid('noise'),
             volumeLinear: clampLinear(l.params.volumeLinear),
             stereoWidth: Math.max(0, Math.min(1, l.params.stereoWidth)),
+            pan: Math.max(-1, Math.min(1, l.params.pan)),
+            lowpassHz: clampLowpassHz(l.params.lowpassHz ?? FILTER_LP_OPEN_HZ),
+            highpassHz: clampHighpassHz(l.params.highpassHz ?? FILTER_HP_OPEN_HZ),
+            panLfoEnabled: Boolean(l.params.panLfoEnabled),
+            panLfoRateHz: clampPanLfoRateHz(l.params.panLfoRateHz ?? 0.08),
+            panLfoDepth: clampPanLfoDepth(l.params.panLfoDepth ?? 0.35),
+          },
+        };
+      }
+      if (l.kind === 'youtube') {
+        return {
+          kind: 'youtube' as const,
+          params: {
+            ...l.params,
+            id: uid('yt'),
+            volumeLinear: clampLinear(l.params.volumeLinear),
             pan: Math.max(-1, Math.min(1, l.params.pan)),
             lowpassHz: clampLowpassHz(l.params.lowpassHz ?? FILTER_LP_OPEN_HZ),
             highpassHz: clampHighpassHz(l.params.highpassHz ?? FILTER_HP_OPEN_HZ),
@@ -1650,7 +1734,7 @@ export class Session {
     siblingIndex: number;
     siblingCount: number;
   } {
-    if (layer.kind !== 'sample') {
+    if (layer.kind === 'noise' || layer.kind === 'youtube') {
       return { siblingIndex: 0, siblingCount: 1 };
     }
     const same = this.layers.filter(
@@ -1669,7 +1753,7 @@ export class Session {
    * On fetch/decode failure, auto-removes the layer and sets {@link loadNotice}.
    */
   private async ensureSampleInEngine(layer: MixerLayer): Promise<void> {
-    if (layer.kind === 'noise') {
+    if (layer.kind === 'noise' || layer.kind === 'youtube') {
       await audioEngine.addLayer(layer);
       return;
     }

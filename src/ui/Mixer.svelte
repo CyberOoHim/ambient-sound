@@ -28,9 +28,11 @@
   import LibraryPanel from './LibraryPanel.svelte';
   import OneShotPanel from './OneShotPanel.svelte';
   import BinauralPanel from './BinauralPanel.svelte';
+  import YouTubePanel from './YouTubePanel.svelte';
   import AttributionsPanel from './AttributionsPanel.svelte';
   import Visualizer from './Visualizer.svelte';
   import SpatialCanvas from './SpatialCanvas.svelte';
+  import { audioEngine } from '../audio/engine';
   import { syncMoodFromLayers } from './mood-theme';
   import { formatRemaining } from './format';
 
@@ -64,7 +66,6 @@
   /** Rotating idle tip index for the always-visible status strip. */
   let idleTipIndex = $state(0);
   let idleTipTimer: ReturnType<typeof setInterval> | null = null;
-  /** Mobile accordion: which side panels are expanded */
   let panelOpen = $state<Record<string, boolean>>({
     library: true,
     space: false,
@@ -72,7 +73,10 @@
     presets: false,
     binaural: false,
     oneshot: false,
+    youtube: false,
   });
+
+  let ytHostDiv = $state<HTMLElement>();
 
   let timerPanel: TimerPanel | undefined = $state();
   let presetsPanel: PresetsPanel | undefined = $state();
@@ -401,6 +405,9 @@
   }
 
   onMount(() => {
+    if (ytHostDiv) {
+      audioEngine.setYoutubeHostElement(ytHostDiv);
+    }
     window.addEventListener('keydown', onKey);
     window.addEventListener('hashchange', () => {
       void applyHashIntent();
@@ -657,6 +664,14 @@
                   <option value={t}>{labelType(t)}</option>
                 {/each}
               </select>
+            {:else if layer.kind === 'youtube'}
+              <div class="yt-layer-head">
+                <img src={layer.params.thumbnailUrl} alt={layer.params.label} class="yt-strip-thumb" />
+                <div class="yt-title-group">
+                  <span class="badge-yt">▶ YOUTUBE</span>
+                  <span class="name" title={layer.params.label}>{layer.params.label}</span>
+                </div>
+              </div>
             {:else}
               <div class="sample-label">
                 <span class="name">{layer.params.label}</span>
@@ -751,9 +766,14 @@
                 min="-1"
                 max="1"
                 step="0.01"
+                disabled={layer.kind === 'youtube'}
+                title={layer.kind === 'youtube' ? 'Stereo panning is not supported for external YouTube streams' : undefined}
                 value={layer.params.pan}
                 oninput={(e) => setPan(layer.params.id, Number(e.currentTarget.value))}
               />
+              {#if layer.kind === 'youtube'}
+                <span class="pan-disabled-note" title="Stereo panning is not supported for external YouTube streams">N/A</span>
+              {/if}
             </div>
 
             {#if layer.kind === 'noise'}
@@ -944,6 +964,25 @@
           <OneShotPanel bind:this={oneShotPanel} />
         </div>
       </div>
+      <div class="accordion-panel" class:open={panelOpen.youtube}>
+        <button
+          type="button"
+          class="accordion-toggle mobile-only"
+          aria-expanded={panelOpen.youtube}
+          onclick={() => togglePanel('youtube')}
+        >
+          YouTube
+          <span class="chev">{panelOpen.youtube ? '▾' : '▸'}</span>
+        </button>
+        <div class="accordion-body" class:collapsed={!panelOpen.youtube}>
+          <YouTubePanel
+            layers={layers}
+            canAddLayer={session.canAddLayer()}
+            onAddYoutube={(videoId, url, title, thumbnailUrl) =>
+              session.addYoutubeLayer(videoId, url, title, thumbnailUrl).then(() => {})}
+          />
+        </div>
+      </div>
     </div>
   </div>
 
@@ -962,6 +1001,8 @@
   open={showAttributions}
   onclose={closeAttributions}
 />
+
+<div bind:this={ytHostDiv} class="yt-host-container"></div>
 
 <style>
   .mixer {
@@ -1769,5 +1810,53 @@
     .controls-compact {
       grid-template-columns: 1fr;
     }
+  }
+
+  .yt-layer-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    overflow: hidden;
+  }
+
+  .yt-strip-thumb {
+    width: 44px;
+    height: 25px;
+    object-fit: cover;
+    border-radius: 4px;
+    flex-shrink: 0;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .yt-title-group {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .badge-yt {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: #f43f5e;
+    letter-spacing: 0.03em;
+    line-height: 1;
+    margin-bottom: 2px;
+  }
+
+  .pan-disabled-note {
+    font-size: 0.72rem;
+    color: #64748b;
+    font-style: italic;
+    align-self: center;
+  }
+
+  .yt-host-container {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    opacity: 0.01;
+    pointer-events: none;
+    clip: rect(0 0 0 0);
   }
 </style>

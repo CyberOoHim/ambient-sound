@@ -105,9 +105,30 @@ export interface SampleLayerParams {
   panLfoDepth: number;
 }
 
+export interface YoutubeLayerParams {
+  id: string;
+  videoId: string;
+  url: string;
+  label: string;
+  thumbnailUrl: string;
+  volumeLinear: number;
+  muted: boolean;
+  solo: boolean;
+  pan: number;
+  lowpassHz: number;
+  highpassHz: number;
+  panLfoEnabled: boolean;
+  panLfoRateHz: number;
+  panLfoDepth: number;
+}
+
 export type MixerLayer =
   | { kind: 'noise'; params: NoiseLayerParams }
-  | { kind: 'sample'; params: SampleLayerParams };
+  | { kind: 'sample'; params: SampleLayerParams }
+  | { kind: 'youtube'; params: YoutubeLayerParams };
+
+/** Max YouTube stream channels allowed in mixer. */
+export const MAX_YOUTUBE_LAYERS = 3;
 
 export function createDefaultNoiseLayer(
   id: string,
@@ -162,6 +183,29 @@ export function createDefaultSampleLayer(
     panLfoEnabled: opts?.panLfoEnabled ?? false,
     panLfoRateHz: opts?.panLfoRateHz ?? PAN_LFO_RATE_DEFAULT_HZ,
     panLfoDepth: opts?.panLfoDepth ?? PAN_LFO_DEPTH_DEFAULT,
+  };
+}
+
+export function createDefaultYoutubeLayer(
+  id: string,
+  videoId: string,
+  url: string,
+  label: string,
+  thumbnailUrl: string,
+  opts?: Partial<Pick<YoutubeLayerParams, 'volumeLinear' | 'pan'>>,
+): YoutubeLayerParams {
+  return {
+    id,
+    videoId,
+    url,
+    label,
+    thumbnailUrl,
+    volumeLinear: opts?.volumeLinear ?? 0.7,
+    muted: false,
+    solo: false,
+    pan: opts?.pan ?? 0,
+    ...defaultLayerFilters(),
+    ...defaultPanLfo(),
   };
 }
 

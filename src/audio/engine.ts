@@ -24,6 +24,7 @@ import {
   type MixerLayer,
   type NoiseLayerParams,
   type SampleLayerParams,
+  type YoutubeLayerParams,
 } from './types';
 import { SamplePlayer } from './sample-player';
 import {
@@ -37,6 +38,7 @@ import { loadOneShotConfigFromStorage } from '../app/one-shot';
 import { BinauralEngine } from './binaural-engine';
 import { loadBinauralConfigFromStorage } from '../app/binaural';
 import { getLocalAudioData } from './local-audio-store';
+import { youtubePlayerManager } from './youtube-player';
 
 /** Synthetic stereo impulse for a light ambient reverb (no asset file). */
 function createReverbImpulse(
@@ -139,6 +141,7 @@ export class AudioEngine {
   private cancelledLoads = new Set<string>();
   /** Sample layer ids currently awaiting fetch/decode. */
   private inflightLoads = new Set<string>();
+  private youtubeHostElement: HTMLElement | null = null;
 
   public oneShotEngine: OneShotEngine;
   public binauralEngine: BinauralEngine;
@@ -146,6 +149,10 @@ export class AudioEngine {
   constructor() {
     this.oneShotEngine = new OneShotEngine(loadOneShotConfigFromStorage());
     this.binauralEngine = new BinauralEngine(loadBinauralConfigFromStorage());
+  }
+
+  setYoutubeHostElement(el: HTMLElement | null): void {
+    this.youtubeHostElement = el;
   }
 
   get context(): AudioContext | null {
@@ -278,12 +285,14 @@ export class AudioEngine {
     await this.mediaOutput.play();
     this.oneShotEngine.start();
     this.binauralEngine.start();
+    youtubePlayerManager.setGlobalPlaying(true);
   }
 
   async suspend(): Promise<void> {
     this.wantRunning = false;
     this.oneShotEngine.stop();
     this.binauralEngine.stop();
+    youtubePlayerManager.setGlobalPlaying(false);
     this.mediaOutput.pause();
     if (this.ctx && this.ctx.state === 'running') {
       await this.ctx.suspend();
@@ -402,9 +411,31 @@ export class AudioEngine {
   ): Promise<void> {
     if (layer.kind === 'noise') {
       await this.addNoiseLayer(layer.params);
-    } else {
+    } else if (layer.kind === 'sample') {
       await this.addSampleLayer(layer.params, onProgress, startOpts);
+    } else if (layer.kind === 'youtube') {
+      await this.addYoutubeLayer(layer.params);
     }
+  }
+
+  async addYoutubeLayer(params: YoutubeLayerParams): Promise<void> {
+    const host = this.youtubeHostElement ?? document.body;
+    try {
+      await youtubePlayerManager.createPlayer(
+        params.id,
+        params.videoId,
+        host,
+        params.volumeLinear,
+        params.muted,
+        this.wantRunning,
+      );
+    } catch (err) {
+      console.warn('YouTube player creation failed:', err);
+    }
+  }
+
+  updateYoutubeLayer(params: YoutubeLayerParams): void {
+    youtubePlayerManager.setVolume(params.id, params.volumeLinear);
   }
 
   async addNoiseLayer(params: NoiseLayerParams): Promise<void> {
@@ -737,6 +768,7 @@ export class AudioEngine {
     // Always mark cancel so an in-flight fetch for this id is discarded,
     // even when engine nodes do not exist yet (download still in progress).
     this.cancelledLoads.add(id);
+    youtubePlayerManager.destroyPlayer(id);
     const nodes = this.layers.get(id);
     if (!nodes) return;
     try {
@@ -764,10 +796,14 @@ export class AudioEngine {
   applyMuteSolo(layers: MixerLayer[]): void {
     const anySolo = layers.some((l) => layerSolo(l));
     for (const layer of layers) {
-      const nodes = this.layers.get(layerId(layer));
-      if (!nodes || !this.ctx) continue;
       const g = effectiveMuteSolo(layerMuted(layer), layerSolo(layer), anySolo);
-      nodes.muteSolo.gain.setTargetAtTime(g, this.ctx.currentTime, 0.01);
+      if (layer.kind === 'youtube') {
+        youtubePlayerManager.setMute(layer.params.id, g === 0);
+      } else {
+        const nodes = this.layers.get(layerId(layer));
+        if (!nodes || !this.ctx) continue;
+        nodes.muteSolo.gain.setTargetAtTime(g, this.ctx.currentTime, 0.01);
+      }
     }
   }
 
@@ -810,6 +846,7 @@ export class AudioEngine {
   stopAll(): void {
     this.oneShotEngine.stop();
     this.binauralEngine.stop();
+    youtubePlayerManager.destroyAll();
     // Cancel every sample still downloading, not only layers already wired.
     for (const id of this.inflightLoads) {
       this.cancelledLoads.add(id);

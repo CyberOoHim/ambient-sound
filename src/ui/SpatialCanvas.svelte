@@ -40,6 +40,9 @@
           return '◎';
       }
     }
+    if (layer.kind === 'youtube') {
+      return '▶';
+    }
     const id = layer.params.assetId.toLowerCase();
     if (id.includes('rain') || id.includes('thunder')) return '🌧';
     if (id.includes('fire')) return '🔥';

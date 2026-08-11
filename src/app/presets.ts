@@ -4,6 +4,7 @@ import type {
   NoiseLayerParams,
   NoiseType,
   SampleLayerParams,
+  YoutubeLayerParams,
 } from '../audio/types';
 import {
   clampHighpassHz,
@@ -193,6 +194,46 @@ function parseSampleParams(
   };
 }
 
+function parseYoutubeParams(
+  raw: unknown,
+  fallbackId: string,
+): YoutubeLayerParams | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.videoId !== 'string' || !o.videoId) return null;
+  return {
+    id: typeof o.id === 'string' && o.id ? o.id : fallbackId,
+    videoId: o.videoId,
+    url: typeof o.url === 'string' ? o.url : `https://www.youtube.com/watch?v=${o.videoId}`,
+    label: typeof o.label === 'string' ? o.label : `YouTube Stream (${o.videoId})`,
+    thumbnailUrl:
+      typeof o.thumbnailUrl === 'string'
+        ? o.thumbnailUrl
+        : `https://img.youtube.com/vi/${o.videoId}/mqdefault.jpg`,
+    volumeLinear: clampLinear(Number(o.volumeLinear) || 0),
+    muted: Boolean(o.muted),
+    solo: Boolean(o.solo),
+    pan: Math.max(-1, Math.min(1, Number(o.pan) || 0)),
+    lowpassHz:
+      o.lowpassHz != null
+        ? clampLowpassHz(Number(o.lowpassHz))
+        : FILTER_LP_OPEN_HZ,
+    highpassHz:
+      o.highpassHz != null
+        ? clampHighpassHz(Number(o.highpassHz))
+        : FILTER_HP_OPEN_HZ,
+    panLfoEnabled: Boolean(o.panLfoEnabled),
+    panLfoRateHz:
+      o.panLfoRateHz != null
+        ? clampPanLfoRateHz(Number(o.panLfoRateHz))
+        : PAN_LFO_RATE_DEFAULT_HZ,
+    panLfoDepth:
+      o.panLfoDepth != null
+        ? clampPanLfoDepth(Number(o.panLfoDepth))
+        : PAN_LFO_DEPTH_DEFAULT,
+  };
+}
+
 /** Parse a single preset; returns null if invalid. */
 export function parsePreset(raw: unknown): PresetV1 | null {
   if (!raw || typeof raw !== 'object') return null;
@@ -216,6 +257,10 @@ export function parsePreset(raw: unknown): PresetV1 | null {
       const params = parseSampleParams(e.params, `sample-${i + 1}`);
       if (!params) return null;
       layers.push({ kind: 'sample', params });
+    } else if (e.kind === 'youtube') {
+      const params = parseYoutubeParams(e.params, `yt-${i + 1}`);
+      if (!params) return null;
+      layers.push({ kind: 'youtube', params });
     } else {
       return null;
     }
@@ -408,6 +453,9 @@ export function snapshotFromSession(input: SessionSnapshotInput): PresetV1 {
     layers: input.layers.map((layer) => {
       if (layer.kind === 'noise') {
         return { kind: 'noise' as const, params: { ...layer.params } };
+      }
+      if (layer.kind === 'youtube') {
+        return { kind: 'youtube' as const, params: { ...layer.params } };
       }
       return { kind: 'sample' as const, params: { ...layer.params } };
     }),
