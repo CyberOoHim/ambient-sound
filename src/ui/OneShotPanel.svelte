@@ -116,6 +116,16 @@
     sync();
   }
 
+  function toggleHaasReflections() {
+    session.updateOneShotConfig({ haasReflections: !config.haasReflections });
+    sync();
+  }
+
+  function toggleAmbientDucking() {
+    session.updateOneShotConfig({ ambientDucking: !config.ambientDucking });
+    sync();
+  }
+
   async function triggerNow(specificAssetId?: string) {
     triggering = true;
     try {
@@ -608,6 +618,24 @@
         type="button"
       >
         🏛️ Reverb Acoustic Tail
+      </button>
+
+      <button
+        class="chip-btn"
+        class:active={config.haasReflections}
+        onclick={toggleHaasReflections}
+        type="button"
+      >
+        🌄 Haas Early Reflections (22ms)
+      </button>
+
+      <button
+        class="chip-btn"
+        class:active={config.ambientDucking}
+        onclick={toggleAmbientDucking}
+        type="button"
+      >
+        ⚡ Transient Sidechain Ducking
       </button>
     </div>
   </div>

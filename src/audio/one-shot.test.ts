@@ -66,6 +66,8 @@ describe('One-Shot Configuration & LocalStorage', () => {
       distanceFilter: false,
       burstSequence: true,
       acousticTail: false,
+      haasReflections: true,
+      ambientDucking: false,
     };
 
     saveOneShotConfigToStorage(customConfig);

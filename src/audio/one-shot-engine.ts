@@ -348,7 +348,7 @@ export class OneShotEngine {
     // Haas Early Reflection Delay Node for Distant Acoustic Events (d > 0.55)
     let earlyDelayNode: DelayNode | null = null;
     let earlyDelayGain: GainNode | null = null;
-    if (distanceFactor > 0.55 && typeof ctx.createDelay === 'function') {
+    if (this.config.haasReflections && distanceFactor > 0.55 && typeof ctx.createDelay === 'function') {
       try {
         earlyDelayNode = ctx.createDelay(0.05);
         earlyDelayNode.delayTime.value = 0.022; // 22ms boundary reflection
@@ -365,7 +365,7 @@ export class OneShotEngine {
     gainNode.connect(destination);
 
     // Atmospheric Sidechain Ambient Ducking for Heavy Transient Events
-    if (targetGain > 0.65 && (isThunder || assetId.includes('splash') || assetId.includes('crack'))) {
+    if (this.config.ambientDucking && targetGain > 0.65 && (isThunder || assetId.includes('splash') || assetId.includes('crack'))) {
       if (destination && 'gain' in destination) {
         const destGainNode = (destination as GainNode).gain;
         try {
