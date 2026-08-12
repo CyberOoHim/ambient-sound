@@ -250,6 +250,15 @@ export class Session {
     audioEngine.oneShotEngine.setConfig(this.oneShotConfig);
     audioEngine.binauralEngine.updateConfig(this.binauralConfig);
 
+    // Eagerly pre-create YouTube iframes (no autoplay) so they reach
+    // isReady before the user clicks Play. This lets playVideo() fire
+    // synchronously inside the gesture and avoids autoplay-blocked.
+    for (const layer of this.layers) {
+      if (layer.kind === 'youtube') {
+        void this.ensureYoutubeInEngine(layer, false);
+      }
+    }
+
     this.ensureMediaSession();
     this.bindPageLifecycle();
     youtubePlayerManager.onError((layerId, errorCode) => {
@@ -720,6 +729,16 @@ export class Session {
       return;
     }
 
+    // ── Synchronous YouTube play (MUST run before any await) ──
+    // Calling playVideo() here preserves the browser's user-activation
+    // context so the iframe can start unmuted playback without being
+    // blocked by autoplay policy. This eliminates the double-tap problem.
+    const hasYt = this.layers.some((l) => l.kind === 'youtube');
+    if (hasYt) {
+      audioEngine.prepareYoutubeCoexistence(true);
+      youtubePlayerManager.playAllReadyForGesture();
+    }
+
     if (playbackOwner.isOtherOwnerActive()) {
       this.setLoadNotice(
         'Another window is already playing this app. YouTube may only play in one place at a time.',
@@ -727,11 +746,6 @@ export class Session {
     }
 
     await this.ensureCatalogReady();
-    // Before resume(): if YT layers exist, free exclusive media focus so iframes can audibly play.
-    const hasYt = this.layers.some((l) => l.kind === 'youtube');
-    if (hasYt) {
-      audioEngine.prepareYoutubeCoexistence(true);
-    }
     await audioEngine.resume();
     audioEngine.setMasterVolumeLinear(this.masterVolumeLinear);
     audioEngine.setMasterTone(this.masterTone);
@@ -750,10 +764,12 @@ export class Session {
     const youtubeLayers = toStart.filter((l) => l.kind === 'youtube');
     const otherLayers = toStart.filter((l) => l.kind !== 'youtube');
 
-    // Kick YT first (sync playVideo on already-ready players stays near the gesture).
+    // Handle YT players that weren't isReady during the sync gesture call above.
     for (const layer of youtubeLayers) {
       if (!this.hasLayer(layer.params.id)) continue;
-      void this.ensureYoutubeInEngine(layer, true);
+      if (!youtubePlayerManager.isPlayerReady(layer.params.id)) {
+        void this.ensureYoutubeInEngine(layer, true);
+      }
     }
 
     await Promise.all(

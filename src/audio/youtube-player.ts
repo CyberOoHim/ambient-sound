@@ -296,6 +296,23 @@ export class YouTubePlayerManager {
     }
   }
 
+  /**
+   * Synchronously start all ready-but-idle players.
+   * MUST be called from within a user-gesture handler (click/tap)
+   * before any `await`, so the browser's user-activation propagates
+   * through postMessage to the YouTube iframe and unmuted playback
+   * is allowed on the first click.
+   */
+  public playAllReadyForGesture(): void {
+    this.globalPlaying = true;
+    for (const [layerId, entry] of this.players.entries()) {
+      if (!entry.isReady || !entry.player) continue;
+      this.applyPlayerState(layerId);
+      entry.player.playVideo();
+      this.scheduleAutoplayProbe(layerId, entry.generation);
+    }
+  }
+
   public setGlobalPlaying(playing: boolean): void {
     this.globalPlaying = playing;
     for (const id of this.players.keys()) {
