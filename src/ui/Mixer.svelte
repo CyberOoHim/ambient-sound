@@ -810,44 +810,56 @@
           </div>
 
           <div class="lfo-row">
-            <label class="lfo-toggle" title="Slow automatic pan for motion">
+            <label
+              class="lfo-toggle"
+              class:disabled={layer.kind === 'youtube'}
+              title={layer.kind === 'youtube' ? 'Auto-pan is not supported for external YouTube streams' : 'Slow automatic pan for motion'}
+            >
               <input
                 type="checkbox"
+                disabled={layer.kind === 'youtube'}
                 checked={layer.params.panLfoEnabled}
                 onchange={(e) =>
                   setPanLfoEnabled(layer.params.id, e.currentTarget.checked)}
               />
               Auto-pan
+              {#if layer.kind === 'youtube'}
+                <span class="pan-disabled-note" title="Auto-pan is not supported for external YouTube streams">N/A</span>
+              {/if}
             </label>
             {#if layer.params.panLfoEnabled}
               <div class="controls-compact lfo-sliders">
                 <div class="row mini">
-                  <label for="lfo-rate-{layer.params.id}" title="LFO rate">Rate</label>
+                  <label for="lfo-rate-{layer.params.id}" title={layer.kind === 'youtube' ? 'Auto-pan rate is not supported for external YouTube streams' : 'LFO rate'}>Rate</label>
                   <input
                     id="lfo-rate-{layer.params.id}"
                     type="range"
                     min={PAN_LFO_RATE_MIN_HZ}
                     max={PAN_LFO_RATE_MAX_HZ}
                     step="0.01"
+                    disabled={layer.kind === 'youtube'}
+                    title={layer.kind === 'youtube' ? 'Auto-pan rate is not supported for external YouTube streams' : undefined}
                     value={layer.params.panLfoRateHz}
                     oninput={(e) =>
                       setPanLfoRate(layer.params.id, Number(e.currentTarget.value))}
                   />
-                  <span class="filter-val">{layer.params.panLfoRateHz.toFixed(2)}Hz</span>
+                  <span class="filter-val">{layer.kind === 'youtube' ? 'N/A' : `${layer.params.panLfoRateHz.toFixed(2)}Hz`}</span>
                 </div>
                 <div class="row mini">
-                  <label for="lfo-depth-{layer.params.id}" title="LFO depth">Depth</label>
+                  <label for="lfo-depth-{layer.params.id}" title={layer.kind === 'youtube' ? 'Auto-pan depth is not supported for external YouTube streams' : 'LFO depth'}>Depth</label>
                   <input
                     id="lfo-depth-{layer.params.id}"
                     type="range"
                     min="0"
                     max="1"
                     step="0.01"
+                    disabled={layer.kind === 'youtube'}
+                    title={layer.kind === 'youtube' ? 'Auto-pan depth is not supported for external YouTube streams' : undefined}
                     value={layer.params.panLfoDepth}
                     oninput={(e) =>
                       setPanLfoDepth(layer.params.id, Number(e.currentTarget.value))}
                   />
-                  <span class="filter-val">{Math.round(layer.params.panLfoDepth * 100)}%</span>
+                  <span class="filter-val">{layer.kind === 'youtube' ? 'N/A' : `${Math.round(layer.params.panLfoDepth * 100)}%`}</span>
                 </div>
               </div>
             {/if}
@@ -855,7 +867,7 @@
 
           <div class="controls-compact filters">
             <div class="row mini">
-              <label for="lp-{layer.params.id}" title="Low-pass (muffled / indoor)">
+              <label for="lp-{layer.params.id}" title={layer.kind === 'youtube' ? 'Low-pass filter is not supported for external YouTube streams' : 'Low-pass (muffled / indoor)'}>
                 LP
               </label>
               <input
@@ -864,28 +876,32 @@
                 min="200"
                 max={FILTER_LP_OPEN_HZ}
                 step="50"
+                disabled={layer.kind === 'youtube'}
+                title={layer.kind === 'youtube' ? 'Low-pass filter is not supported for external YouTube streams' : undefined}
                 value={layer.params.lowpassHz ?? FILTER_LP_OPEN_HZ}
                 oninput={(e) =>
                   setLowpass(layer.params.id, Number(e.currentTarget.value))}
               />
               <span class="filter-val">
-                {filterLabelLp(layer.params.lowpassHz ?? FILTER_LP_OPEN_HZ)}
+                {layer.kind === 'youtube' ? 'N/A' : filterLabelLp(layer.params.lowpassHz ?? FILTER_LP_OPEN_HZ)}
               </span>
             </div>
             <div class="row mini">
-              <label for="hp-{layer.params.id}" title="High-pass">HP</label>
+              <label for="hp-{layer.params.id}" title={layer.kind === 'youtube' ? 'High-pass filter is not supported for external YouTube streams' : 'High-pass'}>HP</label>
               <input
                 id="hp-{layer.params.id}"
                 type="range"
                 min={FILTER_HP_OPEN_HZ}
                 max="8000"
                 step="10"
+                disabled={layer.kind === 'youtube'}
+                title={layer.kind === 'youtube' ? 'High-pass filter is not supported for external YouTube streams' : undefined}
                 value={layer.params.highpassHz ?? FILTER_HP_OPEN_HZ}
                 oninput={(e) =>
                   setHighpass(layer.params.id, Number(e.currentTarget.value))}
               />
               <span class="filter-val">
-                {filterLabelHp(layer.params.highpassHz ?? FILTER_HP_OPEN_HZ)}
+                {layer.kind === 'youtube' ? 'N/A' : filterLabelHp(layer.params.highpassHz ?? FILTER_HP_OPEN_HZ)}
               </span>
             </div>
           </div>
@@ -1041,6 +1057,11 @@
     color: var(--text-soft);
     cursor: pointer;
     user-select: none;
+  }
+
+  .lfo-toggle.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   .lfo-toggle input {
