@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from 'vitest';
+import { describe, expect, it, beforeEach, vi } from 'vitest';
 import {
   DEFAULT_ONE_SHOT_CONFIG,
   loadOneShotConfigFromStorage,
@@ -213,4 +213,114 @@ describe('One-Shot Engine Stochastic Scheduler', () => {
     expect(engine.getConfig().burstSequence).toBe(true);
     expect(engine.getConfig().acousticTail).toBe(true);
   });
+
+  it('triggers random event with unified physical distance model, Doppler motion, Haas delay, and shared reverb', async () => {
+    const engine = new OneShotEngine({
+      ...DEFAULT_ONE_SHOT_CONFIG,
+      enabled: true,
+      pitchJitter: true,
+      spatialPan: true,
+      distanceFilter: true,
+      acousticTail: true,
+    });
+
+    const mockGain = {
+      gain: {
+        value: 1,
+        setValueAtTime: () => {},
+        exponentialRampToValueAtTime: () => {},
+        linearRampToValueAtTime: () => {},
+        cancelScheduledValues: () => {},
+      },
+      connect: () => {},
+      disconnect: () => {},
+    };
+
+    const mockBuffer = {
+      duration: 10,
+      sampleRate: 44100,
+      getChannelData: () => new Float32Array(44100),
+    } as unknown as AudioBuffer;
+
+    const mockCtx = {
+      currentTime: 10,
+      sampleRate: 44100,
+      createGain: () => ({ ...mockGain }),
+      createBufferSource: () => ({
+        playbackRate: {
+          value: 1,
+          setValueAtTime: () => {},
+          linearRampToValueAtTime: () => {},
+        },
+        buffer: null,
+        connect: () => {},
+        start: () => {},
+        stop: () => {},
+      }),
+      createBiquadFilter: () => ({
+        type: 'lowpass',
+        frequency: { value: 14000 },
+        Q: { value: 0.7 },
+        connect: () => {},
+      }),
+      createStereoPanner: () => ({
+        pan: {
+          value: 0,
+          setValueAtTime: () => {},
+          linearRampToValueAtTime: () => {},
+        },
+        connect: () => {},
+      }),
+      createConvolver: () => ({
+        buffer: null,
+        context: null,
+        connect: () => {},
+        disconnect: () => {},
+      }),
+      createDelay: () => ({
+        delayTime: { value: 0 },
+        connect: () => {},
+        disconnect: () => {},
+      }),
+      createBuffer: () => mockBuffer,
+    } as unknown as AudioContext;
+
+    const mockCatalog = {
+      version: 1,
+      packId: 'test',
+      title: 'Test Catalog',
+      assets: [
+        {
+          id: 'event_bird_chirp',
+          title: 'Bird Chirp',
+          category: 'birds',
+          file: 'events/bird.ogg',
+          loop: { mode: 'native' },
+          license: { spdx: 'CC0-1.0', author: 'test' },
+        },
+      ],
+    } as unknown as import('../assets/catalog').SoundCatalog;
+
+    engine.setAudioTarget(mockCtx, mockGain as unknown as AudioNode, mockCatalog);
+
+    // Mock decode cache to return our mockBuffer
+    const { decodeCache } = await import('./decode-cache');
+    const getSpy = vi.spyOn(decodeCache, 'get').mockResolvedValue(mockBuffer);
+
+    const event = await engine.triggerRandomEvent('event_bird_chirp');
+    expect(event).not.toBeNull();
+    if (event) {
+      expect(event.assetId).toBe('event_bird_chirp');
+      expect(event.pitch).toBeGreaterThanOrEqual(0.92);
+      expect(event.pitch).toBeLessThanOrEqual(1.08);
+      expect(event.pan).toBeGreaterThanOrEqual(-0.85);
+      expect(event.pan).toBeLessThanOrEqual(0.85);
+      expect(event.distanceFilterCutoff).toBeGreaterThanOrEqual(1200);
+      expect(event.distanceFilterCutoff).toBeLessThanOrEqual(14000);
+    }
+
+    getSpy.mockRestore();
+  });
 });
+
+
