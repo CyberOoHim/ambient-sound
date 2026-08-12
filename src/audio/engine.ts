@@ -1025,7 +1025,7 @@ export class AudioEngine {
     this.analyser.getFloatTimeDomainData(this.peakBuf);
     let peak = 0;
     for (let i = 0; i < this.peakBuf.length; i++) {
-      const a = Math.abs(this.peakBuf[i]);
+      const a = Math.abs(this.peakBuf[i]!);
       if (a > peak) peak = a;
     }
     return peak;

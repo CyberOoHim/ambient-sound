@@ -216,6 +216,7 @@ export class OneShotEngine {
       const activePacks = allPacks.filter(p => this.config.selectedPacks.includes(p.id));
       if (activePacks.length === 0) return null;
       pack = activePacks[Math.floor(Math.random() * activePacks.length)];
+      if (!pack) return null;
 
       // Filter assets by selectedAssets if configured
       const candidateAssetIds = pack.assetIds.filter(id =>

@@ -235,10 +235,11 @@ export class Session {
     this.binauralConfig = loadBinauralConfigFromStorage();
 
     const last = loadLastSession();
+    const defaultPreset = this.presets[0];
     if (last) {
       this.applyPresetData(last);
-    } else if (this.presets.length > 0) {
-      this.applyPresetData(this.presets[0]);
+    } else if (defaultPreset) {
+      this.applyPresetData(defaultPreset);
     } else {
       this.layers = [
         { kind: 'noise', params: createDefaultNoiseLayer(uid('noise'), 'pink') },
@@ -1012,13 +1013,14 @@ export class Session {
       .filter((g) => g.length >= 2);
 
     const pick =
-      validGroups.length > 0
+      (validGroups.length > 0
         ? validGroups[Math.floor(Math.random() * validGroups.length)]
-        : this.catalog.assets
-            .slice()
-            .sort(() => Math.random() - 0.5)
-            .slice(0, 3)
-            .map((a) => a.id);
+        : undefined) ??
+      this.catalog.assets
+        .slice()
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 3)
+        .map((a) => a.id);
 
     // 2–4 layers
     const count = Math.min(4, Math.max(2, pick.length));
@@ -1034,19 +1036,21 @@ export class Session {
     const vols = [0.65, 0.55, 0.45, 0.5];
 
     for (let i = 0; i < chosen.length; i++) {
-      const asset = findAsset(this.catalog, chosen[i]);
+      const assetId = chosen[i];
+      if (!assetId) continue;
+      const asset = findAsset(this.catalog, assetId);
       if (!asset) continue;
       this.layers.push({
         kind: 'sample',
         params: createDefaultSampleLayer(uid('sample'), asset.id, asset.title, {
           loopMode: asset.loop.mode,
           crossfadeMs: asset.loop.crossfadeMs ?? 80,
-          volumeLinear: vols[i % vols.length],
+          volumeLinear: vols[i % vols.length] ?? 0.5,
         }),
       });
       const layer = this.layers[this.layers.length - 1];
-      if (layer.kind === 'sample') {
-        layer.params.pan = pans[i % pans.length];
+      if (layer && layer.kind === 'sample') {
+        layer.params.pan = pans[i % pans.length] ?? 0;
       }
     }
 

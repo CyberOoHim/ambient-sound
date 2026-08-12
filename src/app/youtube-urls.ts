@@ -66,7 +66,8 @@ export function extractYouTubeVideoId(input: string): string | null {
       }
       // /live/VIDEO_ID or /embed/VIDEO_ID or /v/VIDEO_ID
       const pathSegments = urlObj.pathname.split('/').filter(Boolean);
-      if (['live', 'embed', 'v', 'shorts'].includes(pathSegments[0]) && pathSegments[1]) {
+      const seg0 = pathSegments[0];
+      if (seg0 && ['live', 'embed', 'v', 'shorts'].includes(seg0) && pathSegments[1]) {
         const id = pathSegments[1];
         if (/^[a-zA-Z0-9_-]{11}$/.test(id)) {
           return id;
