@@ -1,9 +1,10 @@
-name: Deploy SPA to GitHub Pages
+name: CI / CD
 
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
-    # Rebuild SPA when app, assets, or toolchain change — skip pure docs/license noise
     paths:
       - 'src/**'
       - 'public/**'
@@ -16,7 +17,7 @@ on:
       - 'vite.config.*'
       - 'svelte.config.*'
       - 'tsconfig*.json'
-      - '.github/workflows/deploy.yml'
+      - '.github/workflows/ci-cd.yml'
   workflow_dispatch:
     inputs:
       rebuild_sounds:
@@ -35,6 +36,7 @@ concurrency:
 
 jobs:
   build:
+    name: Build & Test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -90,7 +92,6 @@ jobs:
           pnpm sounds:freesound
           pnpm sounds:events
 
-
       - name: Validate sound catalog & manifests
         run: pnpm validate-manifests
 
@@ -104,16 +105,19 @@ jobs:
         run: pnpm build
 
       - name: Upload artifact for GitHub Pages
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
 
   deploy:
+    name: Deploy to GitHub Pages
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    needs: build
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    needs: build
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
