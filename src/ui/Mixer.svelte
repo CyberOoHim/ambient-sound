@@ -397,9 +397,12 @@
   }
 
   function onKey(e: KeyboardEvent) {
-    const tag = (e.target as HTMLElement | null)?.tagName;
+    const target = e.target as HTMLElement | null;
+    const tag = target?.tagName;
+    const isEditable = target?.isContentEditable === true;
     if (
       e.code === 'Space' &&
+      !isEditable &&
       tag !== 'INPUT' &&
       tag !== 'SELECT' &&
       tag !== 'TEXTAREA' &&
@@ -440,9 +443,14 @@
         peak *= 0.9;
       }
       if (session.timer.status === 'running' || session.timer.status === 'fading') {
-        timerStatus = session.timer.status;
-        timerRemainingMs = session.remainingMs();
-        timerPanel?.sync();
+        const remaining = session.remainingMs();
+        const currentSec = Math.floor((remaining ?? 0) / 1000);
+        const prevSec = Math.floor((timerRemainingMs ?? 0) / 1000);
+        if (currentSec !== prevSec || timerStatus !== session.timer.status) {
+          timerStatus = session.timer.status;
+          timerRemainingMs = remaining;
+          timerPanel?.sync();
+        }
       } else if (timerStatus !== 'idle' && timerStatus !== 'done') {
         timerStatus = session.timer.status;
         timerRemainingMs = null;

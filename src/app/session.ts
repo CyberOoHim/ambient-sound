@@ -619,14 +619,24 @@ export class Session {
    */
   async removeUnusedLocalAudio(): Promise<number> {
     await this.ensureLocalAudioReady();
-    const used = new Set(
-      this.layers
-        .filter(
-          (l): l is { kind: 'sample'; params: SampleLayerParams } =>
-            l.kind === 'sample' && isLocalAssetId(l.params.assetId),
-        )
-        .map((l) => l.params.assetId),
-    );
+    const used = new Set<string>();
+
+    for (const l of this.layers) {
+      if (l.kind === 'sample' && isLocalAssetId(l.params.assetId)) {
+        used.add(l.params.assetId);
+      }
+    }
+
+    for (const p of this.presets) {
+      if (Array.isArray(p.layers)) {
+        for (const l of p.layers) {
+          if (l.kind === 'sample' && isLocalAssetId(l.params.assetId)) {
+            used.add(l.params.assetId);
+          }
+        }
+      }
+    }
+
     const unused = this.localAudio.filter((c) => !used.has(c.id)).map((c) => c.id);
     if (unused.length === 0) return 0;
     await deleteLocalAudioMany(unused);
@@ -745,10 +755,12 @@ export class Session {
       void this.ensureYoutubeInEngine(layer, true);
     }
 
-    for (const layer of otherLayers) {
-      if (!this.hasLayer(layer.params.id)) continue;
-      await this.ensureSampleInEngine(layer);
-    }
+    await Promise.all(
+      otherLayers.map(async (layer) => {
+        if (!this.hasLayer(layer.params.id)) return;
+        await this.ensureSampleInEngine(layer);
+      }),
+    );
 
     // User cleared the mix, or every sample failed to download — do not start.
     if (this.layers.length === 0) {

@@ -130,6 +130,9 @@ export class DecodeCache {
 
     const hit = this.cache.get(url);
     if (hit) {
+      // Refresh key position for true LRU order
+      this.cache.delete(url);
+      this.cache.set(url, hit);
       onProgress?.({
         loaded: 0,
         total: 0,

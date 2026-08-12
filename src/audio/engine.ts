@@ -197,65 +197,74 @@ export class AudioEngine {
     }
   }
 
+  private initPromise: Promise<AudioContext> | null = null;
+
   async ensureContext(): Promise<AudioContext> {
-    if (!this.ctx) {
-      this.ctx = new AudioContext();
-
-      this.mixBus = this.ctx.createGain();
-      this.mixBus.gain.value = 1;
-
-      this.bassEq = this.ctx.createBiquadFilter();
-      this.bassEq.type = 'lowshelf';
-      this.bassEq.frequency.value = 220;
-      this.bassEq.gain.value = this.masterTone.bassDb;
-
-      this.trebleEq = this.ctx.createBiquadFilter();
-      this.trebleEq.type = 'highshelf';
-      this.trebleEq.frequency.value = 3200;
-      this.trebleEq.gain.value = this.masterTone.trebleDb;
-
-      this.dryGain = this.ctx.createGain();
-      this.wetGain = this.ctx.createGain();
-      this.applyReverbMix(this.masterTone.reverbWet);
-
-      this.convolver = this.ctx.createConvolver();
-      this.convolver.buffer = createReverbImpulse(this.ctx);
-
-      this.master = this.ctx.createGain();
-      this.master.gain.value = this.masterVolumeLinear;
-
-      this.analyser = this.ctx.createAnalyser();
-      this.analyser.fftSize = 2048;
-      this.analyser.smoothingTimeConstant = 0.82;
-
-      // mixBus → EQ → dry + wet reverb → master → analyser → out
-      this.mixBus.connect(this.bassEq);
-      this.bassEq.connect(this.trebleEq);
-      this.trebleEq.connect(this.dryGain);
-      this.trebleEq.connect(this.convolver);
-      this.convolver.connect(this.wetGain);
-      this.dryGain.connect(this.master);
-      this.wetGain.connect(this.master);
-      this.master.connect(this.analyser);
-
-      // Parallel preview path (one-shots only) that ignores transport mute.
-      this.oneShotPreviewBus = this.ctx.createGain();
-      this.oneShotPreviewBus.gain.value = 0;
-      this.oneShotPreviewBus.connect(this.analyser);
-
-      // Mobile (iOS + Android): route via HTMLAudioElement for background
-      // playback / media controls. Desktop: analyser → destination.
-      this.mediaOutput.attach(this.ctx, this.analyser);
-      this.mediaOutput.connectDestination(this.ctx, this.analyser);
-      this.bindStateChange(this.ctx);
-      this.oneShotEngine.setAudioTarget(this.ctx, this.mixBus, this.catalog);
-      this.binauralEngine.setAudioTarget(this.ctx, this.mixBus);
+    if (this.initPromise) {
+      return this.initPromise;
     }
-    if (!this.workletReady) {
-      await this.ctx.audioWorklet.addModule(workletUrl);
-      this.workletReady = true;
-    }
-    return this.ctx;
+    this.initPromise = (async () => {
+      if (!this.ctx) {
+        this.ctx = new AudioContext();
+
+        this.mixBus = this.ctx.createGain();
+        this.mixBus.gain.value = 1;
+
+        this.bassEq = this.ctx.createBiquadFilter();
+        this.bassEq.type = 'lowshelf';
+        this.bassEq.frequency.value = 220;
+        this.bassEq.gain.value = this.masterTone.bassDb;
+
+        this.trebleEq = this.ctx.createBiquadFilter();
+        this.trebleEq.type = 'highshelf';
+        this.trebleEq.frequency.value = 3200;
+        this.trebleEq.gain.value = this.masterTone.trebleDb;
+
+        this.dryGain = this.ctx.createGain();
+        this.wetGain = this.ctx.createGain();
+        this.applyReverbMix(this.masterTone.reverbWet);
+
+        this.convolver = this.ctx.createConvolver();
+        this.convolver.buffer = createReverbImpulse(this.ctx);
+
+        this.master = this.ctx.createGain();
+        this.master.gain.value = this.masterVolumeLinear;
+
+        this.analyser = this.ctx.createAnalyser();
+        this.analyser.fftSize = 2048;
+        this.analyser.smoothingTimeConstant = 0.82;
+
+        // mixBus → EQ → dry + wet reverb → master → analyser → out
+        this.mixBus.connect(this.bassEq);
+        this.bassEq.connect(this.trebleEq);
+        this.trebleEq.connect(this.dryGain);
+        this.trebleEq.connect(this.convolver);
+        this.convolver.connect(this.wetGain);
+        this.dryGain.connect(this.master);
+        this.wetGain.connect(this.master);
+        this.master.connect(this.analyser);
+
+        // Parallel preview path (one-shots only) that ignores transport mute.
+        this.oneShotPreviewBus = this.ctx.createGain();
+        this.oneShotPreviewBus.gain.value = 0;
+        this.oneShotPreviewBus.connect(this.analyser);
+
+        // Mobile (iOS + Android): route via HTMLAudioElement for background
+        // playback / media controls. Desktop: analyser → destination.
+        this.mediaOutput.attach(this.ctx, this.analyser);
+        this.mediaOutput.connectDestination(this.ctx, this.analyser);
+        this.bindStateChange(this.ctx);
+
+        this.oneShotEngine.setAudioTarget(this.ctx, this.mixBus, this.catalog);
+        this.binauralEngine.setAudioTarget(this.ctx, this.mixBus);
+      }
+      if (!this.workletReady) {
+        await this.ctx.audioWorklet.addModule(workletUrl);
+        this.workletReady = true;
+      }
+      return this.ctx;
+    })();
+    return this.initPromise;
   }
 
   private applyReverbMix(wet: number): void {
@@ -981,6 +990,7 @@ export class AudioEngine {
         nodes.worklet.port.close();
       } else {
         nodes.player.stop();
+        nodes.player.dispose();
         nodes.userHp.disconnect();
         nodes.userLp.disconnect();
       }

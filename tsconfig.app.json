@@ -15,8 +15,9 @@
      */
     "allowJs": true,
     "checkJs": true,
+    "noUncheckedIndexedAccess": true,
     "moduleDetection": "force"
   },
   "include": ["src/**/*.ts", "src/**/*.js", "src/**/*.svelte"],
-  "exclude": ["src/audio/worklets/**"]
+  "exclude": ["src/audio/worklets/**", "src/**/*.test.ts"]
 }

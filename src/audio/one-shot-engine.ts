@@ -307,7 +307,7 @@ export class OneShotEngine {
     let filterCutoff = 14000;
 
     if (this.config.distanceFilter) {
-      filterCutoff = Math.round(14000 - distanceFactor * 12800);
+      filterCutoff = Math.round(14000 * Math.pow(1200 / 14000, distanceFactor));
       distanceGain = 1.0 - distanceFactor * 0.55;
     } else {
       distanceGain = 0.45 + Math.random() * 0.55;

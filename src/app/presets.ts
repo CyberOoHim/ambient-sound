@@ -370,7 +370,11 @@ export function savePresetsToStorage(
   storage?: Storage,
 ): void {
   const st = storage ?? (typeof localStorage !== 'undefined' ? localStorage : undefined);
-  st?.setItem(PRESETS_STORAGE_KEY, JSON.stringify(store));
+  try {
+    st?.setItem(PRESETS_STORAGE_KEY, JSON.stringify(store));
+  } catch {
+    /* ignore storage errors / QuotaExceededError */
+  }
 }
 
 export function loadLastSession(
@@ -392,7 +396,11 @@ export function saveLastSession(
   storage?: Storage,
 ): void {
   const st = storage ?? (typeof localStorage !== 'undefined' ? localStorage : undefined);
-  st?.setItem(LAST_SESSION_KEY, JSON.stringify(snapshot));
+  try {
+    st?.setItem(LAST_SESSION_KEY, JSON.stringify(snapshot));
+  } catch {
+    /* ignore storage errors / QuotaExceededError */
+  }
 }
 
 export function loadDuplicateMinOffsetSec(storage?: Storage): number {

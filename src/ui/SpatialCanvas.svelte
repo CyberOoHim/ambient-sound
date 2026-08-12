@@ -103,12 +103,36 @@
     const { pan, vol } = xyToParams(clientX, clientY);
     session.setLayerSpatial(id, pan, vol, { coupleFilter });
   }
+  function onKeyDown(e: KeyboardEvent, layer: MixerLayer) {
+    let pan = layer.params.pan;
+    let vol = layer.params.volumeLinear;
+    let handled = false;
+
+    if (e.key === 'ArrowLeft') {
+      pan = Math.max(-1, pan - 0.1);
+      handled = true;
+    } else if (e.key === 'ArrowRight') {
+      pan = Math.min(1, pan + 0.1);
+      handled = true;
+    } else if (e.key === 'ArrowUp') {
+      vol = Math.max(0.02, vol - 0.1);
+      handled = true;
+    } else if (e.key === 'ArrowDown') {
+      vol = Math.min(1, vol + 0.1);
+      handled = true;
+    }
+
+    if (handled) {
+      e.preventDefault();
+      session.setLayerSpatial(layer.params.id, pan, vol, { coupleFilter });
+    }
+  }
 </script>
 
 <section class="panel spatial">
   <header class="panel-head">
     <h2>Space</h2>
-    <p class="hint">drag · L/R pan · up quiet</p>
+    <p class="hint">drag / arrows · L/R pan · up quiet</p>
   </header>
 
   <label class="couple">
@@ -147,6 +171,7 @@
           onpointermove={onPointerMove}
           onpointerup={onPointerUp}
           onpointercancel={onPointerUp}
+          onkeydown={(e) => onKeyDown(e, layer)}
         >
           <span class="ico" aria-hidden="true">{iconFor(layer)}</span>
           <span class="lab">{labelFor(layer)}</span>

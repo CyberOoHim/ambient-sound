@@ -186,7 +186,8 @@ export class SamplePlayer {
     const D = this.buffer.duration;
     const rate = Math.max(0.01, this.opts.playbackRate);
     const overlap = clampCrossfadeSec(this.opts.crossfadeMs, D);
-    const startAt = this.segmentStartAt(n);
+    const rawStartAt = this.segmentStartAt(n);
+    const startAt = Math.max(rawStartAt, this.ctx.currentTime + 0.005);
     const overlapDur = Math.max(0.01, overlap / rate);
     const bufferOffset = n === 0 ? this.offsetSec : 0;
 
@@ -253,5 +254,14 @@ export class SamplePlayer {
 
     this.active.push({ source, gain, index: n });
     this.nextIndex = n + 1;
+  }
+
+  dispose(): void {
+    this.stop();
+    try {
+      this.inputGain.disconnect();
+    } catch {
+      /* */
+    }
   }
 }

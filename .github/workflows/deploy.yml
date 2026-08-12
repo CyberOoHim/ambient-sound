@@ -86,7 +86,10 @@ jobs:
 
       - name: Rebuild core sound pack
         if: steps.sounds.outputs.rebuild == 'true'
-        run: pnpm sounds:freesound
+        run: |
+          pnpm sounds:freesound
+          pnpm sounds:events
+
 
       - name: Validate sound catalog & manifests
         run: pnpm validate-manifests

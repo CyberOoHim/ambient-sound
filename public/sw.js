@@ -52,26 +52,27 @@ async function respondWithRange(request, cacheName) {
       return cachedResponse;
     }
 
-    const arrayBuffer = await cachedResponse.arrayBuffer();
+    const blob = await cachedResponse.blob();
+    const totalSize = blob.size;
     const bytes = rangeHeader.replace(/bytes=/, '').split('-');
     const start = parseInt(bytes[0], 10);
-    const end = bytes[1] ? parseInt(bytes[1], 10) : arrayBuffer.byteLength - 1;
+    const end = bytes[1] ? parseInt(bytes[1], 10) : totalSize - 1;
 
-    if (start >= arrayBuffer.byteLength || end >= arrayBuffer.byteLength) {
+    if (start >= totalSize || end >= totalSize) {
       return new Response('', {
         status: 416,
-        headers: { 'Content-Range': `bytes */${arrayBuffer.byteLength}` },
+        headers: { 'Content-Range': `bytes */${totalSize}` },
       });
     }
 
-    const slicedBuffer = arrayBuffer.slice(start, end + 1);
-    return new Response(slicedBuffer, {
+    const slicedBlob = blob.slice(start, end + 1, cachedResponse.headers.get('Content-Type') || 'audio/ogg');
+    return new Response(slicedBlob, {
       status: 206,
       statusText: 'Partial Content',
       headers: {
         'Content-Type': cachedResponse.headers.get('Content-Type') || 'audio/ogg',
-        'Content-Range': `bytes ${start}-${end}/${arrayBuffer.byteLength}`,
-        'Content-Length': slicedBuffer.byteLength.toString(),
+        'Content-Range': `bytes ${start}-${end}/${totalSize}`,
+        'Content-Length': slicedBlob.size.toString(),
         'Accept-Ranges': 'bytes',
       },
     });
@@ -125,14 +126,19 @@ self.addEventListener('fetch', (event) => {
     caches.match(request).then((cachedResponse) => {
       const fetchPromise = fetch(request)
         .then((networkResponse) => {
-          if (networkResponse.ok) {
+          if (networkResponse.ok || networkResponse.type === 'opaque') {
             caches.open(APP_CACHE).then((cache) => cache.put(request, networkResponse.clone()));
           }
           return networkResponse;
         })
         .catch(() => cachedResponse);
 
-      return cachedResponse || fetchPromise;
+      if (cachedResponse) {
+        event.waitUntil(fetchPromise);
+        return cachedResponse;
+      }
+      return fetchPromise;
     }),
   );
 });
+

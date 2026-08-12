@@ -65,9 +65,8 @@ function bytesToBase64(bytes: Uint8Array): string {
 
 function base64ToBytes(b64: string): Uint8Array {
   const cleaned = b64.replace(/[^A-Za-z0-9+/]/g, '');
-  const pad = cleaned.endsWith('==') ? 2 : cleaned.endsWith('=') ? 1 : 0;
   const len = cleaned.length;
-  const outLen = Math.floor((len * 3) / 4) - pad;
+  const outLen = Math.floor((len * 3) / 4);
   const out = new Uint8Array(Math.max(0, outLen));
   let o = 0;
   for (let i = 0; i < len; i += 4) {

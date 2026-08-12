@@ -76,7 +76,7 @@ export function extractYouTubeVideoId(input: string): string | null {
 
     // youtu.be/VIDEO_ID
     if (urlObj.hostname.includes('youtu.be')) {
-      const id = urlObj.pathname.replace('/', '').trim();
+      const id = urlObj.pathname.replace(/^\/|\/$/g, '').trim();
       if (/^[a-zA-Z0-9_-]{11}$/.test(id)) {
         return id;
       }
