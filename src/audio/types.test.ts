@@ -2,11 +2,16 @@ import { describe, expect, it } from 'vitest';
 import {
   getMaxYoutubeLayers,
   isIosDevice,
+  MAX_SAME_LAYERS,
   MAX_YOUTUBE_LAYERS,
   MAX_YOUTUBE_LAYERS_IOS,
 } from './types';
 
-describe('iOS YouTube Layer Cap', () => {
+describe('Layer Constants & iOS Cap', () => {
+  it('defines MAX_SAME_LAYERS as 5', () => {
+    expect(MAX_SAME_LAYERS).toBe(5);
+  });
+
   it('returns MAX_YOUTUBE_LAYERS (3) for standard desktop/Android user agents', () => {
     const desktopUa =
       'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';

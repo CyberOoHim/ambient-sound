@@ -445,4 +445,92 @@ describe('Session setLayerSpatial physics model', () => {
     expect(session.layers[0].params.volumeLinear).toBe(0);
     expect(session.layers[0].params.lowpassHz).toBe(1200);
   });
+
+  it('locks pan to 0 for youtube streaming layers', async () => {
+    const session = new Session();
+    await session.addYoutubeLayer('abc12345678', 'https://www.youtube.com/watch?v=abc12345678', 'Test YT Video', '');
+    const ytLayerId = session.layers.find((l) => l.kind === 'youtube')?.params.id;
+    expect(ytLayerId).toBeDefined();
+
+    session.setLayerSpatial(ytLayerId!, 0.8, 0.6);
+    const updated = session.layers.find((l) => l.kind === 'youtube');
+    expect(updated?.params.pan).toBe(0);
+    expect(updated?.params.volumeLinear).toBe(0.6);
+  });
 });
+
+describe('Session duplicate layer & max same layer caps', () => {
+  it('duplicates noise layer up to 5 same instances, and blocks 6th attempt with notice', async () => {
+    const session = new Session();
+    session.layers = [];
+    await session.addNoiseLayer('pink');
+    expect(session.layers.length).toBe(1);
+
+    const initialId = session.layers[0].params.id;
+    for (let i = 0; i < 4; i++) {
+      const newId = await session.duplicateLayer(initialId);
+      expect(newId).toBeTruthy();
+    }
+    expect(session.layers.length).toBe(5);
+
+    // 6th instance attempt via duplicateLayer should fail
+    const blockedId = await session.duplicateLayer(initialId);
+    expect(blockedId).toBe('');
+    expect(session.layers.length).toBe(5);
+    expect(session.loadNotice).toBe('Maximum 5 layers of the same sound allowed.');
+
+    // 6th instance attempt via addNoiseLayer should also fail
+    await session.addNoiseLayer('pink');
+    expect(session.layers.length).toBe(5);
+    expect(session.loadNotice).toBe('Maximum 5 layers of the same sound allowed.');
+  });
+
+  it('allows adding different noise colors up to 5 each', async () => {
+    const session = new Session();
+    session.layers = [];
+    await session.addNoiseLayer('pink');
+    await session.addNoiseLayer('white');
+
+    expect(session.getSameLayerCount(session.layers[0])).toBe(1);
+    expect(session.getSameLayerCount(session.layers[1])).toBe(1);
+  });
+
+  it('enforces total mixer cap (10 layers) during duplication', async () => {
+    const session = new Session();
+    session.layers = [];
+    for (let i = 0; i < 5; i++) {
+      await session.addNoiseLayer('pink');
+    }
+    for (let i = 0; i < 5; i++) {
+      await session.addNoiseLayer('white');
+    }
+    expect(session.layers.length).toBe(10);
+
+    const idToDup = session.layers[0].params.id;
+    const dupResult = await session.duplicateLayer(idToDup);
+    expect(dupResult).toBe('');
+    expect(session.loadNotice).toContain('Layer limit reached (10)');
+  });
+
+  it('enforces YouTube streaming cap of 3 on desktop during duplication', async () => {
+    const session = new Session();
+    session.layers = [];
+    const yt1 = await session.addYoutubeLayer('v1', 'https://youtube.com/watch?v=v1', 'Stream 1', '');
+    expect(yt1).toBeTruthy();
+
+    const yt2 = await session.duplicateLayer(yt1);
+    expect(yt2).toBeTruthy();
+    expect(session.layers.length).toBe(2);
+
+    const yt3 = await session.duplicateLayer(yt1);
+    expect(yt3).toBeTruthy();
+    expect(session.layers.length).toBe(3);
+
+    // 4th YouTube layer should fail (desktop limit is 3)
+    const yt4 = await session.duplicateLayer(yt1);
+    expect(yt4).toBe('');
+    expect(session.layers.length).toBe(3);
+    expect(session.loadNotice).toBe('Maximum 3 YouTube channels allowed.');
+  });
+});
+

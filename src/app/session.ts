@@ -14,6 +14,7 @@ import {
   FILTER_LP_OPEN_HZ,
   isLocalAssetId,
   MAX_MIXER_LAYERS,
+  MAX_SAME_LAYERS,
   MAX_YOUTUBE_LAYERS,
   getMaxYoutubeLayers,
   PRESET_CROSSFADE_SEC,
@@ -474,7 +475,26 @@ export class Session {
     return `Layer limit reached (${MAX_MIXER_LAYERS}). Remove a layer to add more.`;
   }
 
+  sameLayerCapMessage(): string {
+    return `Maximum ${MAX_SAME_LAYERS} layers of the same sound allowed.`;
+  }
+
+  getSameLayerCount(target: MixerLayer): number {
+    if (target.kind === 'sample') {
+      return this.layers.filter((l) => l.kind === 'sample' && l.params.assetId === target.params.assetId).length;
+    }
+    if (target.kind === 'noise') {
+      return this.layers.filter((l) => l.kind === 'noise' && l.params.type === target.params.type).length;
+    }
+    if (target.kind === 'youtube') {
+      return this.layers.filter((l) => l.kind === 'youtube' && l.params.videoId === target.params.videoId).length;
+    }
+    return 0;
+  }
+
   static readonly MAX_LAYERS = MAX_MIXER_LAYERS;
+  static readonly MAX_SAME_LAYERS = MAX_SAME_LAYERS;
+
 
   /**
    * Re-assert playback when returning to the tab / unlocking the device.
@@ -844,6 +864,12 @@ export class Session {
       this.notify();
       return;
     }
+    const sameCount = this.layers.filter((l) => l.kind === 'noise' && l.params.type === type).length;
+    if (sameCount >= MAX_SAME_LAYERS) {
+      this.setLoadNotice(this.sameLayerCapMessage());
+      this.notify();
+      return;
+    }
     const layer: MixerLayer = {
       kind: 'noise',
       params: createDefaultNoiseLayer(uid('noise'), type),
@@ -928,6 +954,13 @@ export class Session {
       return '';
     }
 
+    const sameCount = this.layers.filter((l) => l.kind === 'sample' && l.params.assetId === asset.id).length;
+    if (sameCount >= MAX_SAME_LAYERS) {
+      this.setLoadNotice(this.sameLayerCapMessage());
+      this.notify();
+      return '';
+    }
+
     const layer: MixerLayer = {
       kind: 'sample',
       params: createDefaultSampleLayer(uid('sample'), asset.id, asset.title, {
@@ -949,6 +982,113 @@ export class Session {
     this.notify();
     return layer.params.id;
   }
+
+  /**
+   * Duplicates an existing layer in the mixer.
+   * Enforces total layer cap (10), same layer cap (5), and YouTube cap (3 desktop / 1 iOS).
+   */
+  async duplicateLayer(id: string): Promise<string> {
+    const targetLayer = this.layers.find((l) => l.params.id === id);
+    if (!targetLayer) return '';
+
+    if (!this.canAddLayer()) {
+      this.setLoadNotice(this.layerCapMessage());
+      this.notify();
+      return '';
+    }
+
+    if (this.getSameLayerCount(targetLayer) >= MAX_SAME_LAYERS) {
+      this.setLoadNotice(this.sameLayerCapMessage());
+      this.notify();
+      return '';
+    }
+
+    if (targetLayer.kind === 'youtube') {
+      const maxYt = getMaxYoutubeLayers();
+      const youtubeCount = this.layers.filter((l) => l.kind === 'youtube').length;
+      if (youtubeCount >= maxYt) {
+        const msg =
+          maxYt === 1
+            ? 'iOS only supports 1 active YouTube stream at a time.'
+            : `Maximum ${maxYt} YouTube channels allowed.`;
+        this.setLoadNotice(msg);
+        this.notify();
+        return '';
+      }
+
+      const newId = uid('yt');
+      const duplicated: MixerLayer = {
+        kind: 'youtube',
+        params: {
+          ...targetLayer.params,
+          id: newId,
+          solo: false,
+        },
+      };
+      this.layers = [...this.layers, duplicated];
+      this.youtubeStatus.set(newId, 'loading');
+
+      void loadYouTubeApi().catch(() => {});
+
+      if (this.playing) {
+        void this.ensureYoutubeInEngine(duplicated, true).then(() => {
+          audioEngine.applyMuteSolo(this.layers);
+        });
+      } else {
+        void this.ensureYoutubeInEngine(duplicated, false);
+      }
+      this.notify();
+      this.schedulePersist();
+      return newId;
+    }
+
+    if (targetLayer.kind === 'noise') {
+      const newId = uid('noise');
+      const duplicated: MixerLayer = {
+        kind: 'noise',
+        params: {
+          ...targetLayer.params,
+          id: newId,
+          solo: false,
+        },
+      };
+      this.layers = [...this.layers, duplicated];
+      if (this.playing) {
+        await audioEngine.addLayer(duplicated);
+        audioEngine.applyMuteSolo(this.layers);
+      }
+      this.notify();
+      this.schedulePersist();
+      return newId;
+    }
+
+    if (targetLayer.kind === 'sample') {
+      const newId = uid('sample');
+      const duplicated: MixerLayer = {
+        kind: 'sample',
+        params: {
+          ...targetLayer.params,
+          id: newId,
+          solo: false,
+        },
+      };
+      this.layers = [...this.layers, duplicated];
+      this.notify();
+      this.schedulePersist();
+
+      if (this.playing) {
+        await this.ensureSampleInEngine(duplicated);
+        if (this.hasLayer(newId) && this.playing) {
+          audioEngine.applyMuteSolo(this.layers);
+        }
+      }
+      this.notify();
+      return newId;
+    }
+
+    return '';
+  }
+
 
   /**
    * Build a random complementary mix (ENH-04). Replaces current layers.
@@ -1361,7 +1501,7 @@ export class Session {
   ): void {
     const layer = this.layers.find((l) => l.params.id === id);
     if (!layer) return;
-    const p = Math.max(-1, Math.min(1, pan));
+    const p = layer.kind === 'youtube' ? 0 : Math.max(-1, Math.min(1, pan));
     const v = clampLinear(volumeLinear);
     const patch: {
       pan: number;

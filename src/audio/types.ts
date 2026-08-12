@@ -131,6 +131,9 @@ export type MixerLayer =
 export const MAX_YOUTUBE_LAYERS = 3;
 /** Max YouTube stream channels allowed in mixer on iOS (WebKit single active media element limit). */
 export const MAX_YOUTUBE_LAYERS_IOS = 1;
+/** Max number of layers of the same sound asset or type allowed in the mixer. */
+export const MAX_SAME_LAYERS = 5;
+
 
 export function isIosDevice(customUa?: string, customPlatform?: string, customTouchPoints?: number): boolean {
   if (typeof navigator === 'undefined' && customUa === undefined) return false;

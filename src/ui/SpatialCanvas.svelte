@@ -100,20 +100,27 @@
   }
 
   function applyAt(id: string, clientX: number, clientY: number) {
+    const layer = layers.find((l) => l.params.id === id);
     const { pan, vol } = xyToParams(clientX, clientY);
-    session.setLayerSpatial(id, pan, vol, { coupleFilter });
+    const effectivePan = layer?.kind === 'youtube' ? 0 : pan;
+    session.setLayerSpatial(id, effectivePan, vol, { coupleFilter });
   }
+
   function onKeyDown(e: KeyboardEvent, layer: MixerLayer) {
     let pan = layer.params.pan;
     let vol = layer.params.volumeLinear;
     let handled = false;
 
     if (e.key === 'ArrowLeft') {
-      pan = Math.max(-1, pan - 0.1);
-      handled = true;
+      if (layer.kind !== 'youtube') {
+        pan = Math.max(-1, pan - 0.1);
+        handled = true;
+      }
     } else if (e.key === 'ArrowRight') {
-      pan = Math.min(1, pan + 0.1);
-      handled = true;
+      if (layer.kind !== 'youtube') {
+        pan = Math.min(1, pan + 0.1);
+        handled = true;
+      }
     } else if (e.key === 'ArrowUp') {
       vol = Math.max(0.02, vol - 0.1);
       handled = true;
@@ -124,7 +131,7 @@
 
     if (handled) {
       e.preventDefault();
-      session.setLayerSpatial(layer.params.id, pan, vol, { coupleFilter });
+      session.setLayerSpatial(layer.params.id, layer.kind === 'youtube' ? 0 : pan, vol, { coupleFilter });
     }
   }
 </script>
@@ -162,11 +169,20 @@
           class="marker"
           class:muted={layer.params.muted}
           class:dragging={draggingId === layer.params.id}
-          style="left: {panToX(layer.params.pan)}%; top: {volToY(layer.params.volumeLinear)}%"
-          title="{labelFor(layer)} · pan {layer.params.pan.toFixed(2)}"
-          aria-label="{labelFor(layer)}, pan {layer.params.pan.toFixed(2)}, volume {Math.round(
-            layer.params.volumeLinear * 100,
+          class:vertical-only={layer.kind === 'youtube'}
+          style="left: {panToX(layer.kind === 'youtube' ? 0 : layer.params.pan)}%; top: {volToY(
+            layer.params.volumeLinear,
           )}%"
+          title={layer.kind === 'youtube'
+            ? `${labelFor(layer)} · vertical move only (pan N/A)`
+            : `${labelFor(layer)} · pan ${layer.params.pan.toFixed(2)}`}
+          aria-label={layer.kind === 'youtube'
+            ? `${labelFor(layer)}, volume ${Math.round(
+                layer.params.volumeLinear * 100,
+              )}% (vertical move only, pan not available)`
+            : `${labelFor(layer)}, pan ${layer.params.pan.toFixed(2)}, volume ${Math.round(
+                layer.params.volumeLinear * 100,
+              )}%`}
           onpointerdown={(e) => onPointerDown(e, layer.params.id)}
           onpointermove={onPointerMove}
           onpointerup={onPointerUp}
@@ -327,6 +343,12 @@
     border-color: var(--accent);
     background: var(--accent-dim);
     z-index: 3;
+  }
+
+  .marker.vertical-only,
+  .marker.vertical-only:hover,
+  .marker.vertical-only.dragging {
+    cursor: ns-resize;
   }
 
   .marker.dragging {

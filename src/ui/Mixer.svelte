@@ -344,6 +344,11 @@
     syncFromSession();
   }
 
+  async function duplicateLayer(id: string) {
+    await session.duplicateLayer(id);
+    syncFromSession();
+  }
+
   function clearAll() {
     if (layers.length === 0) return;
     if (!confirm('Clear all layers from the mix?')) return;
@@ -732,6 +737,15 @@
                 onclick={() => setSolo(layer.params.id, !layer.params.solo)}
               >
                 S
+              </button>
+              <button
+                type="button"
+                class="chip duplicate"
+                aria-label="Duplicate layer"
+                title="Duplicate"
+                onclick={() => duplicateLayer(layer.params.id)}
+              >
+                ❐
               </button>
               <button
                 type="button"
@@ -1726,6 +1740,11 @@
 
   .chip.danger:hover {
     background: var(--danger-dim);
+  }
+
+  .chip.duplicate:hover {
+    border-color: var(--accent);
+    color: var(--accent);
   }
 
   .row {
