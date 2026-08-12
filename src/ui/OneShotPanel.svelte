@@ -560,7 +560,10 @@
 
   <!-- Acoustic Physics & Realism Options -->
   <div class="section">
-    <h4 class="section-title">Natural Realism Physics & DSP</h4>
+    <div class="physics-settings-header">
+      <span class="badge-physics">NATURAL REALISM PHYSICS & DSP</span>
+    </div>
+    <h4 class="section-title">Stochastic Event Acoustic Physics</h4>
     <div class="physics-toggles">
       <button
         class="chip-btn"
@@ -792,6 +795,23 @@
     font-size: 0.75rem;
     color: #64748b;
     font-style: italic;
+  }
+
+  .physics-settings-header {
+    margin-bottom: 0.35rem;
+  }
+
+  .badge-physics {
+    display: inline-block;
+    font-size: 0.62rem;
+    font-weight: 750;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 15%, transparent);
+    padding: 0.15rem 0.45rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
   }
 
   .radar-event-ping {
