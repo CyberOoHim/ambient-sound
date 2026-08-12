@@ -578,9 +578,6 @@
 
     {#if showMixSettings}
       <div class="mix-settings">
-        <div class="physics-settings-header">
-          <span class="badge-physics">NATURAL REALISM PHYSICS & DSP</span>
-        </div>
         <p class="settings-section-label">Master tone</p>
         <label class="dup-label" for="master-bass">
           Bass
@@ -810,10 +807,6 @@
                 />
               </div>
             {/if}
-          </div>
-
-          <div class="layer-physics-label">
-            <span class="badge-physics-micro">NATURAL REALISM & DSP</span>
           </div>
 
           <div class="lfo-row">
@@ -1338,40 +1331,6 @@
     border-radius: var(--radius);
     border: 1px solid var(--border);
     background: var(--card);
-  }
-
-  .physics-settings-header {
-    margin-bottom: 0.5rem;
-  }
-
-  .badge-physics {
-    display: inline-block;
-    font-size: 0.62rem;
-    font-weight: 750;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 15%, transparent);
-    padding: 0.15rem 0.45rem;
-    border-radius: var(--radius-sm);
-    border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
-  }
-
-  .layer-physics-label {
-    margin: 0.35rem 0 0.15rem;
-  }
-
-  .badge-physics-micro {
-    display: inline-block;
-    font-size: 0.55rem;
-    font-weight: 750;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 12%, transparent);
-    padding: 0.08rem 0.35rem;
-    border-radius: var(--radius-sm);
-    border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
   }
 
   .settings-section-label {

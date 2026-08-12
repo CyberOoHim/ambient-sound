@@ -136,8 +136,8 @@ export interface OneShotConfig {
   distanceFilter: boolean;
   burstSequence: boolean;
   acousticTail: boolean;
-  haasReflections: boolean;
-  ambientDucking: boolean;
+  earlyReflections: boolean;
+  dopplerShift: boolean;
 }
 
 export const ONE_SHOT_STORAGE_KEY = 'ambient-sound:one-shot-config';
@@ -155,8 +155,8 @@ export const DEFAULT_ONE_SHOT_CONFIG: OneShotConfig = {
   distanceFilter: true,
   burstSequence: true,
   acousticTail: true,
-  haasReflections: true,
-  ambientDucking: true,
+  earlyReflections: true,
+  dopplerShift: true,
 };
 
 /**
@@ -288,14 +288,14 @@ export function parseOneShotConfig(
       typeof parsed.acousticTail === 'boolean'
         ? parsed.acousticTail
         : DEFAULT_ONE_SHOT_CONFIG.acousticTail,
-    haasReflections:
-      typeof parsed.haasReflections === 'boolean'
-        ? parsed.haasReflections
-        : DEFAULT_ONE_SHOT_CONFIG.haasReflections,
-    ambientDucking:
-      typeof parsed.ambientDucking === 'boolean'
-        ? parsed.ambientDucking
-        : DEFAULT_ONE_SHOT_CONFIG.ambientDucking,
+    earlyReflections:
+      typeof parsed.earlyReflections === 'boolean'
+        ? parsed.earlyReflections
+        : DEFAULT_ONE_SHOT_CONFIG.earlyReflections,
+    dopplerShift:
+      typeof parsed.dopplerShift === 'boolean'
+        ? parsed.dopplerShift
+        : DEFAULT_ONE_SHOT_CONFIG.dopplerShift,
   };
 }
 

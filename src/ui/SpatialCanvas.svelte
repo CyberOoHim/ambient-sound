@@ -111,13 +111,9 @@
     <p class="hint">drag · L/R pan · up quiet</p>
   </header>
 
-  <div class="physics-head-block">
-    <span class="badge-physics">NATURAL REALISM PHYSICS & DSP</span>
-  </div>
-
   <label class="couple">
     <input type="checkbox" bind:checked={coupleFilter} />
-    🌫️ Distance Atmosphere Filter (Air Absorption)
+    Distance filter
   </label>
 
   {#if layers.length === 0}
@@ -330,22 +326,5 @@
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 4.8rem;
-  }
-
-  .physics-head-block {
-    margin-bottom: 0.4rem;
-  }
-
-  .badge-physics {
-    display: inline-block;
-    font-size: 0.62rem;
-    font-weight: 750;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 15%, transparent);
-    padding: 0.15rem 0.45rem;
-    border-radius: var(--radius-sm);
-    border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
   }
 </style>

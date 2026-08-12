@@ -233,6 +233,8 @@ describe('presets', () => {
         distanceFilter: true,
         burstSequence: true,
         acousticTail: true,
+        earlyReflections: true,
+        dopplerShift: true,
       },
     };
     const parsed = parsePreset(JSON.parse(JSON.stringify(withScene)) as unknown);
@@ -269,6 +271,8 @@ describe('presets', () => {
         distanceFilter: true,
         burstSequence: false,
         acousticTail: true,
+        earlyReflections: true,
+        dopplerShift: false,
       },
     });
     expect(snap.binaural?.mode).toBe('isochronic');

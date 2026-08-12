@@ -348,7 +348,7 @@ export class OneShotEngine {
     // Haas Early Reflection Delay Node for Distant Acoustic Events (d > 0.55)
     let earlyDelayNode: DelayNode | null = null;
     let earlyDelayGain: GainNode | null = null;
-    if (this.config.haasReflections && distanceFactor > 0.55 && typeof ctx.createDelay === 'function') {
+    if (this.config.earlyReflections && distanceFactor > 0.55 && typeof ctx.createDelay === 'function') {
       try {
         earlyDelayNode = ctx.createDelay(0.05);
         earlyDelayNode.delayTime.value = 0.022; // 22ms boundary reflection
@@ -365,7 +365,7 @@ export class OneShotEngine {
     gainNode.connect(destination);
 
     // Atmospheric Sidechain Ambient Ducking for Heavy Transient Events
-    if (this.config.ambientDucking && targetGain > 0.65 && (isThunder || assetId.includes('splash') || assetId.includes('crack'))) {
+    if (targetGain > 0.65 && (isThunder || assetId.includes('splash') || assetId.includes('crack'))) {
       if (destination && 'gain' in destination) {
         const destGainNode = (destination as GainNode).gain;
         try {
@@ -421,10 +421,14 @@ export class OneShotEngine {
 
       // Acoustic Doppler Motion Pitch Shift (sound-speed shift as source travels across soundstage)
       const basePitch = pitch + (i > 0 ? (Math.random() * 0.08 - 0.04) : 0);
-      const panDelta = panEnd - panStart;
-      const dopplerVel = Math.max(-0.8, Math.min(0.8, panDelta));
-      const dopplerPitchStart = Math.max(0.5, Math.min(1.6, basePitch * (1.0 + dopplerVel * 0.04)));
-      const dopplerPitchEnd = Math.max(0.5, Math.min(1.6, basePitch * (1.0 - dopplerVel * 0.04)));
+      let dopplerPitchStart = basePitch;
+      let dopplerPitchEnd = basePitch;
+      if (this.config.dopplerShift && this.config.spatialPan) {
+        const panDelta = panEnd - panStart;
+        const dopplerVel = Math.max(-0.8, Math.min(0.8, panDelta));
+        dopplerPitchStart = Math.max(0.5, Math.min(1.6, basePitch * (1.0 + dopplerVel * 0.04)));
+        dopplerPitchEnd = Math.max(0.5, Math.min(1.6, basePitch * (1.0 - dopplerVel * 0.04)));
+      }
 
       source.playbackRate.setValueAtTime(dopplerPitchStart, burstNow);
       if (dopplerPitchStart !== dopplerPitchEnd) {

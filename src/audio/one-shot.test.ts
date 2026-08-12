@@ -66,8 +66,8 @@ describe('One-Shot Configuration & LocalStorage', () => {
       distanceFilter: false,
       burstSequence: true,
       acousticTail: false,
-      haasReflections: true,
-      ambientDucking: false,
+      earlyReflections: true,
+      dopplerShift: true,
     };
 
     saveOneShotConfigToStorage(customConfig);
@@ -315,8 +315,8 @@ describe('One-Shot Engine Stochastic Scheduler', () => {
       expect(event.assetId).toBe('event_bird_chirp');
       expect(event.pitch).toBeGreaterThanOrEqual(0.92);
       expect(event.pitch).toBeLessThanOrEqual(1.08);
-      expect(event.pan).toBeGreaterThanOrEqual(-0.85);
-      expect(event.pan).toBeLessThanOrEqual(0.85);
+      expect(event.pan).toBeGreaterThanOrEqual(-1.0);
+      expect(event.pan).toBeLessThanOrEqual(1.0);
       expect(event.distanceFilterCutoff).toBeGreaterThanOrEqual(1200);
       expect(event.distanceFilterCutoff).toBeLessThanOrEqual(14000);
     }

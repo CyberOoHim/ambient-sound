@@ -57,6 +57,8 @@ const sample: PresetV1 = {
     distanceFilter: true,
     burstSequence: true,
     acousticTail: false,
+    earlyReflections: true,
+    dopplerShift: true,
   },
 };
 
