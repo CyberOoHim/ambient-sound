@@ -30,7 +30,6 @@
   import BinauralPanel from './BinauralPanel.svelte';
   import YouTubePanel from './YouTubePanel.svelte';
   import AttributionsPanel from './AttributionsPanel.svelte';
-  import Visualizer from './Visualizer.svelte';
   import SpatialCanvas from './SpatialCanvas.svelte';
   import { audioEngine } from '../audio/engine';
   import { syncMoodFromLayers } from './mood-theme';
@@ -466,8 +465,6 @@
     return t.charAt(0).toUpperCase() + t.slice(1);
   }
 </script>
-
-<Visualizer />
 
 <div class="mixer">
   <header class="header">

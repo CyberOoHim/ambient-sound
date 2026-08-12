@@ -134,8 +134,6 @@ export class AudioEngine {
   private catalog: SoundCatalog | null = null;
   private mediaOutput = new MediaOutput();
   private peakBuf: Float32Array<ArrayBuffer> | null = null;
-  private freqBuf: Uint8Array<ArrayBuffer> | null = null;
-  private timeBuf: Uint8Array<ArrayBuffer> | null = null;
   /** User wants audio running (used to re-resume after iOS interrupt). */
   private wantRunning = false;
   private stateChangeBound = false;
@@ -1021,28 +1019,6 @@ export class AudioEngine {
       if (a > peak) peak = a;
     }
     return peak;
-  }
-
-  /** Frequency bins 0..255 for visualizer. Returns null if analyser not ready. */
-  getFrequencyData(): Uint8Array | null {
-    if (!this.analyser) return null;
-    const n = this.analyser.frequencyBinCount;
-    if (!this.freqBuf || this.freqBuf.length !== n) {
-      this.freqBuf = new Uint8Array(n);
-    }
-    this.analyser.getByteFrequencyData(this.freqBuf);
-    return this.freqBuf;
-  }
-
-  /** Time-domain waveform 0..255 for visualizer. */
-  getTimeDomainData(): Uint8Array | null {
-    if (!this.analyser) return null;
-    const n = this.analyser.fftSize;
-    if (!this.timeBuf || this.timeBuf.length !== n) {
-      this.timeBuf = new Uint8Array(n);
-    }
-    this.analyser.getByteTimeDomainData(this.timeBuf);
-    return this.timeBuf;
   }
 
   stopAll(): void {

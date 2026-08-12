@@ -1343,14 +1343,6 @@ export class Session {
     return audioEngine.getPeakLevel();
   }
 
-  getFrequencyData(): Uint8Array | null {
-    return audioEngine.getFrequencyData();
-  }
-
-  getTimeDomainData(): Uint8Array | null {
-    return audioEngine.getTimeDomainData();
-  }
-
   remainingMs(): number | null {
     if (this.timer.status === 'idle' || this.timer.status === 'done') return null;
     if (this.timer.endAtMs == null) return null;
