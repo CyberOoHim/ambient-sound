@@ -15,6 +15,7 @@ import {
   isLocalAssetId,
   MAX_MIXER_LAYERS,
   MAX_YOUTUBE_LAYERS,
+  getMaxYoutubeLayers,
   PRESET_CROSSFADE_SEC,
   type MasterToneParams,
   type MixerLayer,
@@ -839,9 +840,14 @@ export class Session {
       return '';
     }
 
+    const maxYt = getMaxYoutubeLayers();
     const youtubeCount = this.layers.filter((l) => l.kind === 'youtube').length;
-    if (youtubeCount >= MAX_YOUTUBE_LAYERS) {
-      this.setLoadNotice(`Maximum ${MAX_YOUTUBE_LAYERS} YouTube channels allowed.`);
+    if (youtubeCount >= maxYt) {
+      const msg =
+        maxYt === 1
+          ? 'iOS only supports 1 active YouTube stream at a time.'
+          : `Maximum ${maxYt} YouTube channels allowed.`;
+      this.setLoadNotice(msg);
       this.notify();
       return '';
     }
@@ -1524,11 +1530,12 @@ export class Session {
     this.masterVolumeLinear = clampLinear(preset.master.volumeLinear);
     this.masterTone = masterToneFromPreset(preset.master);
     // Enforce YouTube layer limit from presets/share links
+    const maxYt = getMaxYoutubeLayers();
     let youtubeCount = 0;
     const filteredLayers = preset.layers.filter((l) => {
       if (l.kind === 'youtube') {
         youtubeCount++;
-        return youtubeCount <= MAX_YOUTUBE_LAYERS;
+        return youtubeCount <= maxYt;
       }
       return true;
     });

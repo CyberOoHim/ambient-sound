@@ -127,8 +127,26 @@ export type MixerLayer =
   | { kind: 'sample'; params: SampleLayerParams }
   | { kind: 'youtube'; params: YoutubeLayerParams };
 
-/** Max YouTube stream channels allowed in mixer. */
+/** Max YouTube stream channels allowed in mixer for standard platforms. */
 export const MAX_YOUTUBE_LAYERS = 3;
+/** Max YouTube stream channels allowed in mixer on iOS (WebKit single active media element limit). */
+export const MAX_YOUTUBE_LAYERS_IOS = 1;
+
+export function isIosDevice(customUa?: string, customPlatform?: string, customTouchPoints?: number): boolean {
+  if (typeof navigator === 'undefined' && customUa === undefined) return false;
+  const ua = customUa ?? navigator.userAgent;
+  if (/iPad|iPhone|iPod/.test(ua)) return true;
+  const platform = customPlatform ?? (typeof navigator !== 'undefined' ? navigator.platform : '');
+  const touchPoints = customTouchPoints ?? (typeof navigator !== 'undefined' ? navigator.maxTouchPoints : 0);
+  if (platform === 'MacIntel' && touchPoints > 1) return true;
+  return false;
+}
+
+export function getMaxYoutubeLayers(customUa?: string, customPlatform?: string, customTouchPoints?: number): number {
+  return isIosDevice(customUa, customPlatform, customTouchPoints)
+    ? MAX_YOUTUBE_LAYERS_IOS
+    : MAX_YOUTUBE_LAYERS;
+}
 
 export function createDefaultNoiseLayer(
   id: string,

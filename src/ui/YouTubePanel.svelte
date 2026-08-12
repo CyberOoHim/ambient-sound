@@ -5,7 +5,7 @@
     deleteYouTubeItem,
     type YouTubeItem,
   } from '../app/youtube-urls';
-  import { MAX_YOUTUBE_LAYERS } from '../audio/types';
+  import { getMaxYoutubeLayers } from '../audio/types';
 
   interface Props {
     layers: import('../audio/types').MixerLayer[];
@@ -20,10 +20,11 @@
   let errorMessage = $state<string | null>(null);
   let savedItems = $state<YouTubeItem[]>(loadSavedYouTubeItems());
 
+  let maxYoutubeLayers = $derived(getMaxYoutubeLayers());
   let activeYoutubeCount = $derived(
     layers.filter((l) => l.kind === 'youtube').length,
   );
-  let isYoutubeCapReached = $derived(activeYoutubeCount >= MAX_YOUTUBE_LAYERS);
+  let isYoutubeCapReached = $derived(activeYoutubeCount >= maxYoutubeLayers);
 
   async function handleAddUrl(e?: SubmitEvent) {
     if (e) e.preventDefault();
@@ -66,12 +67,15 @@
       <h3>YouTube Audio Streams</h3>
     </div>
     <div class="channel-cap-badge" class:at-cap={isYoutubeCapReached}>
-      {activeYoutubeCount} / {MAX_YOUTUBE_LAYERS} Channels in Mix
+      {activeYoutubeCount} / {maxYoutubeLayers} {maxYoutubeLayers === 1 ? 'Channel' : 'Channels'} in Mix
     </div>
   </div>
 
   <p class="panel-intro">
     Paste YouTube URLs to stream background lofi, rain sounds, or music channels alongside your ambient mix.
+    {#if maxYoutubeLayers === 1}
+      <span class="ios-cap-note">Note: iOS WebKit limits media playback to 1 YouTube stream at a time.</span>
+    {/if}
   </p>
 
   <form class="add-form" onsubmit={handleAddUrl}>
@@ -390,5 +394,13 @@
   .btn-delete:hover {
     color: #f87171;
     border-color: rgba(248, 113, 113, 0.4);
+  }
+
+  .ios-cap-note {
+    display: block;
+    margin-top: 0.35rem;
+    font-size: 0.73rem;
+    color: #f59e0b;
+    font-style: italic;
   }
 </style>
