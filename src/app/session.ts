@@ -1337,9 +1337,10 @@ export class Session {
       lowpassHz?: number;
     } = { pan: p, volumeLinear: v };
     if (opts?.coupleFilter) {
-      // Near (v high) → open LP; far (v low) → muffled
-      const t = Math.max(0, Math.min(1, v));
-      const lp = 800 + t * (FILTER_LP_OPEN_HZ - 800);
+      // Natural Realism Distance Model: Near (v high ~ 1.0) -> crisp ~14,000 Hz, Far (v low ~ 0.0) -> air absorbed ~1,200 Hz
+      const vClamped = Math.max(0, Math.min(1, v));
+      const distanceFactor = 1.0 - vClamped;
+      const lp = Math.round(14000 - distanceFactor * 12800);
       patch.lowpassHz = clampLowpassHz(lp);
     }
     this.updateLayerCommon(id, patch);

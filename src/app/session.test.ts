@@ -422,4 +422,27 @@ describe('Session surpriseMe behavior', () => {
   });
 });
 
+describe('Session setLayerSpatial physics model', () => {
+  it('applies air absorption filter roll-off when coupleFilter is enabled', () => {
+    const session = new Session();
+    session.addNoiseLayer('rain');
+    const layerId = session.layers[0].params.id;
 
+    // Near field (vol = 1.0) -> high cutoff (14,000 Hz)
+    session.setLayerSpatial(layerId, 0.5, 1.0, { coupleFilter: true });
+    expect(session.layers[0].params.pan).toBe(0.5);
+    expect(session.layers[0].params.volumeLinear).toBe(1.0);
+    expect(session.layers[0].params.lowpassHz).toBe(14000);
+
+    // Mid field (vol = 0.5) -> distance factor 0.5 -> ~7,600 Hz
+    session.setLayerSpatial(layerId, -0.2, 0.5, { coupleFilter: true });
+    expect(session.layers[0].params.pan).toBe(-0.2);
+    expect(session.layers[0].params.volumeLinear).toBe(0.5);
+    expect(session.layers[0].params.lowpassHz).toBe(7600);
+
+    // Far field (vol = 0.0) -> air absorbed (~1,200 Hz)
+    session.setLayerSpatial(layerId, 0, 0, { coupleFilter: true });
+    expect(session.layers[0].params.volumeLinear).toBe(0);
+    expect(session.layers[0].params.lowpassHz).toBe(1200);
+  });
+});
