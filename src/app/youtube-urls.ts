@@ -125,14 +125,14 @@ export async function fetchYouTubeTitle(videoId: string): Promise<string> {
 
 /**
  * Load user's saved YouTube list from localStorage.
- * Populates with default streams on first run.
+ * Populates with default streams only on initial run when storage key is absent.
  */
 export function loadSavedYouTubeItems(): YouTubeItem[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
+    if (raw !== null) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return parsed;
       }
     }
@@ -140,7 +140,7 @@ export function loadSavedYouTubeItems(): YouTubeItem[] {
     // Fall back to default items
   }
 
-  // Populate default items with IDs and timestamps
+  // Populate default items with IDs and timestamps on first run
   const defaults: YouTubeItem[] = DEFAULT_YOUTUBE_ITEMS.map((item, idx) => ({
     ...item,
     id: `yt-default-${idx + 1}`,
@@ -149,6 +149,30 @@ export function loadSavedYouTubeItems(): YouTubeItem[] {
 
   saveYouTubeItemsToStorage(defaults);
   return defaults;
+}
+
+/**
+ * Restores curated default YouTube channels into the saved list without
+ * removing or replacing existing user custom entries.
+ */
+export function restoreDefaultYouTubeItems(): YouTubeItem[] {
+  const saved = loadSavedYouTubeItems();
+  const existingVideoIds = new Set(saved.map((item) => item.videoId));
+
+  const defaultsToAdd: YouTubeItem[] = [];
+  DEFAULT_YOUTUBE_ITEMS.forEach((item, idx) => {
+    if (!existingVideoIds.has(item.videoId)) {
+      defaultsToAdd.push({
+        ...item,
+        id: `yt-default-${Date.now()}-${idx + 1}`,
+        addedAt: Date.now() - (DEFAULT_YOUTUBE_ITEMS.length - idx) * 1000,
+      });
+    }
+  });
+
+  const updated = [...saved, ...defaultsToAdd];
+  saveYouTubeItemsToStorage(updated);
+  return updated;
 }
 
 /**

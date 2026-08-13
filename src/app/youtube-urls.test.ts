@@ -6,6 +6,7 @@ import {
   loadSavedYouTubeItems,
   addYouTubeItem,
   deleteYouTubeItem,
+  restoreDefaultYouTubeItems,
 } from './youtube-urls';
 
 // Simple in-memory localStorage mock for node environment
@@ -30,29 +31,29 @@ Object.defineProperty(globalThis, 'localStorage', {
   writable: true,
 });
 
-describe('YouTube URLs Manager', () => {
+describe('youtube-urls', () => {
   beforeEach(() => {
-    localStorage.clear();
+    localStorageMock.clear();
     vi.restoreAllMocks();
   });
 
   describe('extractYouTubeVideoId', () => {
-    it('extracts ID from standard watch URL', () => {
+    it('extracts video ID from standard watch URL', () => {
       expect(extractYouTubeVideoId('https://www.youtube.com/watch?v=jfKfPfyJRdk')).toBe('jfKfPfyJRdk');
       expect(extractYouTubeVideoId('https://youtube.com/watch?v=4xDzrJKXOOY&t=10s')).toBe('4xDzrJKXOOY');
     });
 
-    it('extracts ID from short URL (youtu.be)', () => {
+    it('extracts video ID from short link (youtu.be)', () => {
       expect(extractYouTubeVideoId('https://youtu.be/jfKfPfyJRdk')).toBe('jfKfPfyJRdk');
     });
 
-    it('extracts ID from live/embed/shorts path URLs', () => {
+    it('extracts video ID from live / embed / shorts paths', () => {
       expect(extractYouTubeVideoId('https://www.youtube.com/live/jfKfPfyJRdk')).toBe('jfKfPfyJRdk');
       expect(extractYouTubeVideoId('https://www.youtube.com/embed/jfKfPfyJRdk')).toBe('jfKfPfyJRdk');
       expect(extractYouTubeVideoId('https://www.youtube.com/shorts/jfKfPfyJRdk')).toBe('jfKfPfyJRdk');
     });
 
-    it('returns raw ID if given valid 11-character string', () => {
+    it('accepts raw 11-char video ID', () => {
       expect(extractYouTubeVideoId('jfKfPfyJRdk')).toBe('jfKfPfyJRdk');
     });
 
@@ -64,7 +65,7 @@ describe('YouTube URLs Manager', () => {
   });
 
   describe('getYouTubeThumbnailUrl', () => {
-    it('returns standard mqdefault thumbnail URL', () => {
+    it('returns valid mqdefault thumbnail URL', () => {
       expect(getYouTubeThumbnailUrl('jfKfPfyJRdk')).toBe(
         'https://img.youtube.com/vi/jfKfPfyJRdk/mqdefault.jpg',
       );
@@ -72,7 +73,7 @@ describe('YouTube URLs Manager', () => {
   });
 
   describe('fetchYouTubeTitle', () => {
-    it('returns oEmbed title on successful response', async () => {
+    it('returns fetched title when oEmbed succeeds', async () => {
       vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
         ok: true,
         json: async () => ({ title: 'Test Ambient Stream' }),
@@ -95,6 +96,48 @@ describe('YouTube URLs Manager', () => {
       const items = loadSavedYouTubeItems();
       expect(items.length).toBeGreaterThan(0);
       expect(items[0].videoId).toBe('P2fbPIIVNMg');
+    });
+
+    it('keeps empty list when user deletes all items, and adding new item under empty list does not restore defaults', async () => {
+      const initial = loadSavedYouTubeItems();
+      for (const item of initial) {
+        deleteYouTubeItem(item.id);
+      }
+
+      const empty = loadSavedYouTubeItems();
+      expect(empty).toEqual([]);
+
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ title: 'Custom Stream Title' }),
+      } as Response);
+
+      const res = await addYouTubeItem('https://www.youtube.com/watch?v=abc12345678');
+      expect(res.item).not.toBeNull();
+
+      const afterAdd = loadSavedYouTubeItems();
+      expect(afterAdd.length).toBe(1);
+      expect(afterAdd[0].videoId).toBe('abc12345678');
+    });
+
+    it('restores default items using restoreDefaultYouTubeItems while retaining custom items', async () => {
+      const initial = loadSavedYouTubeItems();
+      for (const item of initial) {
+        deleteYouTubeItem(item.id);
+      }
+
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ title: 'My Custom Stream' }),
+      } as Response);
+
+      await addYouTubeItem('https://www.youtube.com/watch?v=custom11111');
+      expect(loadSavedYouTubeItems().length).toBe(1);
+
+      const restored = restoreDefaultYouTubeItems();
+      expect(restored.length).toBe(4);
+      expect(restored.some((it) => it.videoId === 'custom11111')).toBe(true);
+      expect(restored.some((it) => it.videoId === 'P2fbPIIVNMg')).toBe(true);
     });
 
     it('adds new YouTube item', async () => {

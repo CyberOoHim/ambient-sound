@@ -3,6 +3,7 @@
     loadSavedYouTubeItems,
     addYouTubeItem,
     deleteYouTubeItem,
+    restoreDefaultYouTubeItems,
     type YouTubeItem,
   } from '../app/youtube-urls';
   import { getMaxYoutubeLayers } from '../audio/types';
@@ -52,6 +53,10 @@
     savedItems = deleteYouTubeItem(id);
   }
 
+  function handleRestoreDefaults() {
+    savedItems = restoreDefaultYouTubeItems();
+  }
+
   async function handleAddToMix(item: YouTubeItem) {
     if (isYoutubeCapReached || !canAddLayer) return;
     await onAddYoutube(item.videoId, item.url, item.title, item.thumbnailUrl);
@@ -96,10 +101,29 @@
   </form>
 
   <div class="saved-section">
-    <h4>Saved YouTube Channels ({savedItems.length})</h4>
+    <div class="saved-header">
+      <h4>Saved YouTube Channels ({savedItems.length})</h4>
+      <button
+        type="button"
+        class="btn-restore-defaults"
+        title="Add back curated default YouTube channels without removing custom entries"
+        onclick={handleRestoreDefaults}
+      >
+        + Add Back Defaults
+      </button>
+    </div>
 
     {#if savedItems.length === 0}
-      <p class="empty-state">No saved YouTube streams yet. Paste a URL above to add one!</p>
+      <div class="empty-state-box">
+        <p class="empty-state">No saved YouTube streams yet. Paste a URL above to add one, or restore defaults.</p>
+        <button
+          type="button"
+          class="btn-restore-defaults-large"
+          onclick={handleRestoreDefaults}
+        >
+          + Restore Default Channels
+        </button>
+      </div>
     {:else}
       <div class="yt-grid">
         {#each savedItems as item (item.id)}
@@ -260,17 +284,70 @@
     color: #f87171;
   }
 
-  .saved-section h4 {
-    margin: 0 0 0.6rem 0;
+  .saved-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.6rem;
+  }
+
+  .saved-header h4 {
+    margin: 0;
     font-size: 0.9rem;
     color: #cbd5e1;
     font-weight: 500;
+  }
+
+  .btn-restore-defaults {
+    padding: 0.25rem 0.6rem;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.05);
+    color: #38bdf8;
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+
+  .btn-restore-defaults:hover {
+    background: rgba(56, 189, 248, 0.15);
+    border-color: rgba(56, 189, 248, 0.4);
+  }
+
+  .empty-state-box {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.8rem;
+    background: rgba(15, 23, 42, 0.4);
+    border: 1px dashed rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+  }
+
+  .btn-restore-defaults-large {
+    padding: 0.45rem 0.8rem;
+    border-radius: 6px;
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    background: rgba(14, 116, 144, 0.2);
+    color: #38bdf8;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+
+  .btn-restore-defaults-large:hover {
+    background: rgba(14, 116, 144, 0.35);
+    border-color: #38bdf8;
   }
 
   .empty-state {
     font-size: 0.85rem;
     color: #64748b;
     font-style: italic;
+    margin: 0;
   }
 
   .yt-grid {
