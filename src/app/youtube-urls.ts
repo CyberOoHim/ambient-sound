@@ -17,22 +17,22 @@ const STORAGE_KEY = 'ambient_sound_youtube_saved_urls';
 /** Default curated ambient YouTube streams for initial quick selection */
 const DEFAULT_YOUTUBE_ITEMS: Omit<YouTubeItem, 'id' | 'addedAt'>[] = [
   {
-    videoId: 'jfKfPfyJRdk',
-    title: 'Lofi Girl - lofi hip hop radio - beats to relax/study to',
-    url: 'https://www.youtube.com/watch?v=jfKfPfyJRdk',
-    thumbnailUrl: 'https://img.youtube.com/vi/jfKfPfyJRdk/mqdefault.jpg',
+    videoId: 'P2fbPIIVNMg',
+    title: 'あの日のラジオから流れていた70年代のヒット曲 – 昭和歌謡 懐かしい名曲メドレー',
+    url: 'https://www.youtube.com/watch?v=P2fbPIIVNMg',
+    thumbnailUrl: 'https://img.youtube.com/vi/P2fbPIIVNMg/mqdefault.jpg',
   },
   {
-    videoId: '4xDzrJKXOOY',
-    title: 'Lofi Girl - synthwave radio - chill beats to relax/study to',
-    url: 'https://www.youtube.com/watch?v=4xDzrJKXOOY',
-    thumbnailUrl: 'https://img.youtube.com/vi/4xDzrJKXOOY/mqdefault.jpg',
+    videoId: 'MRQsx1-_1jc',
+    title: '♫ 乾淨無廣告 ♫ ASMR 純西藏頌缽. 療癒失眠. 冥想. 靜心 Tibetan Healing Sounds - Singing Bowls',
+    url: 'https://www.youtube.com/watch?v=MRQsx1-_1jc',
+    thumbnailUrl: 'https://img.youtube.com/vi/MRQsx1-_1jc/mqdefault.jpg',
   },
   {
-    videoId: 'mPZkdNFkNps',
-    title: 'Relaxing Rain Sounds for Sleeping & Studying',
-    url: 'https://www.youtube.com/watch?v=mPZkdNFkNps',
-    thumbnailUrl: 'https://img.youtube.com/vi/mPZkdNFkNps/mqdefault.jpg',
+    videoId: 'XjGnGz1WW0c',
+    title: 'Between Shadow and Light | 30 minutes handpan music | Konstantin Rössler',
+    url: 'https://www.youtube.com/watch?v=XjGnGz1WW0c',
+    thumbnailUrl: 'https://img.youtube.com/vi/XjGnGz1WW0c/mqdefault.jpg',
   },
 ];
 

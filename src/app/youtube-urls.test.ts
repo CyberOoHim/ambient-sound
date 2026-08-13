@@ -94,7 +94,7 @@ describe('YouTube URLs Manager', () => {
     it('loads default curated items when localStorage is empty', () => {
       const items = loadSavedYouTubeItems();
       expect(items.length).toBeGreaterThan(0);
-      expect(items[0].videoId).toBe('jfKfPfyJRdk');
+      expect(items[0].videoId).toBe('P2fbPIIVNMg');
     });
 
     it('adds new YouTube item', async () => {
