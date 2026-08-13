@@ -459,6 +459,12 @@ export class YouTubePlayerManager {
     document.getElementById(containerId)?.remove();
     const frameDiv = document.createElement('div');
     frameDiv.id = containerId;
+    frameDiv.style.position = 'absolute';
+    frameDiv.style.width = '1px';
+    frameDiv.style.height = '1px';
+    frameDiv.style.opacity = '0';
+    frameDiv.style.overflow = 'hidden';
+    frameDiv.style.pointerEvents = 'none';
     hostElement.appendChild(frameDiv);
 
     const generation = entry.generation;
@@ -542,6 +548,12 @@ export class YouTubePlayerManager {
                   );
                   iframe.setAttribute('playsinline', '1');
                   iframe.setAttribute('webkit-playsinline', '1');
+                  if (iframe.style) {
+                    iframe.style.opacity = '0';
+                    iframe.style.width = '1px';
+                    iframe.style.height = '1px';
+                    iframe.style.pointerEvents = 'none';
+                  }
                 }
               } catch {
                 /* */

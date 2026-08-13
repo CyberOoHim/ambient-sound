@@ -1982,17 +1982,27 @@
     align-self: center;
   }
 
-  /* Keep a real on-screen box so browsers do not throttle the iframe as off-screen media. */
+  /* Keep element in layout so browsers do not throttle iframe background media playback, but render visually zero opacity/pixels. */
   .yt-host-container {
     position: fixed;
     bottom: 0;
     right: 0;
-    width: 200px;
-    height: 112px;
+    width: 1px;
+    height: 1px;
     overflow: hidden;
-    opacity: 0.04;
+    opacity: 0;
     pointer-events: none;
-    z-index: 1;
+    clip-path: inset(100%);
+    clip: rect(0, 0, 0, 0);
+    z-index: -9999;
+  }
+
+  :global(.yt-host-container iframe) {
+    width: 1px !important;
+    height: 1px !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    border: none !important;
   }
 
   .yt-status {
