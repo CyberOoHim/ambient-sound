@@ -912,6 +912,15 @@ export class Session {
       return '';
     }
 
+    const alreadyExists = this.layers.some(
+      (l) => l.kind === 'youtube' && l.params.videoId === videoId,
+    );
+    if (alreadyExists) {
+      this.setLoadNotice('This YouTube stream is already in your mix.');
+      this.notify();
+      return '';
+    }
+
     const id = uid('yt');
     const layer: MixerLayer = {
       kind: 'youtube',
@@ -1009,42 +1018,9 @@ export class Session {
     }
 
     if (targetLayer.kind === 'youtube') {
-      const maxYt = getMaxYoutubeLayers();
-      const youtubeCount = this.layers.filter((l) => l.kind === 'youtube').length;
-      if (youtubeCount >= maxYt) {
-        const msg =
-          maxYt === 1
-            ? 'iOS only supports 1 active YouTube stream at a time.'
-            : `Maximum ${maxYt} YouTube channels allowed.`;
-        this.setLoadNotice(msg);
-        this.notify();
-        return '';
-      }
-
-      const newId = uid('yt');
-      const duplicated: MixerLayer = {
-        kind: 'youtube',
-        params: {
-          ...targetLayer.params,
-          id: newId,
-          solo: false,
-        },
-      };
-      this.layers = [...this.layers, duplicated];
-      this.youtubeStatus.set(newId, 'loading');
-
-      void loadYouTubeApi().catch(() => {});
-
-      if (this.playing) {
-        void this.ensureYoutubeInEngine(duplicated, true).then(() => {
-          audioEngine.applyMuteSolo(this.layers);
-        });
-      } else {
-        void this.ensureYoutubeInEngine(duplicated, false);
-      }
+      this.setLoadNotice('YouTube streams cannot be duplicated.');
       this.notify();
-      this.schedulePersist();
-      return newId;
+      return '';
     }
 
     if (targetLayer.kind === 'noise') {
@@ -1707,11 +1683,16 @@ export class Session {
     this.youtubeStatus.clear();
     this.masterVolumeLinear = clampLinear(preset.master.volumeLinear);
     this.masterTone = masterToneFromPreset(preset.master);
-    // Enforce YouTube layer limit from presets/share links
+    // Enforce YouTube layer limit & prevent duplicate YouTube streams from presets/share links
     const maxYt = getMaxYoutubeLayers();
     let youtubeCount = 0;
+    const seenYtVideoIds = new Set<string>();
     const filteredLayers = preset.layers.filter((l) => {
       if (l.kind === 'youtube') {
+        if (seenYtVideoIds.has(l.params.videoId)) {
+          return false;
+        }
+        seenYtVideoIds.add(l.params.videoId);
         youtubeCount++;
         return youtubeCount <= maxYt;
       }

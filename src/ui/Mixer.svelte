@@ -361,6 +361,8 @@
   }
 
   async function duplicateLayer(id: string) {
+    const layer = session.layers.find((l) => l.params.id === id);
+    if (layer?.kind === 'youtube') return;
     await session.duplicateLayer(id);
     syncFromSession();
   }
@@ -769,8 +771,9 @@
               <button
                 type="button"
                 class="chip duplicate"
-                aria-label="Duplicate layer"
-                title="Duplicate"
+                disabled={layer.kind === 'youtube'}
+                aria-label={layer.kind === 'youtube' ? 'Duplication disabled for YouTube streams' : 'Duplicate layer'}
+                title={layer.kind === 'youtube' ? 'Duplication disabled for YouTube streams' : 'Duplicate'}
                 onclick={() => duplicateLayer(layer.params.id)}
               >
                 ❐
@@ -1801,7 +1804,13 @@
     background: var(--danger-dim);
   }
 
-  .chip.duplicate:hover {
+  .chip:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  .chip.duplicate:hover:not(:disabled) {
     border-color: var(--accent);
     color: var(--accent);
   }

@@ -513,22 +513,33 @@ describe('Session duplicate layer & max same layer caps', () => {
     expect(session.loadNotice).toContain('Layer limit reached (10)');
   });
 
-  it('enforces YouTube streaming cap of 3 on desktop during duplication', async () => {
+  it('disallows YouTube layer duplication and duplicate stream addition', async () => {
     const session = new Session();
     session.layers = [];
     const yt1 = await session.addYoutubeLayer('v1', 'https://youtube.com/watch?v=v1', 'Stream 1', '');
     expect(yt1).toBeTruthy();
 
-    const yt2 = await session.duplicateLayer(yt1);
-    expect(yt2).toBeTruthy();
-    expect(session.layers.length).toBe(2);
+    // Attempting to duplicate YouTube layer should be blocked
+    const dupYt = await session.duplicateLayer(yt1);
+    expect(dupYt).toBe('');
+    expect(session.layers.length).toBe(1);
+    expect(session.loadNotice).toBe('YouTube streams cannot be duplicated.');
 
-    const yt3 = await session.duplicateLayer(yt1);
+    // Attempting to add the exact same YouTube stream (same videoId) should be blocked
+    const sameYt = await session.addYoutubeLayer('v1', 'https://youtube.com/watch?v=v1', 'Stream 1 copy', '');
+    expect(sameYt).toBe('');
+    expect(session.layers.length).toBe(1);
+    expect(session.loadNotice).toBe('This YouTube stream is already in your mix.');
+
+    // Adding distinct YouTube channels up to cap (3) should succeed
+    const yt2 = await session.addYoutubeLayer('v2', 'https://youtube.com/watch?v=v2', 'Stream 2', '');
+    const yt3 = await session.addYoutubeLayer('v3', 'https://youtube.com/watch?v=v3', 'Stream 3', '');
+    expect(yt2).toBeTruthy();
     expect(yt3).toBeTruthy();
     expect(session.layers.length).toBe(3);
 
-    // 4th YouTube layer should fail (desktop limit is 3)
-    const yt4 = await session.duplicateLayer(yt1);
+    // 4th YouTube channel should fail cap limit
+    const yt4 = await session.addYoutubeLayer('v4', 'https://youtube.com/watch?v=v4', 'Stream 4', '');
     expect(yt4).toBe('');
     expect(session.layers.length).toBe(3);
     expect(session.loadNotice).toBe('Maximum 3 YouTube channels allowed.');
