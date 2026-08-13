@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { Session } from './session';
+import { DUPLICATE_MIN_OFFSET_DEFAULT_SEC } from '../audio/dsp/loop';
 
 describe('Session empty mix layer behavior', () => {
   let session: Session;
@@ -534,3 +535,22 @@ describe('Session duplicate layer & max same layer caps', () => {
   });
 });
 
+describe('Session mix settings defaults', () => {
+  it('resets master tone and duplicate min offset to default values', () => {
+    const session = new Session();
+    session.setMasterTone({ bassDb: 6, trebleDb: -4, reverbWet: 0.3 });
+    session.setDuplicateMinOffsetSec(12);
+
+    expect(session.masterTone.bassDb).toBe(6);
+    expect(session.masterTone.trebleDb).toBe(-4);
+    expect(session.masterTone.reverbWet).toBe(0.3);
+    expect(session.duplicateMinOffsetSec).toBe(12);
+
+    session.resetMixSettingsDefaults();
+
+    expect(session.masterTone.bassDb).toBe(0);
+    expect(session.masterTone.trebleDb).toBe(0);
+    expect(session.masterTone.reverbWet).toBe(0);
+    expect(session.duplicateMinOffsetSec).toBe(DUPLICATE_MIN_OFFSET_DEFAULT_SEC);
+  });
+});

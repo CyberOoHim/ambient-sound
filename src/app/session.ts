@@ -858,6 +858,11 @@ export class Session {
     this.schedulePersist();
   }
 
+  resetMixSettingsDefaults(): void {
+    this.setMasterTone(defaultMasterTone());
+    this.setDuplicateMinOffsetSec(DUPLICATE_MIN_OFFSET_DEFAULT_SEC);
+  }
+
   async addNoiseLayer(type: NoiseType = 'white'): Promise<void> {
     if (!this.canAddLayer()) {
       this.setLoadNotice(this.layerCapMessage());

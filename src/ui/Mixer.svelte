@@ -11,15 +11,19 @@
   import {
     FILTER_HP_OPEN_HZ,
     FILTER_LP_OPEN_HZ,
+    MASTER_BASS_DB_DEFAULT,
     MASTER_EQ_DB_MAX,
     MASTER_EQ_DB_MIN,
+    MASTER_REVERB_WET_DEFAULT,
     MASTER_REVERB_WET_MAX,
+    MASTER_TREBLE_DB_DEFAULT,
     PAN_LFO_RATE_MAX_HZ,
     PAN_LFO_RATE_MIN_HZ,
     type MixerLayer,
   } from '../audio/types';
   import type { SoundCatalog } from '../assets/catalog';
   import {
+    DUPLICATE_MIN_OFFSET_DEFAULT_SEC,
     DUPLICATE_MIN_OFFSET_MAX_SEC,
     DUPLICATE_MIN_OFFSET_MIN_SEC,
   } from '../audio/dsp/loop';
@@ -238,6 +242,18 @@
     const v = Number((e.target as HTMLInputElement).value);
     session.setMasterTone({ reverbWet: v });
     masterReverbWet = session.masterTone.reverbWet;
+  }
+
+  const isMixSettingsDefault = $derived(
+    masterBassDb === MASTER_BASS_DB_DEFAULT &&
+      masterTrebleDb === MASTER_TREBLE_DB_DEFAULT &&
+      masterReverbWet === MASTER_REVERB_WET_DEFAULT &&
+      minOffsetSec === DUPLICATE_MIN_OFFSET_DEFAULT_SEC
+  );
+
+  function resetMixSettings() {
+    session.resetMixSettingsDefaults();
+    syncFromSession();
   }
 
   function dismissMobileTip() {
@@ -659,6 +675,18 @@
         <p class="dup-hint">
           Extra copies start later in the loop so they thicken the mix, not only the volume.
         </p>
+
+        <div class="settings-footer">
+          <button
+            type="button"
+            class="reset-settings-btn"
+            onclick={resetMixSettings}
+            disabled={isMixSettingsDefault}
+            title="Reset mix settings to defaults"
+          >
+            Reset to default
+          </button>
+        </div>
       </div>
     {/if}
 
@@ -1413,6 +1441,37 @@
     font-size: 0.65rem;
     line-height: 1.35;
     color: var(--muted-soft);
+  }
+
+  .settings-footer {
+    margin-top: 0.65rem;
+    padding-top: 0.5rem;
+    border-top: 1px dashed var(--border);
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .reset-settings-btn {
+    padding: 0.3rem 0.65rem;
+    font-size: 0.72rem;
+    font-weight: 550;
+    color: var(--text-soft);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .reset-settings-btn:hover:not(:disabled) {
+    color: var(--text);
+    background: var(--card-soft);
+    border-color: var(--border-soft);
+  }
+
+  .reset-settings-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
   }
 
   .controls-compact.filters {
