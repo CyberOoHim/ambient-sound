@@ -9,16 +9,18 @@ An offline-first noise, ambient sound, brainwave entrainment, and YouTube audio 
 
 - **Procedural Noise Generators:** Custom Web Audio API DSP noise synth supporting 8 color/tone variations (White, Pink, Brown, Blue, Violet, Rain, Fan, Static) with mono/stereo width control.
 - **Curated Ambient Sample Library:** 69 high-quality natural field recording loops across 16 categories (Rain, Thunder, Ocean, Water, Stream, Waterfall, Cave, Wind, Forest, Birds, Insects, Frogs, Fire, Indoor, Urban, Transport).
-- **YouTube Audio Integration:** Embed and sync YouTube streams or video tracks (e.g. Lofi Girl, rain streams) as audio mixer layers with oEmbed metadata fetching, saved favorites, and iframe sync.
-- **Binaural Beats & Isochronic Tones:** Brainwave entrainment engine offering Binaural (stereo phase offset) and Isochronic (pulsed tone) sound modes across Delta (1–4 Hz), Theta (4–8 Hz), Alpha (8–13 Hz), Beta (13–30 Hz), Gamma (30–50 Hz), and Custom frequency ranges with configurable carrier frequency and sine/triangle waveforms.
-- **Stochastic One-Shot Events:** Natural, non-repetitive background audio accents (bird chirps, owl hoots, thunder rolls, cave drips, fire pops, cup clinks, leaf snaps, page turns, etc.) using Poisson-process timing, dynamic pitch jitter, stereo panning, and distance low-pass filtering.
-- **Spatial Canvas & Auto-Pan:** Drag layers on an interactive 2D soundstage map (pan × volume) with optional LFO auto-panner per layer.
-- **Master DSP & Per-Layer Controls:** Master volume slider (linear/dB), Master Bass & Treble tone controls, Master Reverb, real-time peak level meter, per-layer High-Pass (HPF) and Low-Pass (LPF) filters, mute/solo gates, and layer duplication with randomized loop phase offset.
-- **Mood Themes & Spectrum Visualizer:** Palette shifts with active layer acoustics; soft audio spectrum and particle canvas (respects `prefers-reduced-motion`).
-- **Local Audio Import:** Drop custom MP3, WAV, OGG, FLAC, or WEBM audio files — stored locally in IndexedDB.
-- **Sleep Timer & Pomodoro Cycles:** Flexible duration with customizable linear/logarithmic fade-out curves, plus Pomodoro focus/break interval timer.
-- **Custom Presets & URL Hash Sharing:** Save full scenes (layers, gains, binaural tones, one-shots, YouTube streams, master tone) to `localStorage` or export/import JSON presets; share mixes via URL hash (`#mix=…`).
-- **Offline-First & Mobile Background Playback:** On mobile browsers (iOS & Android), playback routes through an HTML media element plus the Web Media Session API so audio continues when switching apps or locking the screen.
+- **YouTube Audio Integration:** Embed and sync YouTube live streams or video tracks as audio mixer layers with oEmbed metadata fetching, saved favorites, editable stream titles, search filtering, restore defaults, duplicate protection, and mobile streaming safety caps (max 2 active YouTube layers total, max 1 on iOS WebKit devices).
+- **Binaural Beats & Isochronic Tones:** Brainwave entrainment engine offering Binaural (stereo phase offset per ear) and Isochronic (pulsed tone) sound modes across Delta (1–4 Hz), Theta (4–8 Hz), Alpha (8–13 Hz), Beta (13–30 Hz), Gamma (30–50 Hz), and Custom frequency ranges with configurable carrier frequency and sine/triangle waveforms.
+- **Stochastic One-Shot Events & Natural Physics:** Natural, non-repetitive background audio accents (bird chirps, owl hoots, thunder rolls, cave drips, fire pops, cup clinks, leaf snaps, page turns, etc.) using Poisson-process timing and 7 Natural Realism Physics & DSP options (dynamic pitch jitter, stereo panning, distance low-pass filtering, Haas reflection micro-delays, transient ducking, and mobile performance safeguards).
+- **Spatial Canvas & Distance Air-Absorption DSP:** Drag layers on an interactive 2D soundstage grid (pan × distance/volume) with distance air-absorption high-frequency roll-off filtering and optional per-layer LFO auto-panners (rate & depth controls).
+- **Master DSP & Per-Layer Controls:** Master volume slider (linear/dB curves), Master Bass & Treble tone shelving filters, Master Synthetic Convolver Reverb, real-time peak level meter, per-layer High-Pass (HPF) and Low-Pass (LPF) filters, mute/solo gates, layer duplication (up to 3 per sound asset with randomized loop phase offset), and one-click Mix & YouTube panel default reset buttons.
+- **Mood Themes & Spectrum Visualizer:** Dynamic palette shifts based on active acoustic layers; real-time audio spectrum, particle canvas, and waveform visualizer (respects `prefers-reduced-motion`).
+- **Local Audio Import & Quota Management:** Drop custom MP3, WAV, OGG, FLAC, or WEBM audio files stored locally in IndexedDB with JSON backup import/export, unused layer cleanup, and storage quota feedback.
+- **Sleep Timer & Pomodoro Focus Cycles:** Flexible countdown timer (5–90 minutes or custom) with customizable linear/logarithmic fade-out curves, plus a Pomodoro interval timer for focus/break cycles.
+- **Custom Presets & URL Hash Sharing:** Save full scenes (layers, gains, spatial positions, EQ filters, timer defaults, binaural tones, YouTube streams, one-shots) to `localStorage` or export/import JSON presets; share mixes via compact `#mix=…` URL hash with ~0.4s scene crossfading.
+- **Offline-First & Mobile Background Audio:** Web Media Session API integration (lock screen controls, artwork, preset cycling) and HTML media element routing for mobile background playback on iOS & Android. Multi-tab playback ownership locking prevents audio collision across browser tabs.
+
+---
 
 ## Quick Start
 
@@ -32,9 +34,9 @@ pnpm dev
 
 Open the local server URL provided by Vite (typically `http://localhost:5173`). Click **Play** to start audio output (required due to browser autoplay policies).
 
-### Phone / tablet tips (iOS & Android)
+### Phone / Tablet Tips (iOS & Android)
 
-1. Tap **Play** once (required by autoplay rules).
+1. Tap **Play** once (required by browser autoplay rules).
 2. Switch apps or lock the screen — audio should continue and appear in system media controls (Control Center / notification shade / lock screen).
 3. If the OS later suspends the tab under memory pressure, return to the tab and it will try to resume automatically while Play is still active.
 4. **Android:** If sound stops soon after leaving Chrome, check **Settings → Apps → Chrome (or your browser) → Battery** and allow unrestricted / no restriction while playing. Some OEMs (Xiaomi, Huawei, Oppo, etc.) also have “app launch” or “battery saver” rules that kill background tabs.
@@ -55,49 +57,62 @@ Open the local server URL provided by Vite (typically `http://localhost:5173`). 
 | `pnpm sounds:freesound` | Fetch and process Freesound CC0 catalog samples |
 | `pnpm sounds:events` | Extract and process one-shot accent audio samples |
 
+---
+
 ### Shortcuts & Controls
 
 - **Spacebar:** Toggle playback Play/Pause (when focus is not on an input or selector element).
 
-### Sleep Timer
+### Sleep Timer & Pomodoro
 
-1. Select a countdown duration (5–90 minutes or custom value) and fade-out duration.
-2. Click **Start timer** (automatically starts audio playback if paused).
-3. The timer counts down; during the final fade window, master volume smoothly decreases to zero before stopping playback.
-4. Click **Cancel timer** at any time to abort the countdown and restore full volume.
+1. **Sleep Countdown:** Select a countdown duration (5–90 minutes or custom value) and fade-out curve. Click **Start timer** (starts audio playback if paused). During the final fade window, master volume smoothly decreases to zero before stopping playback.
+2. **Pomodoro Cycles:** Configure work/break interval timers with notification support for focus sessions.
+3. **Cancel:** Click **Cancel timer** at any time to abort the countdown and restore full volume.
 
 ### YouTube Audio Integration
 
-- **Add YouTube Streams:** Paste any YouTube video or live stream URL to stream audio as a mixer layer.
-- **Saved Stream Favorites:** Save favorite streams locally with oEmbed title & thumbnail previews.
-- **Transport Sync:** Synced play/pause, volume control, mute, and solo support alongside Web Audio layers.
+- **Add Streams:** Paste any YouTube video or live stream URL to add it as a mixer layer.
+- **Saved Stream Favorites:** Save favorite streams locally with automatic oEmbed title & thumbnail previews, editable custom display titles, and instant search filtering.
+- **Restore Defaults:** Restore the default curated stream list at any time or keep a customized empty list state without losing settings.
+- **Streaming Caps & Duplicate Protection:** Enforces stream safety caps (max 2 active YouTube layers total, max 1 on iOS WebKit devices due to autoplay limits) and prevents duplicate YouTube streams in the active mix. YouTube layers cannot be duplicated.
+- **Transport Sync:** Synced play/pause, volume control, mute, and solo support alongside Web Audio API layers.
+
+### Spatial Canvas & Distance Air-Absorption DSP
+
+- **2D Soundstage Grid:** Drag layer nodes on an interactive spatial canvas where X controls stereo panning (-1.0 to +1.0) and Y controls distance/gain.
+- **Air-Absorption Filtering:** Simulates real-world acoustic air absorption by applying continuous high-frequency low-pass filtering as distance increases.
+- **Auto-Pan LFO:** Enable optional low-frequency oscillator auto-panning per layer with configurable rate and depth controls.
+
+### Master DSP & Per-Layer Controls
+
+- **Tone & Reverb:** Master Bass & Treble shelving EQ controls plus synthetic convolver reverb wetness in Mix settings.
+- **Per-Layer Filters:** Individual High-Pass (HPF) and Low-Pass (LPF) filters per sound layer, persisted in presets and share URLs.
+- **Layer Duplication:** Duplicate active audio layers (up to 3 duplicates per catalog sound) with randomized loop phase offsets.
+- **Reset Controls:** One-click "Reset to Default" buttons in Mix settings and the YouTube panel to restore initial states easily.
 
 ### Binaural Beats & Brainwave Entrainment
 
 - **Tone Modes:** Toggle between Binaural beats (stereo frequency offset per ear) and Isochronic pulses.
 - **Brainwave Presets:** Quick select for Delta (1–4 Hz), Theta (4–8 Hz), Alpha (8–13 Hz), Beta (13–30 Hz), Gamma (30–50 Hz), or Custom frequencies.
-- **Waveforms:** Switch between smooth Sine and rich Triangle wave generators.
+- **Waveforms:** Switch between smooth Sine and harmonic Triangle wave generators.
 
-### Stochastic One-Shot Events
+### Stochastic One-Shot Events & Natural Physics
 
-- **Natural Randomization:** Triggers random sample accents based on an exponential Poisson timing distribution to prevent predictable patterns.
-- **Dynamic Acoustic Variation:** Applies dynamic pitch/rate jitter, randomized stereo positioning (`StereoPannerNode`), and distance-based low-pass filtering.
-- **Configurable Density:** Adjust event frequency presets (Sparse, Natural, Dynamic) or test triggers instantly with **Trigger Now**.
+- **Poisson Process Timing:** Triggers random sound accents using an exponential Poisson distribution for organic, non-periodic timing.
+- **7 Natural Realism Physics & DSP Options:** Includes dynamic pitch/rate jitter, randomized stereo positioning (`StereoPannerNode`), distance low-pass filtering, Haas reflection micro-delays, transient ducking, spatial panning, and mobile performance safeguards.
+- **Density & Manual Triggers:** Choose frequency density presets (Sparse, Natural, Dynamic) or fire events instantly using **Trigger Now**.
 
-### Presets & State
+### Presets, Sharing & Crossfading
 
-- **Save Presets:** Save the full **scene** — layers, gains, spatial positions, EQ filters, timer defaults, binaural/isochronic tones, YouTube streams, and one-shot settings — to `localStorage`.
-- **Load Presets:** Click any saved preset to apply its configuration immediately.
-- **Session Persistence:** Automatically saves your active state on reload.
-- **Share link:** Use **Copy link** to put a URL with `#mix=…` on the clipboard; opening the link restores the scene (no account/backend).
-- **Import / Export:** Use **Copy JSON** and **Paste JSON** to back up or share custom mix presets as JSON.
-- **Attributions:** Footer → **Attributions** lists every Freesound credit from the catalog (also `#attributions`).
+- **Save Presets:** Save full scene configurations — active layers, gains, spatial coordinates, EQ filters, timer settings, binaural tones, YouTube streams, and one-shots — to `localStorage`.
+- **URL Hash Sharing:** Use **Copy link** to share mixes via URL hash (`#mix=…`) with no server required.
+- **Preset Crossfading:** Seamless ~0.4s crossfade when loading presets or applying shared links while playback is active.
+- **Import / Export Backup:** Back up custom presets via JSON copy/paste.
 
-### Ambient Sound Library
+### Local Audio Import & Storage
 
-- Add procedural noise, curated CC0 field recordings (69 sounds across 16 categories), or YouTube streams from the **Library** panel.
-- Import custom MP3, WAV, OGG, FLAC, or WEBM loops saved locally in IndexedDB.
-- Sound catalog manifest: `public/sounds/catalog.json`.
+- **Custom Loops:** Drop MP3, WAV, OGG, FLAC, or WEBM audio files to store them locally in IndexedDB and mix them offline.
+- **Storage Management:** Export/import local audio library backups, monitor browser storage usage estimates, and remove unused files.
 
 ---
 
@@ -111,7 +126,7 @@ Open the local server URL provided by Vite (typically `http://localhost:5173`). 
 ```
 src/
 ├── audio/
-│   ├── dsp/                   # Pure DSP calculations (noise algorithms, dB curves, loop offset)
+│   ├── dsp/                   # Pure DSP calculations (noise synth, dB curves, loop offset)
 │   ├── worklets/              # AudioWorklet processor implementation (noise-processor.js)
 │   ├── binaural-engine.ts     # Binaural & Isochronic beat tone generator engine
 │   ├── decode-cache.ts        # Audio buffer decode & progressive progress cache manager
@@ -187,4 +202,5 @@ The ambient field recording audio samples included in this repository are source
 
 - **License:** CC0 1.0 Universal (Public Domain).
 - **Attribution & Provenance:** Although attribution is not legally required under CC0 1.0, full credits, author names, original track titles, and direct Freesound page links for all included samples are documented in **[ATTRIBUTIONS.md](ATTRIBUTIONS.md)**.
+
 
