@@ -34,8 +34,10 @@
   import BinauralPanel from './BinauralPanel.svelte';
   import YouTubePanel from './YouTubePanel.svelte';
   import AttributionsPanel from './AttributionsPanel.svelte';
+  import InstallModal from './InstallModal.svelte';
   import SpatialCanvas from './SpatialCanvas.svelte';
   import { audioEngine } from '../audio/engine';
+  import { pwa } from '../app/pwa';
   import { syncMoodFromLayers } from './mood-theme';
   import { formatRemaining } from './format';
 
@@ -60,6 +62,8 @@
   let timerRemainingMs = $state<number | null>(session.remainingMs());
   let catalog = $state<SoundCatalog | null>(session.catalog);
   let showAttributions = $state(false);
+  let showInstallModal = $state(false);
+  let canInstall = $state(pwa.shouldShowInstall);
   let shareNotice = $state<string | null>(null);
   let showMobileTip = $state(false);
   let showMixSettings = $state(false);
@@ -91,6 +95,8 @@
 
   let meterRaf = 0;
   let unsub: (() => void) | undefined;
+  let unsubPwa: (() => void) | undefined;
+  let cleanupPwa: (() => void) | undefined;
 
   /** Ambient tips shown when no live status/info is active. */
   const STATUS_IDLE_MESSAGES = [
@@ -104,6 +110,7 @@
     'Drag on the spatial canvas to place layers in stereo.',
     'Import your own loops from the library.',
     'Copy link to share your current mix.',
+    'Install Ambient to your Home screen for instant offline focus.',
     'Mix settings ⚙: master tone and duplicate offset.',
     'Lowpass softens highs; highpass clears rumble.',
     'Solo a layer to hear it alone in the mix.',
@@ -436,6 +443,13 @@
     }
   }
 
+  async function handleInstallClick() {
+    const res = await pwa.triggerInstall();
+    if (res === 'ios-instructions' || res === 'other-instructions') {
+      showInstallModal = true;
+    }
+  }
+
   onMount(() => {
     if (ytHostDiv) {
       audioEngine.setYoutubeHostElement(ytHostDiv);
@@ -448,6 +462,10 @@
     });
     unsub = session.subscribe(() => {
       syncFromSession();
+    });
+    cleanupPwa = pwa.init();
+    unsubPwa = pwa.subscribe(() => {
+      canInstall = pwa.shouldShowInstall;
     });
     void session.whenCatalogReady().then(() => {
       libraryPanel?.sync();
@@ -490,6 +508,8 @@
     if (idleTipTimer) clearInterval(idleTipTimer);
     if (shareNoticeTimer) clearTimeout(shareNoticeTimer);
     unsub?.();
+    unsubPwa?.();
+    cleanupPwa?.();
   });
 
   function labelType(t: NoiseType): string {
@@ -591,6 +611,17 @@
         {/if}
       </h2>
       <div class="layers-actions">
+        {#if canInstall}
+          <button
+            type="button"
+            class="text-btn install-btn"
+            onclick={handleInstallClick}
+            title="Install Ambient as an app"
+          >
+            <span class="install-icon" aria-hidden="true">⬇</span>
+            <span>Install</span>
+          </button>
+        {/if}
         <button
           type="button"
           class="text-btn gear"
@@ -1077,6 +1108,12 @@
       <button type="button" class="footer-link" onclick={openAttributions}>
         Attributions
       </button>
+      {#if canInstall}
+        ·
+        <button type="button" class="footer-link" onclick={handleInstallClick}>
+          Install App
+        </button>
+      {/if}
     </p>
   </footer>
 </div>
@@ -1085,6 +1122,11 @@
   catalog={catalog}
   open={showAttributions}
   onclose={closeAttributions}
+/>
+
+<InstallModal
+  open={showInstallModal}
+  onclose={() => (showInstallModal = false)}
 />
 
 <div bind:this={ytHostDiv} class="yt-host-container"></div>
@@ -1363,7 +1405,32 @@
   .layers-actions {
     display: flex;
     align-items: center;
+    gap: 0.35rem;
+  }
+
+  .text-btn.install-btn {
+    display: inline-flex;
+    align-items: center;
     gap: 0.25rem;
+    color: var(--accent);
+    background: var(--accent-dim);
+    border: 1px solid var(--border-soft);
+    padding: 0.2rem 0.5rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.72rem;
+    font-weight: 650;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .text-btn.install-btn:hover {
+    color: var(--accent-ink);
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .install-icon {
+    font-size: 0.75rem;
+    line-height: 1;
   }
 
   .text-btn.gear {
