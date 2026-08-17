@@ -397,12 +397,13 @@
       ondragleave={() => (dragOver = false)}
       ondrop={onDrop}
     >
-      <p class="drop-title">Drop mp3 / wav / ogg here</p>
+      <p class="drop-title">Drop audio files here</p>
+      <p class="drop-sub">mp3 · wav · ogg · opus · flac · webm · aac · m4a · aiff</p>
       <p class="drop-sub">or click to browse · stays on this device</p>
       <input
         bind:this={fileInput}
         type="file"
-        accept="audio/*,.mp3,.wav,.ogg,.oga,.m4a,.flac,.webm"
+        accept="audio/*,.mp3,.wav,.ogg,.oga,.m4a,.flac,.webm,.weba,.opus,.aac,.aif,.aiff"
         multiple
         class="file-hidden"
         onchange={onFilePick}

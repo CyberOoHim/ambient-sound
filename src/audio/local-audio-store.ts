@@ -71,6 +71,9 @@ const ALLOWED_MIME = new Set([
   'audio/aac',
   'audio/flac',
   'audio/x-flac',
+  'audio/opus',
+  'audio/aiff',
+  'audio/x-aiff',
 ]);
 
 const ALLOWED_EXT = new Set([
@@ -79,9 +82,13 @@ const ALLOWED_EXT = new Set([
   '.ogg',
   '.oga',
   '.webm',
+  '.weba',
   '.m4a',
   '.aac',
   '.flac',
+  '.opus',
+  '.aif',
+  '.aiff',
 ]);
 
 export function isAllowedAudioFile(file: File): boolean {
@@ -90,7 +97,7 @@ export function isAllowedAudioFile(file: File): boolean {
   if (extOk) return true;
   if (file.type && ALLOWED_MIME.has(file.type)) return true;
   // Some browsers leave type empty for drag-drop
-  return /\.(mp3|wav|ogg|oga|webm|m4a|aac|flac)$/i.test(file.name);
+  return /\.(mp3|wav|ogg|oga|webm|weba|m4a|aac|flac|opus|aif|aiff)$/i.test(file.name);
 }
 
 /** List metadata for all imported clips (no ArrayBuffers). */
@@ -151,7 +158,7 @@ export async function getLocalAudioMeta(id: string): Promise<LocalAudioMeta | nu
 /** Import a File into IndexedDB; returns metadata. */
 export async function importLocalAudioFile(file: File): Promise<LocalAudioMeta> {
   if (!isAllowedAudioFile(file)) {
-    throw new Error('Unsupported format — use mp3, wav, ogg, or similar');
+    throw new Error('Unsupported format — use mp3, wav, ogg, opus, flac, webm, aac, aiff, or m4a');
   }
   // Soft size cap (~25 MB) to avoid filling disk / OOM on mobile
   const MAX_BYTES = 25 * 1024 * 1024;
