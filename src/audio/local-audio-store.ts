@@ -58,6 +58,23 @@ function titleFromFileName(name: string): string {
   return base || 'Imported sound';
 }
 
+export const ALLOWED_AUDIO_EXTENSIONS = [
+  '.mp3',
+  '.wav',
+  '.ogg',
+  '.oga',
+  '.m4a',
+  '.flac',
+  '.webm',
+  '.weba',
+  '.opus',
+  '.aac',
+  '.aif',
+  '.aiff',
+] as const;
+
+export const AUDIO_FILE_ACCEPT = ALLOWED_AUDIO_EXTENSIONS.join(',');
+
 const ALLOWED_MIME = new Set([
   'audio/mpeg',
   'audio/mp3',
@@ -76,20 +93,7 @@ const ALLOWED_MIME = new Set([
   'audio/x-aiff',
 ]);
 
-const ALLOWED_EXT = new Set([
-  '.mp3',
-  '.wav',
-  '.ogg',
-  '.oga',
-  '.webm',
-  '.weba',
-  '.m4a',
-  '.aac',
-  '.flac',
-  '.opus',
-  '.aif',
-  '.aiff',
-]);
+const ALLOWED_EXT = new Set(ALLOWED_AUDIO_EXTENSIONS);
 
 export function isAllowedAudioFile(file: File): boolean {
   const name = file.name.toLowerCase();

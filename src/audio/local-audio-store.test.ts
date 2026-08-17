@@ -1,9 +1,45 @@
 import { describe, expect, it } from 'vitest';
 import {
+  AUDIO_FILE_ACCEPT,
+  ALLOWED_AUDIO_EXTENSIONS,
+  isAllowedAudioFile,
   LOCAL_BACKUP_KIND,
   parseLocalAudioBackup,
   type LocalAudioBackup,
 } from './local-audio-store';
+
+describe('local audio file validation and accept list', () => {
+  it('includes expected audio extensions in accept filter without wildcard', () => {
+    expect(AUDIO_FILE_ACCEPT).not.toContain('audio/*');
+    for (const ext of ['.mp3', '.wav', '.ogg', '.opus', '.flac', '.aac', '.m4a', '.aif', '.aiff']) {
+      expect(AUDIO_FILE_ACCEPT).toContain(ext);
+    }
+  });
+
+  it('accepts supported audio files by extension', () => {
+    for (const ext of ALLOWED_AUDIO_EXTENSIONS) {
+      const file = new File([''], `test-sound${ext}`, { type: '' });
+      expect(isAllowedAudioFile(file)).toBe(true);
+    }
+  });
+
+  it('accepts uppercase audio extensions', () => {
+    const file = new File([''], 'RECORDING.MP3', { type: '' });
+    expect(isAllowedAudioFile(file)).toBe(true);
+  });
+
+  it('rejects unsupported file formats', () => {
+    const txtFile = new File([''], 'notes.txt', { type: 'text/plain' });
+    const pdfFile = new File([''], 'manual.pdf', { type: 'application/pdf' });
+    const midiFile = new File([''], 'song.mid', { type: 'audio/midi' });
+    const exeFile = new File([''], 'app.exe', { type: 'application/octet-stream' });
+
+    expect(isAllowedAudioFile(txtFile)).toBe(false);
+    expect(isAllowedAudioFile(pdfFile)).toBe(false);
+    expect(isAllowedAudioFile(midiFile)).toBe(false);
+    expect(isAllowedAudioFile(exeFile)).toBe(false);
+  });
+});
 
 describe('local audio backup', () => {
   it('parses a valid backup shape', () => {

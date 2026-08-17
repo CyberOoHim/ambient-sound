@@ -4,7 +4,7 @@
   import { NOISE_TYPES, type NoiseType } from '../audio/dsp/colored-noise';
   import { MAX_MIXER_LAYERS } from '../audio/types';
   import type { CatalogAsset } from '../assets/catalog';
-  import type { LocalAudioMeta } from '../audio/local-audio-store';
+  import { AUDIO_FILE_ACCEPT, type LocalAudioMeta } from '../audio/local-audio-store';
 
   let assets = $state<CatalogAsset[]>([]);
   let localClips = $state<LocalAudioMeta[]>([]);
@@ -403,7 +403,7 @@
       <input
         bind:this={fileInput}
         type="file"
-        accept="audio/*,.mp3,.wav,.ogg,.oga,.m4a,.flac,.webm,.weba,.opus,.aac,.aif,.aiff"
+        accept={AUDIO_FILE_ACCEPT}
         multiple
         class="file-hidden"
         onchange={onFilePick}
