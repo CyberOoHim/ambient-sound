@@ -15,10 +15,34 @@ An offline-first noise, ambient sound, brainwave entrainment, and YouTube audio 
 - **Spatial Canvas & Distance Air-Absorption DSP:** Drag layers on an interactive 2D soundstage grid (pan × distance/volume) with distance air-absorption high-frequency roll-off filtering and optional per-layer LFO auto-panners (rate & depth controls).
 - **Master DSP & Per-Layer Controls:** Master volume slider (linear/dB curves), Master Bass & Treble tone shelving filters, Master Synthetic Convolver Reverb, real-time peak level meter, per-layer High-Pass (HPF) and Low-Pass (LPF) filters, mute/solo gates, layer duplication (up to 3 per sound asset with randomized loop phase offset), and one-click Mix & YouTube panel default reset buttons.
 - **Mood Themes & Spectrum Visualizer:** Dynamic palette shifts based on active acoustic layers; real-time audio spectrum, particle canvas, and waveform visualizer (respects `prefers-reduced-motion`).
-- **Local Audio Import & Quota Management:** Drop custom MP3, WAV, OGG, FLAC, or WEBM audio files stored locally in IndexedDB with JSON backup import/export, unused layer cleanup, and storage quota feedback.
+- **Local Audio Import & Storage:** Drop or browse custom audio files stored locally in IndexedDB with JSON backup import/export, unused layer cleanup, storage quota feedback, and strict file manager extension filtering.
+- **PWA & Offline Installation:** Full Progressive Web App support with service worker offline caching, in-app install prompt triggers (`beforeinstallprompt`), and dedicated iOS Safari "Add to Home Screen" visual instructions.
 - **Sleep Timer & Pomodoro Focus Cycles:** Flexible countdown timer (5–90 minutes or custom) with customizable linear/logarithmic fade-out curves, plus a Pomodoro interval timer for focus/break cycles.
 - **Custom Presets & URL Hash Sharing:** Save full scenes (layers, gains, spatial positions, EQ filters, timer defaults, binaural tones, YouTube streams, one-shots) to `localStorage` or export/import JSON presets; share mixes via compact `#mix=…` URL hash with ~0.4s scene crossfading.
 - **Offline-First & Mobile Background Audio:** Web Media Session API integration (lock screen controls, artwork, preset cycling) and HTML media element routing for mobile background playback on iOS & Android. Multi-tab playback ownership locking prevents audio collision across browser tabs.
+
+---
+
+## Supported Upload Audio Formats
+
+User-imported audio tracks are processed in client-side memory via the Web Audio API (`decodeAudioData`) and persisted in local IndexedDB (`ambient-sound-local-audio`). The file chooser strictly filters the following supported formats:
+
+| Format / Codec | Supported Extensions | Recognized MIME Types | Details |
+| :--- | :--- | :--- | :--- |
+| **MP3** | `.mp3` | `audio/mpeg`, `audio/mp3` | MPEG-1 Audio Layer III, universally supported |
+| **WAV** | `.wav` | `audio/wav`, `audio/wave`, `audio/x-wav` | Uncompressed PCM / IEEE Float audio |
+| **Ogg Vorbis** | `.ogg`, `.oga` | `audio/ogg`, `audio/oga` | Ogg container with Vorbis compression |
+| **Opus** | `.opus` | `audio/opus`, `audio/ogg` | High-efficiency Opus audio codec |
+| **FLAC** | `.flac` | `audio/flac`, `audio/x-flac` | Free Lossless Audio Codec |
+| **AAC / M4A** | `.aac`, `.m4a` | `audio/aac`, `audio/mp4` | Advanced Audio Coding in raw or MP4 container |
+| **WebM Audio** | `.webm`, `.weba` | `audio/webm` | WebM container (Opus / Vorbis audio streams) |
+| **AIFF** | `.aif`, `.aiff` | `audio/aiff`, `audio/x-aiff` | Audio Interchange File Format |
+
+### Upload Constraints & Local Storage
+- **File Size Limit:** Up to **25 MB** per audio file to prevent memory exhaustion on mobile devices.
+- **Privacy & Offline Storage:** Files never leave your browser; audio is stored locally in client-side **IndexedDB** (`ambient-sound-local-audio`).
+- **File Manager Filtering:** The file picker input strictly specifies all supported extensions so unsupported files are automatically greyed out/disabled.
+- **Backup & Portability:** Export your entire local clip library to a single `.json` backup file or restore it anytime in the Library panel.
 
 ---
 
@@ -111,7 +135,7 @@ Open the local server URL provided by Vite (typically `http://localhost:5173`). 
 
 ### Local Audio Import & Storage
 
-- **Custom Loops:** Drop MP3, WAV, OGG, FLAC, or WEBM audio files to store them locally in IndexedDB and mix them offline.
+- **Custom Loops:** Drop MP3, WAV, OGG, FLAC, AAC, M4A, Opus, WebM, or AIFF audio files to store them locally in IndexedDB and mix them offline.
 - **Storage Management:** Export/import local audio library backups, monitor browser storage usage estimates, and remove unused files.
 
 ---
@@ -143,6 +167,7 @@ src/
 │   ├── one-shot.ts            # One-shot density presets & trigger definitions
 │   ├── playback-owner.ts      # Multi-tab playback ownership & audio context locks
 │   ├── presets.ts             # Preset serialization & localStorage manager
+│   ├── pwa.ts                 # PWA install prompt handler & platform detection
 │   ├── session.ts             # Application state store & layer matrix
 │   ├── share.ts               # URL hash mix encoding, decoding & sharing
 │   └── youtube-urls.ts        # YouTube URL parsing, oEmbed title fetching & storage
@@ -151,6 +176,7 @@ src/
 └── ui/
     ├── AttributionsPanel.svelte# Freesound license & attribution credits panel
     ├── BinauralPanel.svelte   # Binaural & Isochronic beat tone controls
+    ├── InstallModal.svelte    # PWA install modal & iOS Safari guidance dialog
     ├── LibraryPanel.svelte    # Built-in sound catalog & custom user import manager
     ├── Mixer.svelte           # Main mixer interface, master transport & layer strips
     ├── OneShotPanel.svelte    # Stochastic accent sound density & trigger panel
