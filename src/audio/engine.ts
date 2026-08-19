@@ -116,6 +116,7 @@ export class AudioEngine {
   private dryGain: GainNode | null = null;
   private wetGain: GainNode | null = null;
   private convolver: ConvolverNode | null = null;
+  private convolverConnected = false;
   /** Final volume control (sleep timer fade, preset crossfade). */
   private master: GainNode | null = null;
   /**
@@ -234,15 +235,13 @@ export class AudioEngine {
         this.analyser.fftSize = 2048;
         this.analyser.smoothingTimeConstant = 0.82;
 
-        // mixBus → EQ → dry + wet reverb → master → analyser → out
+        // mixBus → EQ → dryGain (+ dynamic convolver → wetGain) → master → analyser → out
         this.mixBus.connect(this.bassEq);
         this.bassEq.connect(this.trebleEq);
         this.trebleEq.connect(this.dryGain);
-        this.trebleEq.connect(this.convolver);
-        this.convolver.connect(this.wetGain);
         this.dryGain.connect(this.master);
-        this.wetGain.connect(this.master);
         this.master.connect(this.analyser);
+        this.applyReverbMix(this.masterTone.reverbWet);
 
         // Parallel preview path (one-shots only) that ignores transport mute.
         this.oneShotPreviewBus = this.ctx.createGain();
@@ -271,6 +270,32 @@ export class AudioEngine {
     const w = clampReverbWet(wet);
     if (this.dryGain) this.dryGain.gain.value = 1 - w * 0.9;
     if (this.wetGain) this.wetGain.gain.value = w;
+
+    if (!this.trebleEq || !this.convolver || !this.wetGain || !this.master) return;
+
+    if (w > 0.001) {
+      if (!this.convolverConnected) {
+        try {
+          this.trebleEq.connect(this.convolver);
+          this.convolver.connect(this.wetGain);
+          this.wetGain.connect(this.master);
+          this.convolverConnected = true;
+        } catch {
+          /* already connected */
+        }
+      }
+    } else {
+      if (this.convolverConnected) {
+        try {
+          this.trebleEq.disconnect(this.convolver);
+          this.convolver.disconnect(this.wetGain);
+          this.wetGain.disconnect(this.master);
+        } catch {
+          /* already disconnected */
+        }
+        this.convolverConnected = false;
+      }
+    }
   }
 
   /** Bass / treble / reverb on the master chain (ENH-17). */
@@ -323,6 +348,11 @@ export class AudioEngine {
     this.oneShotEngine.start();
     this.binauralEngine.start();
     youtubePlayerManager.setGlobalPlaying(true);
+    for (const layer of this.layers.values()) {
+      if (layer.kind === 'sample') {
+        layer.player.resume();
+      }
+    }
     // Unmute Web Audio after transport pause. Session.play may immediately
     // re-zero for holdSilent crossfades; visibility/onstatechange need this.
     if (!this.fading) {
@@ -417,6 +447,11 @@ export class AudioEngine {
     this.wantRunning = false;
     this.oneShotEngine.stop();
     this.binauralEngine.stop();
+    for (const layer of this.layers.values()) {
+      if (layer.kind === 'sample') {
+        layer.player.pause();
+      }
+    }
     // Pause every external + internal source together with the transport.
     youtubePlayerManager.setGlobalPlaying(false);
     this.mediaOutput.pause();
@@ -470,18 +505,22 @@ export class AudioEngine {
     g.setValueAtTime(from, t0);
     g.linearRampToValueAtTime(0, t0 + sec);
 
-    const startMs = Date.now();
-    const interval = setInterval(() => {
-      const elapsedSec = (Date.now() - startMs) / 1000;
-      const ratio = Math.max(0, 1 - elapsedSec / sec);
-      youtubePlayerManager.setMasterVolumeLinear(from * ratio);
-      if (elapsedSec >= sec || token !== this.fadeToken) {
-        clearInterval(interval);
-        if (token === this.fadeToken) {
-          youtubePlayerManager.setMasterVolumeLinear(0);
+    if (youtubePlayerManager.hasActivePlayers()) {
+      const startMs = Date.now();
+      const interval = setInterval(() => {
+        const elapsedSec = (Date.now() - startMs) / 1000;
+        const ratio = Math.max(0, 1 - elapsedSec / sec);
+        youtubePlayerManager.setMasterVolumeLinear(from * ratio);
+        if (elapsedSec >= sec || token !== this.fadeToken) {
+          clearInterval(interval);
+          if (token === this.fadeToken) {
+            youtubePlayerManager.setMasterVolumeLinear(0);
+          }
         }
-      }
-    }, 50);
+      }, 50);
+    } else {
+      youtubePlayerManager.setMasterVolumeLinear(0);
+    }
 
     return new Promise((resolve) => {
       window.setTimeout(() => {
@@ -565,19 +604,21 @@ export class AudioEngine {
     g.setValueAtTime(0, t0);
     g.linearRampToValueAtTime(this.masterVolumeLinear, t0 + sec);
 
-    const startMs = Date.now();
-    const targetVol = this.masterVolumeLinear;
-    const interval = setInterval(() => {
-      const elapsedSec = (Date.now() - startMs) / 1000;
-      const ratio = Math.min(1, elapsedSec / sec);
-      youtubePlayerManager.setMasterVolumeLinear(targetVol * ratio);
-      if (elapsedSec >= sec || token !== this.fadeToken) {
-        clearInterval(interval);
-        if (token === this.fadeToken) {
-          youtubePlayerManager.setMasterVolumeLinear(targetVol);
+    if (youtubePlayerManager.hasActivePlayers()) {
+      const startMs = Date.now();
+      const targetVol = this.masterVolumeLinear;
+      const interval = setInterval(() => {
+        const elapsedSec = (Date.now() - startMs) / 1000;
+        const ratio = Math.min(1, elapsedSec / sec);
+        youtubePlayerManager.setMasterVolumeLinear(targetVol * ratio);
+        if (elapsedSec >= sec || token !== this.fadeToken) {
+          clearInterval(interval);
+          if (token === this.fadeToken) {
+            youtubePlayerManager.setMasterVolumeLinear(targetVol);
+          }
         }
-      }
-    }, 50);
+      }, 50);
+    }
 
     return new Promise((resolve) => {
       window.setTimeout(() => {

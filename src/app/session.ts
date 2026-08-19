@@ -219,6 +219,8 @@ export class Session {
   private mediaPresetIndex = 0;
 
   private pollId: ReturnType<typeof setInterval> | null = null;
+  private fadeWakeupTimer: ReturnType<typeof setTimeout> | null = null;
+  private finishWakeupTimer: ReturnType<typeof setTimeout> | null = null;
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
   private listeners = new Set<() => void>();
   private fadeInFlight = false;
@@ -1557,15 +1559,57 @@ export class Session {
     this.notify();
   }
 
-  private ensurePoll(): void {
-    if (this.pollId != null) return;
-    // NOTE: Browsers throttle setInterval to ~1/min in background tabs.
-    // The visibilitychange + focus listeners below compensate by forcing
-    // a tick when the user returns, and tickTimer() uses Date.now() so
-    // elapsed time is always correct even if polls are missed.
-    this.pollId = setInterval(() => {
+  private scheduleWakeups(): void {
+    this.clearWakeups();
+    if (this.timer.status !== 'running' && this.timer.status !== 'fading') return;
+    const remaining = this.remainingMs();
+    if (remaining == null) return;
+    if (remaining <= 0) {
       void this.tickTimer();
-    }, 1000);
+      return;
+    }
+
+    const fadeMs = this.timer.fadeSec * 1000;
+    if (this.timer.status === 'running') {
+      const timeUntilFade = Math.max(0, remaining - fadeMs);
+      if (timeUntilFade > 0) {
+        this.fadeWakeupTimer = setTimeout(() => {
+          this.fadeWakeupTimer = null;
+          void this.tickTimer();
+        }, timeUntilFade);
+      } else {
+        void this.tickTimer();
+      }
+    } else if (this.timer.status === 'fading') {
+      this.finishWakeupTimer = setTimeout(() => {
+        this.finishWakeupTimer = null;
+        void this.tickTimer();
+      }, remaining);
+    }
+  }
+
+  private clearWakeups(): void {
+    if (this.fadeWakeupTimer != null) {
+      clearTimeout(this.fadeWakeupTimer);
+      this.fadeWakeupTimer = null;
+    }
+    if (this.finishWakeupTimer != null) {
+      clearTimeout(this.finishWakeupTimer);
+      this.finishWakeupTimer = null;
+    }
+  }
+
+  private ensurePoll(): void {
+    this.scheduleWakeups();
+    if (this.pollId == null) {
+      // Foreground tick for UI progress bars when document is visible
+      this.pollId = setInterval(() => {
+        if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+          return; // Skip tick in background tabs to permit deep CPU sleep
+        }
+        void this.tickTimer();
+      }, 1000);
+    }
     if (typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', this.onVisibility);
     }
@@ -1575,6 +1619,7 @@ export class Session {
   }
 
   private clearPoll(): void {
+    this.clearWakeups();
     if (this.pollId != null) {
       clearInterval(this.pollId);
       this.pollId = null;
@@ -1588,6 +1633,7 @@ export class Session {
   }
 
   private onVisibility = (): void => {
+    this.scheduleWakeups();
     void this.tickTimer();
   };
 
@@ -1612,6 +1658,7 @@ export class Session {
       this.fadeInFlight = true;
       this.timer = { ...this.timer, status: 'fading' };
       this.notify();
+      this.scheduleWakeups();
       const fadeSec = Math.max(remaining, 50) / 1000;
       const completed = await audioEngine.startFadeOut(fadeSec);
       if (completed && this.timer.status === 'fading') {

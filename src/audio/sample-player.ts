@@ -66,6 +66,56 @@ export class SamplePlayer {
     }
   }
 
+  /**
+   * Pause scheduling and active sources during transport pause without
+   * losing the configured start offset.
+   */
+  pause(): void {
+    if (this.stopped) return;
+    this.stopped = true;
+    if (this.scheduleTimer != null) {
+      clearTimeout(this.scheduleTimer);
+      this.scheduleTimer = null;
+    }
+    if (this.nativeSource) {
+      try {
+        this.nativeSource.stop();
+      } catch {
+        /* */
+      }
+      try {
+        this.nativeSource.disconnect();
+      } catch {
+        /* */
+      }
+      this.nativeSource = null;
+    }
+    for (const seg of this.active) {
+      try {
+        seg.gain.gain.cancelScheduledValues(this.ctx.currentTime);
+        seg.source.stop();
+      } catch {
+        /* */
+      }
+      try {
+        seg.source.disconnect();
+        seg.gain.disconnect();
+      } catch {
+        /* */
+      }
+    }
+    this.active = [];
+    this.nextIndex = 0;
+  }
+
+  /**
+   * Resume playback after a pause.
+   */
+  resume(): void {
+    if (!this.stopped) return;
+    this.start(this.offsetSec);
+  }
+
   stop(): void {
     this.stopped = true;
     if (this.scheduleTimer != null) {

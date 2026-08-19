@@ -53,6 +53,8 @@
             class="app-icon"
             width="56"
             height="56"
+            loading="lazy"
+            decoding="async"
           />
           <div class="app-info">
             <span class="app-name">Ambient</span>

@@ -564,4 +564,33 @@ describe('Session mix settings defaults', () => {
     expect(session.masterTone.reverbWet).toBe(0);
     expect(session.duplicateMinOffsetSec).toBe(DUPLICATE_MIN_OFFSET_DEFAULT_SEC);
   });
+
+  it('schedules single wakeup timeouts when timer is started', async () => {
+    const session = new Session();
+    session.layers = [
+      {
+        kind: 'noise',
+        params: {
+          id: 'n1',
+          type: 'pink',
+          volumeLinear: 0.5,
+          stereoWidth: 1,
+          pan: 0,
+          muted: false,
+          solo: false,
+        },
+      },
+    ];
+    session.playing = true;
+
+    await session.startTimer(60, 10);
+    expect(session.timer.status).toBe('running');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((session as any).fadeWakeupTimer).not.toBeNull();
+
+    session.cancelTimer();
+    expect(session.timer.status).toBe('idle');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((session as any).fadeWakeupTimer).toBeNull();
+  });
 });

@@ -40,6 +40,7 @@
   import { pwa } from '../app/pwa';
   import { syncMoodFromLayers } from './mood-theme';
   import { formatRemaining } from './format';
+  import { powerSaver, type PowerSaverMode } from '../app/power-saver';
 
   let layers = $state<MixerLayer[]>(session.layers);
   let playing = $state(session.playing);
@@ -71,6 +72,8 @@
   let masterBassDb = $state(session.masterTone.bassDb);
   let masterTrebleDb = $state(session.masterTone.trebleDb);
   let masterReverbWet = $state(session.masterTone.reverbWet);
+  let powerSaverMode = $state<PowerSaverMode>(powerSaver.getMode());
+  let powerSaverStatus = $state(powerSaver.getStatus());
   let shareNoticeTimer: ReturnType<typeof setTimeout> | null = null;
   /** Rotating idle tip index for the always-visible status strip. */
   let idleTipIndex = $state(0);
@@ -96,6 +99,7 @@
   let meterRaf = 0;
   let unsub: (() => void) | undefined;
   let unsubPwa: (() => void) | undefined;
+  let unsubPowerSaver: (() => void) | undefined;
   let cleanupPwa: (() => void) | undefined;
 
   /** Ambient tips shown when no live status/info is active. */
@@ -212,6 +216,8 @@
     masterBassDb = session.masterTone.bassDb;
     masterTrebleDb = session.masterTone.trebleDb;
     masterReverbWet = session.masterTone.reverbWet;
+    powerSaverMode = powerSaver.getMode();
+    powerSaverStatus = powerSaver.getStatus();
     timerStatus = session.timer.status;
     timerRemainingMs = session.remainingMs();
     catalog = session.catalog;
@@ -255,11 +261,13 @@
     masterBassDb === MASTER_BASS_DB_DEFAULT &&
       masterTrebleDb === MASTER_TREBLE_DB_DEFAULT &&
       masterReverbWet === MASTER_REVERB_WET_DEFAULT &&
-      minOffsetSec === DUPLICATE_MIN_OFFSET_DEFAULT_SEC
+      minOffsetSec === DUPLICATE_MIN_OFFSET_DEFAULT_SEC &&
+      powerSaverMode === 'auto'
   );
 
   function resetMixSettings() {
     session.resetMixSettingsDefaults();
+    powerSaver.setMode('auto');
     syncFromSession();
   }
 
@@ -466,8 +474,9 @@
         }
         return;
       }
-      // Throttle peak VU meter computation to ~30fps for high energy efficiency
-      if (now - lastMeterTime >= 33) {
+      // Throttle peak VU meter computation: ~30fps normally, ~15fps in Power Saver mode
+      const meterThrottleMs = powerSaverStatus.active ? 66 : 33;
+      if (now - lastMeterTime >= meterThrottleMs) {
         lastMeterTime = now;
         peak = session.getPeakLevel();
       }
@@ -529,6 +538,10 @@
     unsubPwa = pwa.subscribe(() => {
       canInstall = pwa.shouldShowInstall;
     });
+    unsubPowerSaver = powerSaver.subscribe(() => {
+      powerSaverMode = powerSaver.getMode();
+      powerSaverStatus = powerSaver.getStatus();
+    });
     void session.whenCatalogReady().then(() => {
       libraryPanel?.sync();
       catalog = session.catalog;
@@ -539,6 +552,9 @@
     idleTipTimer = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
         return;
+      }
+      if (powerSaverStatus.active) {
+        return; // Halt tip rotation in Power Saver mode to eliminate wakeups
       }
       idleTipIndex = (idleTipIndex + 1) % STATUS_IDLE_MESSAGES.length;
     }, 14_000);
@@ -555,6 +571,7 @@
     if (shareNoticeTimer) clearTimeout(shareNoticeTimer);
     unsub?.();
     unsubPwa?.();
+    unsubPowerSaver?.();
     cleanupPwa?.();
   });
 
@@ -755,6 +772,44 @@
           Extra copies start later in the loop so they thicken the mix, not only the volume.
         </p>
 
+        <p class="settings-section-label">Power & Efficiency</p>
+        <div class="chips eco-chips" role="group" aria-label="Power Saver Mode">
+          <button
+            type="button"
+            class="chip sm"
+            class:on={powerSaverMode === 'auto'}
+            onclick={() => powerSaver.setMode('auto')}
+            title="Auto: enables when battery is 20% or lower, or Save-Data is active"
+          >
+            Auto {powerSaverMode === 'auto' && powerSaverStatus.active ? '🌿 (Eco On)' : ''}
+          </button>
+          <button
+            type="button"
+            class="chip sm"
+            class:on={powerSaverMode === 'on'}
+            onclick={() => powerSaver.setMode('on')}
+            title="Force Eco Mode: disable backdrop blur, pause animations, reduce DSP"
+          >
+            On 🌿
+          </button>
+          <button
+            type="button"
+            class="chip sm"
+            class:on={powerSaverMode === 'off'}
+            onclick={() => powerSaver.setMode('off')}
+            title="Always full fidelity"
+          >
+            Off
+          </button>
+        </div>
+        <p class="dup-hint">
+          {#if powerSaverStatus.active}
+            🌿 Power Saver active ({powerSaverStatus.reason === 'battery' ? `Low battery ${Math.round((powerSaverStatus.batteryLevel ?? 0.2) * 100)}%` : powerSaverStatus.reason === 'savedata' ? 'Save-Data active' : powerSaverStatus.reason === 'reduced-motion' ? 'Reduced motion active' : 'Manual'}) · Blur and animations reduced.
+          {:else}
+            Auto enables Eco Mode when battery drops to 20% or Save-Data is requested.
+          {/if}
+        </p>
+
         <div class="settings-footer">
           <button
             type="button"
@@ -793,7 +848,7 @@
             {:else if layer.kind === 'youtube'}
               {@const ytStatus = youtubeStatus[layer.params.id] ?? 'idle'}
               <div class="yt-layer-head">
-                <img src={layer.params.thumbnailUrl} alt={layer.params.label} class="yt-strip-thumb" />
+                <img src={layer.params.thumbnailUrl} alt={layer.params.label} class="yt-strip-thumb" loading="lazy" decoding="async" />
                 <div class="yt-title-group">
                   <span class="badge-yt">▶ YOUTUBE</span>
                   <span class="name" title={layer.params.label}>{layer.params.label}</span>
@@ -1907,6 +1962,21 @@
     color: var(--muted);
     cursor: pointer;
     line-height: 1;
+  }
+
+  .chip.sm {
+    height: auto;
+    min-width: auto;
+    padding: 0.28rem 0.6rem;
+    font-size: 0.75rem;
+    border-radius: var(--radius-pill);
+  }
+
+  .eco-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin: 0.2rem 0 0.35rem;
   }
 
   .chip.on {

@@ -132,7 +132,7 @@
           )}
           <div class="yt-card" class:in-mix={isAlreadyInMix}>
             <div class="thumb-wrapper">
-              <img src={item.thumbnailUrl} alt={item.title} loading="lazy" />
+              <img src={item.thumbnailUrl} alt={item.title} loading="lazy" decoding="async" />
               <a href={item.url} target="_blank" rel="noopener noreferrer" class="yt-link" title="Open on YouTube">
                 ↗
               </a>

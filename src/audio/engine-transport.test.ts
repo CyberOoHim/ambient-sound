@@ -151,4 +151,54 @@ describe('AudioEngine transport pause / play gate', () => {
     engine.restoreMasterGain();
     expect(gain.value).toBe(0.75);
   });
+
+  it('pauses sample players on suspend and resumes them on resume', async () => {
+    const pauseSpy = vi.fn();
+    const resumeSpy = vi.fn();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const e = engine as any;
+    e.layers.set('s1', {
+      kind: 'sample',
+      player: { pause: pauseSpy, resume: resumeSpy },
+    });
+
+    await engine.suspend();
+    expect(pauseSpy).toHaveBeenCalled();
+
+    await engine.resume();
+    expect(resumeSpy).toHaveBeenCalled();
+  });
+
+  it('dynamically connects convolver when reverbWet > 0 and disconnects when 0', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const e = engine as any;
+    const trebleEq = { connect: vi.fn(), disconnect: vi.fn(), gain: { value: 0 } };
+    const bassEq = { connect: vi.fn(), disconnect: vi.fn(), gain: { value: 0 } };
+    const convolver = { connect: vi.fn(), disconnect: vi.fn() };
+    const wetGain = { connect: vi.fn(), disconnect: vi.fn(), gain: { value: 0 } };
+    const master = { connect: vi.fn() };
+    const dryGain = { gain: { value: 1 } };
+
+    e.trebleEq = trebleEq;
+    e.bassEq = bassEq;
+    e.convolver = convolver;
+    e.wetGain = wetGain;
+    e.master = master;
+    e.dryGain = dryGain;
+    e.convolverConnected = false;
+
+    // Enable reverb
+    engine.setMasterTone({ reverbWet: 0.25 });
+    expect(trebleEq.connect).toHaveBeenCalledWith(convolver);
+    expect(convolver.connect).toHaveBeenCalledWith(wetGain);
+    expect(wetGain.connect).toHaveBeenCalledWith(master);
+    expect(e.convolverConnected).toBe(true);
+
+    // Disable reverb (0)
+    engine.setMasterTone({ reverbWet: 0 });
+    expect(trebleEq.disconnect).toHaveBeenCalledWith(convolver);
+    expect(convolver.disconnect).toHaveBeenCalledWith(wetGain);
+    expect(wetGain.disconnect).toHaveBeenCalledWith(master);
+    expect(e.convolverConnected).toBe(false);
+  });
 });

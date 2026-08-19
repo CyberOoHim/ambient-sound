@@ -271,6 +271,49 @@ html {
     color 0.6s ease;
 }
 
+/* ── Power Saver & Eco Mode (GPU & Compositor Optimizations) ── */
+html[data-power-saver='true'] {
+  --shadow-soft: none;
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4);
+  transition: none !important;
+}
+
+html[data-power-saver='true'] body {
+  background: var(--bg) !important;
+}
+
+html[data-power-saver='true'] .panel,
+html[data-power-saver='true'] .modal-backdrop,
+html[data-power-saver='true'] .modal-box,
+html[data-power-saver='true'] .oneshot-panel,
+html[data-power-saver='true'] .youtube-panel {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: var(--card) !important;
+}
+
+html[data-power-saver='true'] .pulse-indicator.pulsing,
+html[data-power-saver='true'] .radar-event-ping.pulse .ping-ring,
+html[data-power-saver='true'] .radar-canvas.active-pulse,
+html[data-power-saver='true'] .timer-indicator.fading .dot,
+html[data-power-saver='true'] .dl-progress.indeterminate .dl-progress-fill {
+  animation: none !important;
+}
+
+html[data-power-saver='true'] * {
+  transition: none !important;
+}
+
+/* Hardware compositor layer promotion for high efficiency */
+.meter-fill,
+.indicator-fill,
+.dl-progress-fill,
+.radar-event-ping,
+.marker {
+  will-change: transform;
+  transform: translateZ(0);
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     transition: none;
