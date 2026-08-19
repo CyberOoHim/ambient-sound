@@ -92,6 +92,18 @@ export function createNoiseState(_type?: NoiseType): NoiseState {
   return { l: createChannelState(), r: createChannelState() };
 }
 
+/** High performance 32-bit Xorshift PRNG closure with zero memory allocations */
+export function createXorshiftRng(seed = 1): () => number {
+  let s = (seed >>> 0) || 1;
+  return () => {
+    s ^= s << 13;
+    s ^= s >>> 17;
+    s ^= s << 5;
+    s = s >>> 0;
+    return (s >>> 0) * 2.3283064365386963e-10;
+  };
+}
+
 /** Box–Muller-ish Gaussian via sum of uniforms (cheap, good enough for ambient). */
 export function gaussianSample(rng: () => number = Math.random): number {
   // Irwin–Hall approx to normal

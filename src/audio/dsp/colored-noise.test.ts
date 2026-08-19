@@ -147,3 +147,18 @@ describe('worklet sync', () => {
     expect(jsCalibration).toEqual(CALIBRATION_GAIN);
   });
 });
+
+describe('createXorshiftRng', () => {
+  it('generates uniform numbers in [0, 1) without repeats in small window', async () => {
+    const { createXorshiftRng } = await import('./colored-noise');
+    const rng = createXorshiftRng(12345);
+    const set = new Set<number>();
+    for (let i = 0; i < 1000; i++) {
+      const v = rng();
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeLessThan(1);
+      set.add(v);
+    }
+    expect(set.size).toBe(1000);
+  });
+});

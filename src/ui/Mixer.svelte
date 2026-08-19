@@ -450,38 +450,26 @@
     }
   }
 
-  onMount(() => {
-    if (ytHostDiv) {
-      audioEngine.setYoutubeHostElement(ytHostDiv);
-      // Create/reuse YT iframes early so Play can start audio near the user gesture.
-      session.preloadYoutubeLayers();
+  let lastMeterTime = 0;
+  function ensureMeterLoop() {
+    if (meterRaf !== 0 || typeof document === 'undefined' || document.visibilityState === 'hidden') {
+      return;
     }
-    window.addEventListener('keydown', onKey);
-    window.addEventListener('hashchange', () => {
-      void applyHashIntent();
-    });
-    unsub = session.subscribe(() => {
-      syncFromSession();
-    });
-    cleanupPwa = pwa.init();
-    unsubPwa = pwa.subscribe(() => {
-      canInstall = pwa.shouldShowInstall;
-    });
-    void session.whenCatalogReady().then(() => {
-      libraryPanel?.sync();
-      catalog = session.catalog;
-    });
-    void applyHashIntent();
-    showMobileTip = !session.isMobileTipDismissed();
-    idleTipIndex = Math.floor(Math.random() * STATUS_IDLE_MESSAGES.length);
-    idleTipTimer = setInterval(() => {
-      idleTipIndex = (idleTipIndex + 1) % STATUS_IDLE_MESSAGES.length;
-    }, 14_000);
-    const tick = () => {
-      if (session.playing) {
+    const tick = (now: DOMHighResTimeStamp) => {
+      if (!session.playing) {
+        if (peak > 0.005) {
+          peak *= 0.85;
+          meterRaf = requestAnimationFrame(tick);
+        } else {
+          peak = 0;
+          meterRaf = 0; // Enter deep sleep
+        }
+        return;
+      }
+      // Throttle peak VU meter computation to ~30fps for high energy efficiency
+      if (now - lastMeterTime >= 33) {
+        lastMeterTime = now;
         peak = session.getPeakLevel();
-      } else {
-        peak *= 0.9;
       }
       if (session.timer.status === 'running' || session.timer.status === 'fading') {
         const remaining = session.remainingMs();
@@ -499,12 +487,70 @@
       meterRaf = requestAnimationFrame(tick);
     };
     meterRaf = requestAnimationFrame(tick);
+  }
+
+  function stopMeterLoop() {
+    if (meterRaf !== 0) {
+      cancelAnimationFrame(meterRaf);
+      meterRaf = 0;
+    }
+  }
+
+  function onVisibilityChange() {
+    if (typeof document === 'undefined') return;
+    if (document.visibilityState === 'hidden') {
+      stopMeterLoop();
+    } else {
+      syncFromSession();
+      if (session.playing) {
+        ensureMeterLoop();
+      }
+    }
+  }
+
+  onMount(() => {
+    if (ytHostDiv) {
+      audioEngine.setYoutubeHostElement(ytHostDiv);
+      // Create/reuse YT iframes early so Play can start audio near the user gesture.
+      session.preloadYoutubeLayers();
+    }
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('hashchange', () => {
+      void applyHashIntent();
+    });
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    unsub = session.subscribe(() => {
+      syncFromSession();
+      if (session.playing) {
+        ensureMeterLoop();
+      }
+    });
+    cleanupPwa = pwa.init();
+    unsubPwa = pwa.subscribe(() => {
+      canInstall = pwa.shouldShowInstall;
+    });
+    void session.whenCatalogReady().then(() => {
+      libraryPanel?.sync();
+      catalog = session.catalog;
+    });
+    void applyHashIntent();
+    showMobileTip = !session.isMobileTipDismissed();
+    idleTipIndex = Math.floor(Math.random() * STATUS_IDLE_MESSAGES.length);
+    idleTipTimer = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        return;
+      }
+      idleTipIndex = (idleTipIndex + 1) % STATUS_IDLE_MESSAGES.length;
+    }, 14_000);
+
+    ensureMeterLoop();
     queueMicrotask(() => syncFromSession());
   });
 
   onDestroy(() => {
     window.removeEventListener('keydown', onKey);
-    cancelAnimationFrame(meterRaf);
+    document.removeEventListener('visibilitychange', onVisibilityChange);
+    stopMeterLoop();
     if (idleTipTimer) clearInterval(idleTipTimer);
     if (shareNoticeTimer) clearTimeout(shareNoticeTimer);
     unsub?.();
@@ -1338,6 +1384,12 @@
     }
   }
 
+  @media (prefers-reduced-motion: reduce) {
+    .header-timer-badge.fading {
+      animation: none;
+    }
+  }
+
   .master {
     display: grid;
     grid-template-columns: auto 1fr auto;
@@ -1813,6 +1865,14 @@
     }
     100% {
       transform: translateX(320%);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dl-progress.indeterminate .dl-progress-fill {
+      animation: none;
+      width: 100%;
+      opacity: 0.6;
     }
   }
 

@@ -1,4 +1,4 @@
-import { buildEqualPowerCurves, clampCrossfadeSec, loopPeriodSec } from './dsp/loop';
+import { clampCrossfadeSec, getCachedEqualPowerCurves, loopPeriodSec } from './dsp/loop';
 
 export interface SamplePlayerOptions {
   loopMode: 'native' | 'crossfade';
@@ -158,11 +158,12 @@ export class SamplePlayer {
     if (this.stopped) return;
     const period = this.period();
     const now = this.ctx.currentTime;
-    // Schedule until we have ~0.35s+ lookahead beyond next needed start
-    while (this.segmentStartAt(this.nextIndex) < now + 0.4 + period) {
+    // Schedule ahead with a safe 1.5s lookahead buffer
+    const lookahead = 1.5;
+    while (this.segmentStartAt(this.nextIndex) < now + lookahead + period) {
       this.scheduleSegment(this.nextIndex);
     }
-    // Prune old nodes
+    // Prune old finished nodes
     if (this.active.length > 5) {
       const drop = this.active.splice(0, this.active.length - 4);
       for (const seg of drop) {
@@ -176,7 +177,13 @@ export class SamplePlayer {
     }
     // Re-check after work — stop() may have been called during scheduling.
     if (this.stopped) return;
-    this.scheduleTimer = setTimeout(() => this.pump(), 80);
+
+    // Adaptive scheduling interval: sleep until halfway before next lookahead threshold
+    const nextStart = this.segmentStartAt(this.nextIndex);
+    const timeUntilNextSchedule = nextStart - (now + lookahead);
+    const sleepMs = Math.max(150, Math.min(1200, Math.floor(timeUntilNextSchedule * 500)));
+
+    this.scheduleTimer = setTimeout(() => this.pump(), sleepMs);
   }
 
   private scheduleSegment(n: number): void {
@@ -199,8 +206,8 @@ export class SamplePlayer {
     source.connect(gain);
     gain.connect(this.inputGain);
 
-    const curveN = Math.max(2, Math.floor(overlapDur * this.ctx.sampleRate));
-    const { fadeIn, fadeOut } = buildEqualPowerCurves(curveN);
+    // Use zero-allocation cached 256-point equal-power curve
+    const { fadeIn, fadeOut } = getCachedEqualPowerCurves(256);
 
     if (n === 0) {
       gain.gain.setValueAtTime(1, startAt);

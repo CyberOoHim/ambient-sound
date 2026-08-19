@@ -7,6 +7,7 @@ import {
   DUPLICATE_MIN_OFFSET_MAX_SEC,
   DUPLICATE_MIN_OFFSET_MIN_SEC,
   effectiveMinOffsetSec,
+  getCachedEqualPowerCurves,
   loopPeriodSec,
   pickDuplicateStartOffset,
 } from './loop';
@@ -26,6 +27,17 @@ describe('loop helpers', () => {
     const { fadeIn, fadeOut } = buildEqualPowerCurves(64);
     for (let i = 0; i < fadeIn.length; i++) {
       expect(fadeIn[i] ** 2 + fadeOut[i] ** 2).toBeCloseTo(1, 4);
+    }
+  });
+
+  it('cached equal-power curves return matching singletons and conserve power', () => {
+    const c1 = getCachedEqualPowerCurves(256);
+    const c2 = getCachedEqualPowerCurves(256);
+    expect(c1).toBe(c2);
+    expect(c1.fadeIn.length).toBe(256);
+    expect(c1.fadeOut.length).toBe(256);
+    for (let i = 0; i < c1.fadeIn.length; i++) {
+      expect(c1.fadeIn[i]! ** 2 + c1.fadeOut[i]! ** 2).toBeCloseTo(1, 4);
     }
   });
 });

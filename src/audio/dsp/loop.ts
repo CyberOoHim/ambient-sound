@@ -33,6 +33,25 @@ export function buildEqualPowerCurves(n: number): {
   return { fadeIn, fadeOut };
 }
 
+const curveCache = new Map<number, { fadeIn: Float32Array; fadeOut: Float32Array }>();
+
+/**
+ * Returns cached equal-power curves (default 256 points) for Web Audio setValueCurveAtTime.
+ * Eliminates repeated heap allocations in playback loops.
+ */
+export function getCachedEqualPowerCurves(points = 256): {
+  fadeIn: Float32Array;
+  fadeOut: Float32Array;
+} {
+  const n = Math.max(2, Math.min(4096, points));
+  let cached = curveCache.get(n);
+  if (!cached) {
+    cached = buildEqualPowerCurves(n);
+    curveCache.set(n, cached);
+  }
+  return cached;
+}
+
 /** Default / bounds for user-editable min start offset of duplicate sample layers. */
 export const DUPLICATE_MIN_OFFSET_DEFAULT_SEC = 5;
 export const DUPLICATE_MIN_OFFSET_MIN_SEC = 0.5;

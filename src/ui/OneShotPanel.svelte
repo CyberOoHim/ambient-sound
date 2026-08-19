@@ -832,12 +832,24 @@
   }
 
   .ping-ring {
+    display: none;
     width: 24px;
     height: 24px;
     border: 2px solid #38bdf8;
     border-radius: 50%;
-    animation: radar-pulse 1.4s infinite ease-out;
     position: absolute;
+  }
+
+  .radar-event-ping.pulse .ping-ring {
+    display: block;
+    animation: radar-pulse 1.2s ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .radar-event-ping.pulse .ping-ring {
+      animation: none;
+      display: none;
+    }
   }
 
   .ping-core {

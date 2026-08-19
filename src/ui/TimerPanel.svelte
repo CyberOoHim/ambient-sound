@@ -443,6 +443,12 @@
     animation: fade-dot-pulse 1s ease-in-out infinite alternate;
   }
 
+  @media (prefers-reduced-motion: reduce) {
+    .timer-indicator.fading .dot {
+      animation: none;
+    }
+  }
+
   @keyframes fade-dot-pulse {
     0% {
       opacity: 0.45;

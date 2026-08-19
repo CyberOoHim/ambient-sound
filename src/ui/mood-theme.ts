@@ -137,6 +137,8 @@ export function detectMood(
 export function applyMoodTheme(mood: MoodId): void {
   if (typeof document === 'undefined') return;
   const root = document.documentElement;
+  const current = root.getAttribute('data-mood') ?? 'default';
+  if (current === mood) return;
   if (mood === 'default') {
     root.removeAttribute('data-mood');
   } else {

@@ -5,8 +5,8 @@
  */
 
 const STORAGE_KEY = 'ambient_sound_playback_owner_v1';
-const HEARTBEAT_MS = 2_000;
-const STALE_MS = 6_000;
+const HEARTBEAT_MS = 4_000;
+const STALE_MS = 10_000;
 const CHANNEL_NAME = 'ambient-sound-playback-owner';
 
 export interface PlaybackOwnerSnapshot {

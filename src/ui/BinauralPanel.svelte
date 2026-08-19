@@ -234,9 +234,17 @@
 
       <!-- Pulse Visualizer -->
       <div class="visualizer-bar">
-        <div class="pulse-indicator" style="animation-duration: {1 / Math.max(0.5, config.beatFreq)}s"></div>
+        <div
+          class="pulse-indicator"
+          class:pulsing={playing && config.enabled}
+          style="animation-duration: {Math.max(0.25, Math.min(2, 1 / Math.max(0.5, config.beatFreq)))}s"
+        ></div>
         <span class="viz-text">
-          Pulsing at <strong>{config.beatFreq.toFixed(1)} Hz</strong> ({config.mode === 'binaural' ? 'Binaural' : 'Isochronic'} Entrainment Active)
+          {#if playing}
+            Pulsing at <strong>{config.beatFreq.toFixed(1)} Hz</strong> ({config.mode === 'binaural' ? 'Binaural' : 'Isochronic'} Entrainment Active)
+          {:else}
+            Ready at <strong>{config.beatFreq.toFixed(1)} Hz</strong> ({config.mode === 'binaural' ? 'Binaural' : 'Isochronic'})
+          {/if}
         </span>
       </div>
     </div>
@@ -565,7 +573,20 @@
     border-radius: 50%;
     background: #c084fc;
     box-shadow: 0 0 10px #c084fc;
+    opacity: 0.5;
+    transform: scale(0.85);
+  }
+
+  .pulse-indicator.pulsing {
     animation: vizPulse infinite ease-in-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pulse-indicator.pulsing {
+      animation: none;
+      opacity: 0.8;
+      transform: scale(1);
+    }
   }
 
   @keyframes vizPulse {

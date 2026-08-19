@@ -27,8 +27,9 @@ const CALIBRATION = {
 const BROWN_C = 0.03;
 const BROWN_LEAK = 0.997;
 
-function createChannel() {
+function createChannel(seed) {
   return {
+    rngState: (seed || Math.floor(Math.random() * 0xffffffff) + 1) >>> 0,
     b0: 0,
     b1: 0,
     b2: 0,
@@ -47,14 +48,38 @@ function createChannel() {
   };
 }
 
-function gaussian() {
-  let s = 0;
-  for (let i = 0; i < 6; i++) s += Math.random();
-  return (s - 3) * 0.7;
+/** Fast 32-bit PRNG float in [0, 1) */
+function nextFloat(s) {
+  let x = s.rngState;
+  x ^= x << 13;
+  x ^= x >>> 17;
+  x ^= x << 5;
+  s.rngState = x >>> 0;
+  return (x >>> 0) * 2.3283064365386963e-10;
 }
 
-function uniform() {
-  return Math.random() * 2 - 1;
+/** Fast Irwin-Hall 6-uniform normal approximation with inlined bitwise xorshift */
+function gaussian(s) {
+  let sum = 0;
+  let x = s.rngState;
+  x ^= x << 13; x ^= x >>> 17; x ^= x << 5; sum += (x >>> 0);
+  x ^= x << 13; x ^= x >>> 17; x ^= x << 5; sum += (x >>> 0);
+  x ^= x << 13; x ^= x >>> 17; x ^= x << 5; sum += (x >>> 0);
+  x ^= x << 13; x ^= x >>> 17; x ^= x << 5; sum += (x >>> 0);
+  x ^= x << 13; x ^= x >>> 17; x ^= x << 5; sum += (x >>> 0);
+  x ^= x << 13; x ^= x >>> 17; x ^= x << 5; sum += (x >>> 0);
+  s.rngState = x >>> 0;
+  return (sum * 2.3283064365386963e-10 - 3) * 0.7;
+}
+
+/** Fast uniform float in [-1, 1) */
+function uniform(s) {
+  let x = s.rngState;
+  x ^= x << 13;
+  x ^= x >>> 17;
+  x ^= x << 5;
+  s.rngState = x >>> 0;
+  return (x >>> 0) * 4.6566128730773926e-10 - 1;
 }
 
 function pinkFromWhite(s, white) {
@@ -81,15 +106,15 @@ function brownFromWhite(s, white) {
 function staticFromUniform(s, white) {
   if (s.holdLeft <= 0) {
     s.held = white;
-    s.holdLeft = 3 + Math.floor(Math.random() * 4); // 3..6
+    s.holdLeft = 3 + (nextFloat(s) * 4 | 0); // 3..6
   }
   s.holdLeft -= 1;
 
   const levels = 16;
   let y = Math.round(s.held * levels) / levels;
 
-  if (Math.random() < 0.0012) {
-    s.crackle = (Math.random() * 2 - 1) * (0.55 + Math.random() * 0.45);
+  if (nextFloat(s) < 0.0012) {
+    s.crackle = (nextFloat(s) * 2 - 1) * (0.55 + nextFloat(s) * 0.45);
   }
   y += s.crackle;
   s.crackle *= 0.82;
@@ -100,7 +125,7 @@ function staticFromUniform(s, white) {
 }
 
 function sampleChannel(type, s, sampleRate) {
-  const white = type === 'static' ? uniform() : gaussian();
+  const white = type === 'static' ? uniform(s) : gaussian(s);
   let y;
 
   switch (type) {
@@ -129,7 +154,7 @@ function sampleChannel(type, s, sampleRate) {
     }
     case 'rain': {
       const pink = pinkFromWhite(s, white);
-      s.amState = 0.9995 * s.amState + 0.0005 * gaussian();
+      s.amState = 0.9995 * s.amState + 0.0005 * gaussian(s);
       s.amPhase += (0.7 + s.amState * 0.4) / sampleRate;
       if (s.amPhase > 1) s.amPhase -= 1;
       const am = 0.65 + 0.35 * Math.sin(s.amPhase * Math.PI * 2);
@@ -151,8 +176,8 @@ class NoiseProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
     this.noiseType = 'white';
-    this.l = createChannel();
-    this.r = createChannel();
+    this.l = createChannel(0x12345678 ^ ((Math.random() * 0x7fffffff) | 0));
+    this.r = createChannel(0x87654321 ^ ((Math.random() * 0x7fffffff) | 0));
 
     this.port.onmessage = (ev) => {
       const msg = ev.data;

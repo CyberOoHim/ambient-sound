@@ -1619,8 +1619,6 @@ export class Session {
       }
       return;
     }
-
-    this.notify();
   }
 
   private async finishTimer(): Promise<void> {

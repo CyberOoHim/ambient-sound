@@ -63,7 +63,7 @@ describe('PlaybackOwner', () => {
     const b = new PlaybackOwner();
     localStorage.setItem(
       'ambient_sound_playback_owner_v1',
-      JSON.stringify({ tabId: 'old-tab', updatedAt: Date.now() - 10_000 }),
+      JSON.stringify({ tabId: 'old-tab', updatedAt: Date.now() - 15_000 }),
     );
     expect(b.isOtherOwnerActive()).toBe(false);
     b.dispose();
