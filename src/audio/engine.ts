@@ -23,9 +23,11 @@ import {
   type MasterToneParams,
   type MixerLayer,
   type NoiseLayerParams,
+  type PlaylistLayerParams,
   type SampleLayerParams,
   type YoutubeLayerParams,
 } from './types';
+import type { PlaylistItem } from '../app/playlist';
 import { SamplePlayer } from './sample-player';
 import {
   decodeCache,
@@ -90,7 +92,19 @@ interface SampleNodes {
   panLfo: PanLfoNodes | null;
 }
 
-type LayerNodes = NoiseNodes | SampleNodes;
+interface PlaylistNodes {
+  kind: 'playlist';
+  player: SamplePlayer | null;
+  volume: GainNode;
+  pan: StereoPannerNode;
+  muteSolo: GainNode;
+  userLp: BiquadFilterNode;
+  userHp: BiquadFilterNode;
+  panLfo: PanLfoNodes | null;
+  activeType: 'local' | 'youtube' | null;
+}
+
+type LayerNodes = NoiseNodes | SampleNodes | PlaylistNodes;
 
 /** Options for decorrelating duplicate sample layers of the same asset. */
 export interface SampleStartOptions {
@@ -351,6 +365,8 @@ export class AudioEngine {
     for (const layer of this.layers.values()) {
       if (layer.kind === 'sample') {
         layer.player.resume();
+      } else if (layer.kind === 'playlist' && layer.player) {
+        layer.player.resume();
       }
     }
     // Unmute Web Audio after transport pause. Session.play may immediately
@@ -449,6 +465,8 @@ export class AudioEngine {
     this.binauralEngine.stop();
     for (const layer of this.layers.values()) {
       if (layer.kind === 'sample') {
+        layer.player.pause();
+      } else if (layer.kind === 'playlist' && layer.player) {
         layer.player.pause();
       }
     }
@@ -909,6 +927,194 @@ export class AudioEngine {
     // Rate / loop mode: apply only on restart (v1 simplification)
   }
 
+  async addPlaylistLayer(
+    params: PlaylistLayerParams,
+    item?: PlaylistItem,
+    onTrackEnded?: () => void,
+  ): Promise<void> {
+    if (!item) {
+      this.removeLayer(params.id);
+      return;
+    }
+
+    if (item.type === 'youtube' && item.videoId) {
+      // Teardown any sample player nodes for this layer id
+      const existing = this.layers.get(params.id);
+      if (existing) {
+        this.disposePanLfo(existing);
+        if (existing.kind === 'playlist' && existing.player) {
+          existing.player.stop();
+          existing.player.dispose();
+        }
+        try {
+          existing.userHp.disconnect();
+          existing.userLp.disconnect();
+          existing.volume.disconnect();
+          existing.pan.disconnect();
+          existing.muteSolo.disconnect();
+        } catch {
+          /* ignore */
+        }
+        this.layers.delete(params.id);
+      }
+
+      await this.addYoutubeLayer({
+        id: params.id,
+        videoId: item.videoId,
+        url: item.url || `https://www.youtube.com/watch?v=${item.videoId}`,
+        label: item.title,
+        thumbnailUrl:
+          item.thumbnailUrl ||
+          `https://img.youtube.com/vi/${item.videoId}/mqdefault.jpg`,
+        volumeLinear: params.volumeLinear,
+        muted: params.muted,
+        solo: params.solo,
+        pan: params.pan,
+        lowpassHz: params.lowpassHz,
+        highpassHz: params.highpassHz,
+        panLfoEnabled: params.panLfoEnabled,
+        panLfoRateHz: params.panLfoRateHz,
+        panLfoDepth: params.panLfoDepth,
+      });
+
+      if (onTrackEnded) {
+        youtubePlayerManager.onTrackEnded((endedLayerId) => {
+          if (endedLayerId === params.id && this.wantRunning) {
+            onTrackEnded();
+          }
+        });
+      }
+      return;
+    }
+
+    if (item.type === 'local' && item.assetId) {
+      youtubePlayerManager.destroyPlayer(params.id);
+      this.mediaOutput.setHasYoutubeLayers(
+        youtubePlayerManager.hasActivePlayers(),
+      );
+
+      const ctx = await this.ensureContext();
+      this.inflightLoads.add(params.id);
+      try {
+        const buffer = await this.decodeSampleBuffer(ctx, {
+          id: params.id,
+          assetId: item.assetId,
+          label: item.title,
+          volumeLinear: params.volumeLinear,
+          muted: params.muted,
+          solo: params.solo,
+          pan: params.pan,
+          loopMode: 'native',
+          crossfadeMs: 0,
+          playbackRate: 1,
+          lowpassHz: params.lowpassHz,
+          highpassHz: params.highpassHz,
+          panLfoEnabled: params.panLfoEnabled,
+          panLfoRateHz: params.panLfoRateHz,
+          panLfoDepth: params.panLfoDepth,
+        });
+
+        if (this.cancelledLoads.has(params.id)) return;
+
+        this.removeLayer(params.id);
+
+        const userHp = ctx.createBiquadFilter();
+        const userLp = ctx.createBiquadFilter();
+        this.applyUserFilters(
+          userHp,
+          userLp,
+          params.highpassHz,
+          params.lowpassHz,
+        );
+
+        const volume = ctx.createGain();
+        volume.gain.value = clampLinear(params.volumeLinear);
+
+        const pan = ctx.createStereoPanner();
+        pan.pan.value = Math.max(-1, Math.min(1, params.pan));
+
+        const muteSolo = ctx.createGain();
+        muteSolo.gain.value = 1;
+
+        userHp.connect(userLp);
+        userLp.connect(volume);
+        volume.connect(pan);
+        pan.connect(muteSolo);
+        muteSolo.connect(this.mixBus!);
+
+        const player = new SamplePlayer(ctx, buffer, userHp, {
+          loopMode: 'once',
+          crossfadeMs: 0,
+          playbackRate: 1,
+          onEnded: () => {
+            if (this.wantRunning) {
+              onTrackEnded?.();
+            }
+          },
+        });
+
+        if (this.wantRunning) {
+          player.start();
+        }
+
+        const nodes: PlaylistNodes = {
+          kind: 'playlist',
+          player,
+          volume,
+          pan,
+          muteSolo,
+          userLp,
+          userHp,
+          panLfo: null,
+          activeType: 'local',
+        };
+        this.syncPanLfo(nodes, params);
+        this.layers.set(params.id, nodes);
+      } finally {
+        this.inflightLoads.delete(params.id);
+        this.cancelledLoads.delete(params.id);
+      }
+    }
+  }
+
+  updatePlaylistLayer(params: PlaylistLayerParams): void {
+    if (youtubePlayerManager.hasPlayer(params.id)) {
+      this.updateYoutubeLayer({
+        id: params.id,
+        videoId: '',
+        url: '',
+        label: params.currentTrackTitle || params.playlistName,
+        thumbnailUrl: '',
+        volumeLinear: params.volumeLinear,
+        muted: params.muted,
+        solo: params.solo,
+        pan: params.pan,
+        lowpassHz: params.lowpassHz,
+        highpassHz: params.highpassHz,
+        panLfoEnabled: params.panLfoEnabled,
+        panLfoRateHz: params.panLfoRateHz,
+        panLfoDepth: params.panLfoDepth,
+      });
+      return;
+    }
+
+    const nodes = this.layers.get(params.id);
+    if (!nodes || nodes.kind !== 'playlist' || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    nodes.volume.gain.setTargetAtTime(
+      clampLinear(params.volumeLinear),
+      t,
+      0.015,
+    );
+    this.applyUserFilters(
+      nodes.userHp,
+      nodes.userLp,
+      params.highpassHz,
+      params.lowpassHz,
+    );
+    this.syncPanLfo(nodes, params);
+  }
+
   /**
    * Base pan on StereoPanner + optional sine LFO summed into pan.pan (ENH-15).
    */
@@ -1029,6 +1235,13 @@ export class AudioEngine {
         nodes.userHp.disconnect();
         nodes.userLp.disconnect();
         nodes.worklet.port.close();
+      } else if (nodes.kind === 'playlist') {
+        if (nodes.player) {
+          nodes.player.stop();
+          nodes.player.dispose();
+        }
+        nodes.userHp.disconnect();
+        nodes.userLp.disconnect();
       } else {
         nodes.player.stop();
         nodes.player.dispose();
@@ -1050,6 +1263,14 @@ export class AudioEngine {
       const g = effectiveMuteSolo(layerMuted(layer), layerSolo(layer), anySolo);
       if (layer.kind === 'youtube') {
         youtubePlayerManager.setMute(layer.params.id, g === 0);
+      } else if (layer.kind === 'playlist') {
+        if (youtubePlayerManager.hasPlayer(layer.params.id)) {
+          youtubePlayerManager.setMute(layer.params.id, g === 0);
+        }
+        const nodes = this.layers.get(layerId(layer));
+        if (nodes && this.ctx) {
+          nodes.muteSolo.gain.setTargetAtTime(g, this.ctx.currentTime, 0.01);
+        }
       } else {
         const nodes = this.layers.get(layerId(layer));
         if (!nodes || !this.ctx) continue;

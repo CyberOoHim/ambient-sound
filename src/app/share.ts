@@ -155,6 +155,34 @@ function compactLayer(layer: MixerLayer): Record<string, unknown> {
     }
     return { kind: 'youtube', params };
   }
+  if (layer.kind === 'playlist') {
+    const p = layer.params;
+    const params: Record<string, unknown> = {
+      id: p.id,
+      playlistId: p.playlistId,
+      playlistName: p.playlistName,
+      currentIndex: p.currentIndex,
+      currentTrackTitle: p.currentTrackTitle,
+      currentTrackType: p.currentTrackType,
+      shuffle: p.shuffle,
+      volumeLinear: p.volumeLinear,
+      muted: p.muted,
+      solo: p.solo,
+      pan: p.pan,
+    };
+    if (p.lowpassHz < FILTER_LP_OPEN_HZ - 100) params.lowpassHz = p.lowpassHz;
+    if (p.highpassHz > FILTER_HP_OPEN_HZ + 5) params.highpassHz = p.highpassHz;
+    if (p.panLfoEnabled) {
+      params.panLfoEnabled = true;
+      if (p.panLfoRateHz !== PAN_LFO_RATE_DEFAULT_HZ) {
+        params.panLfoRateHz = p.panLfoRateHz;
+      }
+      if (p.panLfoDepth !== PAN_LFO_DEPTH_DEFAULT) {
+        params.panLfoDepth = p.panLfoDepth;
+      }
+    }
+    return { kind: 'playlist', params };
+  }
   const p = layer.params;
   const params: Record<string, unknown> = {
     id: p.id,

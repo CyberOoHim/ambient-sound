@@ -33,6 +33,7 @@
   import OneShotPanel from './OneShotPanel.svelte';
   import BinauralPanel from './BinauralPanel.svelte';
   import YouTubePanel from './YouTubePanel.svelte';
+  import PlaylistPanel from './PlaylistPanel.svelte';
   import AttributionsPanel from './AttributionsPanel.svelte';
   import InstallModal from './InstallModal.svelte';
   import SpatialCanvas from './SpatialCanvas.svelte';
@@ -86,6 +87,7 @@
     binaural: false,
     oneshot: false,
     youtube: false,
+    playlist: false,
   });
 
   let ytHostDiv = $state<HTMLElement>();
@@ -95,6 +97,7 @@
   let libraryPanel: LibraryPanel | undefined = $state();
   let oneShotPanel: OneShotPanel | undefined = $state();
   let binauralPanel: BinauralPanel | undefined = $state();
+  let playlistPanel: PlaylistPanel | undefined = $state();
 
   let meterRaf = 0;
   let unsub: (() => void) | undefined;
@@ -227,6 +230,7 @@
     libraryPanel?.sync();
     oneShotPanel?.sync();
     binauralPanel?.sync();
+    playlistPanel?.sync();
   }
 
   function togglePanel(id: string) {
@@ -431,6 +435,21 @@
 
   function setWidth(id: string, stereoWidth: number) {
     session.updateNoiseLayer(id, { stereoWidth });
+    syncFromSession();
+  }
+
+  function nextPlaylistTrack(id: string) {
+    void session.nextPlaylistTrack(id);
+    syncFromSession();
+  }
+
+  function prevPlaylistTrack(id: string) {
+    void session.prevPlaylistTrack(id);
+    syncFromSession();
+  }
+
+  function setPlaylistShuffle(id: string, shuffle: boolean) {
+    session.setPlaylistLayerShuffle(id, shuffle);
     syncFromSession();
   }
 
@@ -832,6 +851,7 @@
 
     <div class="layer-list">
       {#each layers as layer (layer.params.id)}
+        {@const isYtDisabled = layer.kind === 'youtube' || (layer.kind === 'playlist' && layer.params.currentTrackType === 'youtube')}
         <article class="layer" class:muted={layer.params.muted}>
           <div class="layer-top">
             {#if layer.kind === 'noise'}
@@ -861,6 +881,21 @@
                   {:else if ytStatus === 'playing' && playing}
                     <span class="yt-status live">Live</span>
                   {/if}
+                </div>
+              </div>
+            {:else if layer.kind === 'playlist'}
+              <div class="playlist-layer-head">
+                <div class="playlist-title-group">
+                  <div class="pl-badge-row">
+                    <span class="badge-pl">📑 PLAYLIST</span>
+                    <span class="pl-name-tag">{layer.params.playlistName}</span>
+                  </div>
+                  <div class="pl-track-info">
+                    <span class="pl-track-icon">{layer.params.currentTrackType === 'youtube' ? '▶' : '🎵'}</span>
+                    <span class="name pl-track-title" title={layer.params.currentTrackTitle ?? 'Empty Playlist'}>
+                      {layer.params.currentTrackTitle ?? 'Empty Playlist'}
+                    </span>
+                  </div>
                 </div>
               </div>
             {:else}
@@ -922,6 +957,40 @@
             </div>
           </div>
 
+          {#if layer.kind === 'playlist'}
+            <div class="playlist-track-controls">
+              <div class="track-nav-btns">
+                <button
+                  type="button"
+                  class="pl-nav-btn"
+                  title="Previous track in playlist"
+                  onclick={() => prevPlaylistTrack(layer.params.id)}
+                >
+                  ⏮ Prev
+                </button>
+                <button
+                  type="button"
+                  class="pl-nav-btn"
+                  title="Next track in playlist"
+                  onclick={() => nextPlaylistTrack(layer.params.id)}
+                >
+                  Next ⏭
+                </button>
+              </div>
+              <label
+                class="pl-shuffle-toggle"
+                title="When checked, tracks play in random order. When unchecked, tracks play sequentially in rotate."
+              >
+                <input
+                  type="checkbox"
+                  checked={layer.params.shuffle}
+                  onchange={(e) => setPlaylistShuffle(layer.params.id, e.currentTarget.checked)}
+                />
+                <span>{layer.params.shuffle ? '🔀 Random' : '🔁 Rotate / Sequential'}</span>
+              </label>
+            </div>
+          {/if}
+
           {#if isLayerLoading(layer.params.id)}
             {@const prog = layerProgress(layer.params.id)}
             <div
@@ -967,12 +1036,12 @@
                 min="-1"
                 max="1"
                 step="0.01"
-                disabled={layer.kind === 'youtube'}
-                title={layer.kind === 'youtube' ? 'Stereo panning is not supported for external YouTube streams' : undefined}
+                disabled={isYtDisabled}
+                title={isYtDisabled ? 'Stereo panning is not supported for external YouTube streams' : undefined}
                 value={layer.params.pan}
                 oninput={(e) => setPan(layer.params.id, Number(e.currentTarget.value))}
               />
-              {#if layer.kind === 'youtube'}
+              {#if isYtDisabled}
                 <span class="pan-disabled-note" title="Stereo panning is not supported for external YouTube streams">N/A</span>
               {/if}
             </div>
@@ -997,54 +1066,54 @@
           <div class="lfo-row">
             <label
               class="lfo-toggle"
-              class:disabled={layer.kind === 'youtube'}
-              title={layer.kind === 'youtube' ? 'Auto-pan is not supported for external YouTube streams' : 'Slow automatic pan for motion'}
+              class:disabled={isYtDisabled}
+              title={isYtDisabled ? 'Auto-pan is not supported for external YouTube streams' : 'Slow automatic pan for motion'}
             >
               <input
                 type="checkbox"
-                disabled={layer.kind === 'youtube'}
+                disabled={isYtDisabled}
                 checked={layer.params.panLfoEnabled}
                 onchange={(e) =>
                   setPanLfoEnabled(layer.params.id, e.currentTarget.checked)}
               />
               Auto-pan
-              {#if layer.kind === 'youtube'}
+              {#if isYtDisabled}
                 <span class="pan-disabled-note" title="Auto-pan is not supported for external YouTube streams">N/A</span>
               {/if}
             </label>
             {#if layer.params.panLfoEnabled}
               <div class="controls-compact lfo-sliders">
                 <div class="row mini">
-                  <label for="lfo-rate-{layer.params.id}" title={layer.kind === 'youtube' ? 'Auto-pan rate is not supported for external YouTube streams' : 'LFO rate'}>Rate</label>
+                  <label for="lfo-rate-{layer.params.id}" title={isYtDisabled ? 'Auto-pan rate is not supported for external YouTube streams' : 'LFO rate'}>Rate</label>
                   <input
                     id="lfo-rate-{layer.params.id}"
                     type="range"
                     min={PAN_LFO_RATE_MIN_HZ}
                     max={PAN_LFO_RATE_MAX_HZ}
                     step="0.01"
-                    disabled={layer.kind === 'youtube'}
-                    title={layer.kind === 'youtube' ? 'Auto-pan rate is not supported for external YouTube streams' : undefined}
+                    disabled={isYtDisabled}
+                    title={isYtDisabled ? 'Auto-pan rate is not supported for external YouTube streams' : undefined}
                     value={layer.params.panLfoRateHz}
                     oninput={(e) =>
                       setPanLfoRate(layer.params.id, Number(e.currentTarget.value))}
                   />
-                  <span class="filter-val">{layer.kind === 'youtube' ? 'N/A' : `${layer.params.panLfoRateHz.toFixed(2)}Hz`}</span>
+                  <span class="filter-val">{isYtDisabled ? 'N/A' : `${layer.params.panLfoRateHz.toFixed(2)}Hz`}</span>
                 </div>
                 <div class="row mini">
-                  <label for="lfo-depth-{layer.params.id}" title={layer.kind === 'youtube' ? 'Auto-pan depth is not supported for external YouTube streams' : 'LFO depth'}>Depth</label>
+                  <label for="lfo-depth-{layer.params.id}" title={isYtDisabled ? 'Auto-pan depth is not supported for external YouTube streams' : 'LFO depth'}>Depth</label>
                   <input
                     id="lfo-depth-{layer.params.id}"
                     type="range"
                     min="0"
                     max="1"
                     step="0.01"
-                    disabled={layer.kind === 'youtube'}
-                    title={layer.kind === 'youtube' ? 'Auto-pan depth is not supported for external YouTube streams' : undefined}
+                    disabled={isYtDisabled}
+                    title={isYtDisabled ? 'Auto-pan depth is not supported for external YouTube streams' : undefined}
                     value={layer.params.panLfoDepth}
                     oninput={(e) =>
                       setPanLfoDepth(layer.params.id, Number(e.currentTarget.value))}
                   />
-                  <span class="filter-val">{layer.kind === 'youtube' ? 'N/A' : `${Math.round(layer.params.panLfoDepth * 100)}%`}</span>
+                  <span class="filter-val">{isYtDisabled ? 'N/A' : `${Math.round(layer.params.panLfoDepth * 100)}%`}</span>
                 </div>
               </div>
             {/if}
@@ -1052,7 +1121,7 @@
 
           <div class="controls-compact filters">
             <div class="row mini">
-              <label for="lp-{layer.params.id}" title={layer.kind === 'youtube' ? 'Low-pass filter is not supported for external YouTube streams' : 'Low-pass (muffled / indoor)'}>
+              <label for="lp-{layer.params.id}" title={isYtDisabled ? 'Low-pass filter is not supported for external YouTube streams' : 'Low-pass (muffled / indoor)'}>
                 LP
               </label>
               <input
@@ -1061,32 +1130,32 @@
                 min="200"
                 max={FILTER_LP_OPEN_HZ}
                 step="50"
-                disabled={layer.kind === 'youtube'}
-                title={layer.kind === 'youtube' ? 'Low-pass filter is not supported for external YouTube streams' : undefined}
+                disabled={isYtDisabled}
+                title={isYtDisabled ? 'Low-pass filter is not supported for external YouTube streams' : undefined}
                 value={layer.params.lowpassHz ?? FILTER_LP_OPEN_HZ}
                 oninput={(e) =>
                   setLowpass(layer.params.id, Number(e.currentTarget.value))}
               />
               <span class="filter-val">
-                {layer.kind === 'youtube' ? 'N/A' : filterLabelLp(layer.params.lowpassHz ?? FILTER_LP_OPEN_HZ)}
+                {isYtDisabled ? 'N/A' : filterLabelLp(layer.params.lowpassHz ?? FILTER_LP_OPEN_HZ)}
               </span>
             </div>
             <div class="row mini">
-              <label for="hp-{layer.params.id}" title={layer.kind === 'youtube' ? 'High-pass filter is not supported for external YouTube streams' : 'High-pass'}>HP</label>
+              <label for="hp-{layer.params.id}" title={isYtDisabled ? 'High-pass filter is not supported for external YouTube streams' : 'High-pass'}>HP</label>
               <input
                 id="hp-{layer.params.id}"
                 type="range"
                 min={FILTER_HP_OPEN_HZ}
                 max="8000"
                 step="10"
-                disabled={layer.kind === 'youtube'}
-                title={layer.kind === 'youtube' ? 'High-pass filter is not supported for external YouTube streams' : undefined}
+                disabled={isYtDisabled}
+                title={isYtDisabled ? 'High-pass filter is not supported for external YouTube streams' : undefined}
                 value={layer.params.highpassHz ?? FILTER_HP_OPEN_HZ}
                 oninput={(e) =>
                   setHighpass(layer.params.id, Number(e.currentTarget.value))}
               />
               <span class="filter-val">
-                {layer.kind === 'youtube' ? 'N/A' : filterLabelHp(layer.params.highpassHz ?? FILTER_HP_OPEN_HZ)}
+                {isYtDisabled ? 'N/A' : filterLabelHp(layer.params.highpassHz ?? FILTER_HP_OPEN_HZ)}
               </span>
             </div>
           </div>
@@ -1198,6 +1267,20 @@
             onAddYoutube={(videoId, url, title, thumbnailUrl) =>
               session.addYoutubeLayer(videoId, url, title, thumbnailUrl).then(() => {})}
           />
+        </div>
+      </div>
+      <div class="accordion-panel" class:open={panelOpen.playlist}>
+        <button
+          type="button"
+          class="accordion-toggle mobile-only"
+          aria-expanded={panelOpen.playlist}
+          onclick={() => togglePanel('playlist')}
+        >
+          Playlists
+          <span class="chev">{panelOpen.playlist ? '▾' : '▸'}</span>
+        </button>
+        <div class="accordion-body" class:collapsed={!panelOpen.playlist}>
+          <PlaylistPanel bind:this={playlistPanel} />
         </div>
       </div>
     </div>
@@ -2221,5 +2304,112 @@
   .yt-status.blocked,
   .yt-status.error {
     color: #fbbf24;
+  }
+
+  /* ── Playlist Layer UI ── */
+  .playlist-layer-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    overflow: hidden;
+  }
+
+  .playlist-title-group {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    gap: 0.15rem;
+  }
+
+  .pl-badge-row {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .badge-pl {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: #38bdf8;
+    letter-spacing: 0.03em;
+    line-height: 1;
+  }
+
+  .pl-name-tag {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #cbd5e1;
+    background: #1e293b;
+    padding: 0.05rem 0.35rem;
+    border-radius: 3px;
+  }
+
+  .pl-track-info {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .pl-track-icon {
+    font-size: 0.75rem;
+    color: #94a3b8;
+  }
+
+  .pl-track-title {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: #f1f5f9;
+  }
+
+  .playlist-track-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.35rem 0.5rem;
+    background: #1e242d;
+    border-radius: 4px;
+    border: 1px solid #334155;
+    margin-top: 0.25rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .track-nav-btns {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .pl-nav-btn {
+    padding: 0.2rem 0.5rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    background: #2a3340;
+    color: #cbd5e1;
+    border: 1px solid #475569;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .pl-nav-btn:hover {
+    background: #3b82f6;
+    color: #ffffff;
+    border-color: #2563eb;
+  }
+
+  .pl-shuffle-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #94a3b8;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .pl-shuffle-toggle input[type='checkbox'] {
+    cursor: pointer;
   }
 </style>

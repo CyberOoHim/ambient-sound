@@ -7,6 +7,7 @@ import {
   clampPanLfoRateHz,
   clampReverbWet,
   createDefaultNoiseLayer,
+  createDefaultPlaylistLayer,
   createDefaultSampleLayer,
   createDefaultYoutubeLayer,
   defaultMasterTone,
@@ -21,8 +22,20 @@ import {
   type MasterToneParams,
   type MixerLayer,
   type NoiseType,
+  type PlaylistLayerParams,
   type SampleLayerParams,
 } from '../audio/types';
+import {
+  loadPlaylistsFromStorage,
+  savePlaylistsToStorage,
+  createPlaylist,
+  getNextTrackIndex,
+  getPreviousTrackIndex,
+  uid as plUid,
+  type Playlist,
+  type PlaylistItem,
+  type PlaylistItemType,
+} from './playlist';
 import {
   deleteLocalAudio,
   deleteLocalAudioMany,
@@ -205,6 +218,8 @@ export class Session {
    * Persisted in localStorage; first copy always starts at 0.
    */
   duplicateMinOffsetSec = DUPLICATE_MIN_OFFSET_DEFAULT_SEC;
+
+  playlists: Playlist[] = loadPlaylistsFromStorage();
 
   customOneShotPacks: CustomOneShotPack[] = loadCustomOneShotPacksFromStorage();
   oneShotConfig: OneShotConfig = loadOneShotConfigFromStorage(this.customOneShotPacks);
@@ -755,7 +770,11 @@ export class Session {
     // Calling playVideo() here preserves the browser's user-activation
     // context so the iframe can start unmuted playback without being
     // blocked by autoplay policy. This eliminates the double-tap problem.
-    const hasYt = this.layers.some((l) => l.kind === 'youtube');
+    const hasYt = this.layers.some(
+      (l) =>
+        l.kind === 'youtube' ||
+        (l.kind === 'playlist' && l.params.currentTrackType === 'youtube'),
+    );
     if (hasYt) {
       audioEngine.prepareYoutubeCoexistence(true);
       youtubePlayerManager.playAllReadyForGesture();
@@ -1069,6 +1088,30 @@ export class Session {
       return newId;
     }
 
+    if (targetLayer.kind === 'playlist') {
+      const newId = uid('pl-layer');
+      const duplicated: MixerLayer = {
+        kind: 'playlist',
+        params: {
+          ...targetLayer.params,
+          id: newId,
+          solo: false,
+        },
+      };
+      this.layers = [...this.layers, duplicated];
+      this.notify();
+      this.schedulePersist();
+
+      if (this.playing) {
+        await this.ensurePlaylistInEngine(duplicated, true);
+        if (this.hasLayer(newId) && this.playing) {
+          audioEngine.applyMuteSolo(this.layers);
+        }
+      }
+      this.notify();
+      return newId;
+    }
+
     return '';
   }
 
@@ -1217,7 +1260,15 @@ export class Session {
     }
     this.setLoadNotice(
       `Surprise mix: ${this.layers
-        .map((l) => (l.kind === 'noise' ? `${l.params.type} noise` : l.params.label))
+        .map((l) =>
+          l.kind === 'noise'
+            ? `${l.params.type} noise`
+            : l.kind === 'youtube'
+              ? l.params.label
+              : l.kind === 'playlist'
+                ? l.params.playlistName
+                : l.params.label,
+        )
         .join(' · ')}`,
     );
     this.notify();
@@ -1418,6 +1469,369 @@ export class Session {
     this.schedulePersist();
   }
 
+  updatePlaylistLayer(
+    id: string,
+    patch: Partial<Omit<PlaylistLayerParams, 'id' | 'playlistId'>>,
+  ): void {
+    this.layers = this.layers.map((l) => {
+      if (l.kind !== 'playlist' || l.params.id !== id) return l;
+      return { kind: 'playlist', params: { ...l.params, ...patch } };
+    });
+    const layer = this.layers.find((l) => l.params.id === id);
+    if (!layer || layer.kind !== 'playlist') return;
+
+    if (this.playing) {
+      audioEngine.updatePlaylistLayer(layer.params);
+      if ('muted' in patch || 'solo' in patch) {
+        audioEngine.applyMuteSolo(this.layers);
+      }
+    }
+    this.notify();
+    this.schedulePersist();
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // Playlist Management & Mixer Layer Controls
+  // ══════════════════════════════════════════════════════════════════
+
+  getPlaylists(): Playlist[] {
+    return this.playlists;
+  }
+
+  getPlaylist(id: string): Playlist | undefined {
+    return this.playlists.find((p) => p.id === id);
+  }
+
+  createPlaylist(
+    name: string,
+    items: PlaylistItem[] = [],
+    shuffleDefault = false,
+  ): Playlist {
+    const pl = createPlaylist(name, items, shuffleDefault);
+    this.playlists = [...this.playlists, pl];
+    savePlaylistsToStorage(this.playlists);
+    this.notify();
+    return pl;
+  }
+
+  updatePlaylist(
+    id: string,
+    patch: Partial<Omit<Playlist, 'id' | 'createdAt'>>,
+  ): void {
+    this.playlists = this.playlists.map((p) => {
+      if (p.id !== id) return p;
+      return {
+        ...p,
+        ...patch,
+        updatedAt: new Date().toISOString(),
+      };
+    });
+    savePlaylistsToStorage(this.playlists);
+
+    if (patch.name) {
+      this.layers = this.layers.map((l) => {
+        if (l.kind === 'playlist' && l.params.playlistId === id) {
+          return {
+            kind: 'playlist',
+            params: { ...l.params, playlistName: patch.name! },
+          };
+        }
+        return l;
+      });
+    }
+
+    this.notify();
+  }
+
+  deletePlaylist(id: string): void {
+    this.playlists = this.playlists.filter((p) => p.id !== id);
+    savePlaylistsToStorage(this.playlists);
+
+    const affected = this.layers.filter(
+      (l) => l.kind === 'playlist' && l.params.playlistId === id,
+    );
+    for (const l of affected) {
+      this.removeLayer(l.params.id);
+    }
+    this.notify();
+  }
+
+  addPlaylistItem(
+    playlistId: string,
+    item: Omit<PlaylistItem, 'id' | 'addedAt'>,
+  ): PlaylistItem | null {
+    const pl = this.playlists.find((p) => p.id === playlistId);
+    if (!pl) return null;
+
+    const newItem: PlaylistItem = {
+      ...item,
+      id: plUid('item'),
+      addedAt: Date.now(),
+    };
+
+    const updatedItems = [...pl.items, newItem];
+    this.updatePlaylist(playlistId, { items: updatedItems });
+
+    for (const l of this.layers) {
+      if (l.kind === 'playlist' && l.params.playlistId === playlistId) {
+        if (
+          !l.params.currentTrackTitle ||
+          l.params.currentTrackTitle === 'Empty Playlist'
+        ) {
+          l.params.currentTrackTitle = newItem.title;
+          l.params.currentTrackType = newItem.type;
+          if (this.playing) {
+            void this.ensurePlaylistInEngine(l, true);
+          }
+        }
+      }
+    }
+    this.notify();
+    return newItem;
+  }
+
+  removePlaylistItem(playlistId: string, itemId: string): void {
+    const pl = this.playlists.find((p) => p.id === playlistId);
+    if (!pl) return;
+
+    const updatedItems = pl.items.filter((i) => i.id !== itemId);
+    this.updatePlaylist(playlistId, { items: updatedItems });
+
+    for (const l of this.layers) {
+      if (l.kind === 'playlist' && l.params.playlistId === playlistId) {
+        if (l.params.currentIndex >= updatedItems.length) {
+          l.params.currentIndex = Math.max(0, updatedItems.length - 1);
+        }
+        const curItem = updatedItems[l.params.currentIndex];
+        l.params.currentTrackTitle = curItem?.title ?? 'Empty Playlist';
+        l.params.currentTrackType = curItem?.type;
+        if (this.playing) {
+          void this.ensurePlaylistInEngine(l, true);
+        }
+      }
+    }
+    this.notify();
+  }
+
+  reorderPlaylistItems(
+    playlistId: string,
+    fromIndex: number,
+    toIndex: number,
+  ): void {
+    const pl = this.playlists.find((p) => p.id === playlistId);
+    if (!pl) return;
+    if (
+      fromIndex < 0 ||
+      fromIndex >= pl.items.length ||
+      toIndex < 0 ||
+      toIndex >= pl.items.length
+    ) {
+      return;
+    }
+
+    const items = [...pl.items];
+    const [moved] = items.splice(fromIndex, 1);
+    items.splice(toIndex, 0, moved!);
+    this.updatePlaylist(playlistId, { items });
+  }
+
+  duplicatePlaylist(id: string): Playlist | null {
+    const pl = this.playlists.find((p) => p.id === id);
+    if (!pl) return null;
+
+    const clonedItems = pl.items.map((i) => ({
+      ...i,
+      id: plUid('item'),
+      addedAt: Date.now(),
+    }));
+
+    return this.createPlaylist(
+      `${pl.name} (Copy)`,
+      clonedItems,
+      pl.shuffleDefault,
+    );
+  }
+
+  async addPlaylistLayer(
+    playlistId: string,
+    opts?: { shuffle?: boolean },
+  ): Promise<string> {
+    if (!this.canAddLayer()) {
+      this.setLoadNotice(this.layerCapMessage());
+      this.notify();
+      return '';
+    }
+
+    const pl = this.playlists.find((p) => p.id === playlistId);
+    if (!pl) {
+      this.setLoadNotice('Playlist not found.');
+      this.notify();
+      return '';
+    }
+
+    const sameCount = this.layers.filter(
+      (l) => l.kind === 'playlist' && l.params.playlistId === playlistId,
+    ).length;
+    if (sameCount >= MAX_SAME_LAYERS) {
+      this.setLoadNotice(this.sameLayerCapMessage());
+      this.notify();
+      return '';
+    }
+
+    const id = uid('pl-layer');
+    const firstItem = pl.items[0];
+    const layer: MixerLayer = {
+      kind: 'playlist',
+      params: createDefaultPlaylistLayer(id, pl.id, pl.name, {
+        shuffle: opts?.shuffle ?? pl.shuffleDefault ?? false,
+        currentIndex: 0,
+        currentTrackTitle: firstItem?.title ?? 'Empty Playlist',
+        currentTrackType: firstItem?.type,
+      }),
+    };
+
+    this.layers = [...this.layers, layer];
+    this.notify();
+    this.schedulePersist();
+
+    if (this.playing) {
+      await this.ensurePlaylistInEngine(layer, true);
+      if (this.hasLayer(id) && this.playing) {
+        audioEngine.applyMuteSolo(this.layers);
+      }
+    }
+    this.notify();
+    return id;
+  }
+
+  async nextPlaylistTrack(layerId: string): Promise<void> {
+    const layer = this.layers.find((l) => l.params.id === layerId);
+    if (!layer || layer.kind !== 'playlist') return;
+    const pl = this.playlists.find((p) => p.id === layer.params.playlistId);
+    if (!pl || pl.items.length === 0) return;
+
+    const nextIdx = getNextTrackIndex(
+      pl.items.length,
+      layer.params.currentIndex,
+      layer.params.shuffle,
+    );
+    layer.params.currentIndex = nextIdx;
+    const item = pl.items[nextIdx];
+    layer.params.currentTrackTitle = item?.title ?? 'Empty Playlist';
+    layer.params.currentTrackType = item?.type;
+    this.notify();
+    this.schedulePersist();
+
+    if (this.playing) {
+      await this.ensurePlaylistInEngine(layer, true);
+      if (this.hasLayer(layerId) && this.playing) {
+        audioEngine.applyMuteSolo(this.layers);
+      }
+    }
+  }
+
+  async prevPlaylistTrack(layerId: string): Promise<void> {
+    const layer = this.layers.find((l) => l.params.id === layerId);
+    if (!layer || layer.kind !== 'playlist') return;
+    const pl = this.playlists.find((p) => p.id === layer.params.playlistId);
+    if (!pl || pl.items.length === 0) return;
+
+    const prevIdx = getPreviousTrackIndex(
+      pl.items.length,
+      layer.params.currentIndex,
+    );
+    layer.params.currentIndex = prevIdx;
+    const item = pl.items[prevIdx];
+    layer.params.currentTrackTitle = item?.title ?? 'Empty Playlist';
+    layer.params.currentTrackType = item?.type;
+    this.notify();
+    this.schedulePersist();
+
+    if (this.playing) {
+      await this.ensurePlaylistInEngine(layer, true);
+      if (this.hasLayer(layerId) && this.playing) {
+        audioEngine.applyMuteSolo(this.layers);
+      }
+    }
+  }
+
+  async selectPlaylistTrack(layerId: string, index: number): Promise<void> {
+    const layer = this.layers.find((l) => l.params.id === layerId);
+    if (!layer || layer.kind !== 'playlist') return;
+    const pl = this.playlists.find((p) => p.id === layer.params.playlistId);
+    if (!pl || pl.items.length === 0) return;
+
+    const safeIdx = Math.max(0, Math.min(pl.items.length - 1, index));
+    layer.params.currentIndex = safeIdx;
+    const item = pl.items[safeIdx];
+    layer.params.currentTrackTitle = item?.title ?? 'Empty Playlist';
+    layer.params.currentTrackType = item?.type;
+    this.notify();
+    this.schedulePersist();
+
+    if (this.playing) {
+      await this.ensurePlaylistInEngine(layer, true);
+      if (this.hasLayer(layerId) && this.playing) {
+        audioEngine.applyMuteSolo(this.layers);
+      }
+    }
+  }
+
+  setPlaylistLayerShuffle(layerId: string, shuffle: boolean): void {
+    this.updatePlaylistLayer(layerId, { shuffle });
+  }
+
+  async ensurePlaylistInEngine(
+    layer: MixerLayer,
+    _wantPlay = true,
+  ): Promise<void> {
+    if (layer.kind !== 'playlist') return;
+    const id = layer.params.id;
+    if (!this.hasLayer(id)) return;
+
+    const pl = this.playlists.find((p) => p.id === layer.params.playlistId);
+    if (!pl || pl.items.length === 0) {
+      layer.params.currentTrackTitle = 'Empty Playlist';
+      layer.params.currentTrackType = undefined;
+      await audioEngine.addPlaylistLayer(layer.params, undefined);
+      this.notify();
+      return;
+    }
+
+    const idx = Math.max(
+      0,
+      Math.min(pl.items.length - 1, layer.params.currentIndex),
+    );
+    layer.params.currentIndex = idx;
+    const item = pl.items[idx];
+    layer.params.currentTrackTitle = item?.title ?? 'Unknown Track';
+    layer.params.currentTrackType = item?.type;
+
+    if (item?.type === 'youtube') {
+      this.youtubeStatus.set(id, 'loading');
+    }
+
+    try {
+      await audioEngine.addPlaylistLayer(layer.params, item, () => {
+        void this.nextPlaylistTrack(id);
+      });
+      if (item?.type === 'youtube') {
+        this.youtubeStatus.set(id, 'playing');
+      }
+    } catch (err) {
+      console.warn('ensurePlaylistInEngine failed:', err);
+      if (item?.type === 'youtube') {
+        this.youtubeStatus.set(id, 'error');
+      }
+      if (pl.items.length > 1 && this.playing) {
+        setTimeout(() => {
+          void this.nextPlaylistTrack(id);
+        }, 1000);
+      }
+    }
+    this.notify();
+  }
+
   getYoutubeStatus(id: string): YoutubePlayerStatus {
     return this.youtubeStatus.get(id) ?? youtubePlayerManager.getStatus(id);
   }
@@ -1469,6 +1883,7 @@ export class Session {
     }
     if (layer.kind === 'noise') this.updateNoiseLayer(id, normalized);
     else if (layer.kind === 'youtube') this.updateYoutubeLayer(id, normalized);
+    else if (layer.kind === 'playlist') this.updatePlaylistLayer(id, normalized);
     else this.updateSampleLayer(id, normalized);
   }
 
@@ -1777,6 +2192,22 @@ export class Session {
           },
         };
       }
+      if (l.kind === 'playlist') {
+        return {
+          kind: 'playlist' as const,
+          params: {
+            ...l.params,
+            id: uid('pl-layer'),
+            volumeLinear: clampLinear(l.params.volumeLinear),
+            pan: Math.max(-1, Math.min(1, l.params.pan)),
+            lowpassHz: clampLowpassHz(l.params.lowpassHz ?? FILTER_LP_OPEN_HZ),
+            highpassHz: clampHighpassHz(l.params.highpassHz ?? FILTER_HP_OPEN_HZ),
+            panLfoEnabled: Boolean(l.params.panLfoEnabled),
+            panLfoRateHz: clampPanLfoRateHz(l.params.panLfoRateHz ?? 0.08),
+            panLfoDepth: clampPanLfoDepth(l.params.panLfoDepth ?? 0.35),
+          },
+        };
+      }
       return {
         kind: 'sample' as const,
         params: {
@@ -2069,7 +2500,11 @@ export class Session {
     siblingIndex: number;
     siblingCount: number;
   } {
-    if (layer.kind === 'noise' || layer.kind === 'youtube') {
+    if (
+      layer.kind === 'noise' ||
+      layer.kind === 'youtube' ||
+      layer.kind === 'playlist'
+    ) {
       return { siblingIndex: 0, siblingCount: 1 };
     }
     const same = this.layers.filter(
@@ -2117,6 +2552,10 @@ export class Session {
   private async ensureSampleInEngine(layer: MixerLayer): Promise<void> {
     if (layer.kind === 'youtube') {
       await this.ensureYoutubeInEngine(layer, this.playing);
+      return;
+    }
+    if (layer.kind === 'playlist') {
+      await this.ensurePlaylistInEngine(layer, this.playing);
       return;
     }
     if (layer.kind === 'noise') {

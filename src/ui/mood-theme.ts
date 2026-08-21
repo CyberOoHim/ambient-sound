@@ -108,6 +108,14 @@ export function detectMood(
       continue;
     }
 
+    if (layer.kind === 'playlist') {
+      scoreText(layer.params.playlistName, vol * 1.4);
+      if (layer.params.currentTrackTitle) {
+        scoreText(layer.params.currentTrackTitle, vol * 1.2);
+      }
+      continue;
+    }
+
     const asset = catalog ? findAsset(catalog, layer.params.assetId) : undefined;
     scoreText(layer.params.label, vol * 1.4);
     scoreText(layer.params.assetId, vol * 1.2);

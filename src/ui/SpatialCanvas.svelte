@@ -20,6 +20,14 @@
     if (layer.kind === 'noise') {
       return layer.params.type.charAt(0).toUpperCase() + layer.params.type.slice(1);
     }
+    if (layer.kind === 'youtube') {
+      const t = layer.params.label || 'YouTube';
+      return t.length > 14 ? `${t.slice(0, 12)}…` : t;
+    }
+    if (layer.kind === 'playlist') {
+      const t = layer.params.currentTrackTitle || layer.params.playlistName || 'Playlist';
+      return t.length > 14 ? `${t.slice(0, 12)}…` : t;
+    }
     const t = layer.params.label;
     return t.length > 14 ? `${t.slice(0, 12)}…` : t;
   }
@@ -42,6 +50,9 @@
     }
     if (layer.kind === 'youtube') {
       return '▶';
+    }
+    if (layer.kind === 'playlist') {
+      return '📑';
     }
     const id = layer.params.assetId.toLowerCase();
     if (id.includes('rain') || id.includes('thunder')) return '🌧';

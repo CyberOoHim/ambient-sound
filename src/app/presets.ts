@@ -3,6 +3,7 @@ import type {
   MixerLayer,
   NoiseLayerParams,
   NoiseType,
+  PlaylistLayerParams,
   SampleLayerParams,
   YoutubeLayerParams,
 } from '../audio/types';
@@ -234,6 +235,45 @@ function parseYoutubeParams(
   };
 }
 
+function parsePlaylistParams(
+  raw: unknown,
+  fallbackId: string,
+): PlaylistLayerParams | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.playlistId !== 'string' || !o.playlistId) return null;
+  return {
+    id: typeof o.id === 'string' && o.id ? o.id : fallbackId,
+    playlistId: o.playlistId,
+    playlistName: typeof o.playlistName === 'string' ? o.playlistName : 'Playlist',
+    shuffle: Boolean(o.shuffle),
+    currentIndex: Math.max(0, Number(o.currentIndex) || 0),
+    currentTrackTitle: typeof o.currentTrackTitle === 'string' ? o.currentTrackTitle : undefined,
+    currentTrackType: o.currentTrackType === 'youtube' ? 'youtube' : o.currentTrackType === 'local' ? 'local' : undefined,
+    volumeLinear: clampLinear(Number(o.volumeLinear) || 0),
+    muted: Boolean(o.muted),
+    solo: Boolean(o.solo),
+    pan: Math.max(-1, Math.min(1, Number(o.pan) || 0)),
+    lowpassHz:
+      o.lowpassHz != null
+        ? clampLowpassHz(Number(o.lowpassHz))
+        : FILTER_LP_OPEN_HZ,
+    highpassHz:
+      o.highpassHz != null
+        ? clampHighpassHz(Number(o.highpassHz))
+        : FILTER_HP_OPEN_HZ,
+    panLfoEnabled: Boolean(o.panLfoEnabled),
+    panLfoRateHz:
+      o.panLfoRateHz != null
+        ? clampPanLfoRateHz(Number(o.panLfoRateHz))
+        : PAN_LFO_RATE_DEFAULT_HZ,
+    panLfoDepth:
+      o.panLfoDepth != null
+        ? clampPanLfoDepth(Number(o.panLfoDepth))
+        : PAN_LFO_DEPTH_DEFAULT,
+  };
+}
+
 /** Parse a single preset; returns null if invalid. */
 export function parsePreset(raw: unknown): PresetV1 | null {
   if (!raw || typeof raw !== 'object') return null;
@@ -261,6 +301,10 @@ export function parsePreset(raw: unknown): PresetV1 | null {
       const params = parseYoutubeParams(e.params, `yt-${i + 1}`);
       if (!params) return null;
       layers.push({ kind: 'youtube', params });
+    } else if (e.kind === 'playlist') {
+      const params = parsePlaylistParams(e.params, `pl-layer-${i + 1}`);
+      if (!params) return null;
+      layers.push({ kind: 'playlist', params });
     } else {
       return null;
     }
@@ -464,6 +508,9 @@ export function snapshotFromSession(input: SessionSnapshotInput): PresetV1 {
       }
       if (layer.kind === 'youtube') {
         return { kind: 'youtube' as const, params: { ...layer.params } };
+      }
+      if (layer.kind === 'playlist') {
+        return { kind: 'playlist' as const, params: { ...layer.params } };
       }
       return { kind: 'sample' as const, params: { ...layer.params } };
     }),

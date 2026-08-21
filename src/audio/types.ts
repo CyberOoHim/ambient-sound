@@ -122,10 +122,31 @@ export interface YoutubeLayerParams {
   panLfoDepth: number;
 }
 
+export interface PlaylistLayerParams {
+  id: string;
+  playlistId: string;
+  playlistName: string;
+  /** false = sequence / rotate (default), true = random / shuffle */
+  shuffle: boolean;
+  currentIndex: number;
+  currentTrackTitle?: string;
+  currentTrackType?: 'local' | 'youtube';
+  volumeLinear: number;
+  muted: boolean;
+  solo: boolean;
+  pan: number;
+  lowpassHz: number;
+  highpassHz: number;
+  panLfoEnabled: boolean;
+  panLfoRateHz: number;
+  panLfoDepth: number;
+}
+
 export type MixerLayer =
   | { kind: 'noise'; params: NoiseLayerParams }
   | { kind: 'sample'; params: SampleLayerParams }
-  | { kind: 'youtube'; params: YoutubeLayerParams };
+  | { kind: 'youtube'; params: YoutubeLayerParams }
+  | { kind: 'playlist'; params: PlaylistLayerParams };
 
 /** Max YouTube stream channels allowed in mixer for standard platforms. */
 export const MAX_YOUTUBE_LAYERS = 3;
@@ -221,6 +242,39 @@ export function createDefaultYoutubeLayer(
     url,
     label,
     thumbnailUrl,
+    volumeLinear: opts?.volumeLinear ?? 0.7,
+    muted: false,
+    solo: false,
+    pan: opts?.pan ?? 0,
+    ...defaultLayerFilters(),
+    ...defaultPanLfo(),
+  };
+}
+
+export function createDefaultPlaylistLayer(
+  id: string,
+  playlistId: string,
+  playlistName: string,
+  opts?: Partial<
+    Pick<
+      PlaylistLayerParams,
+      | 'volumeLinear'
+      | 'pan'
+      | 'shuffle'
+      | 'currentIndex'
+      | 'currentTrackTitle'
+      | 'currentTrackType'
+    >
+  >,
+): PlaylistLayerParams {
+  return {
+    id,
+    playlistId,
+    playlistName,
+    shuffle: opts?.shuffle ?? false,
+    currentIndex: opts?.currentIndex ?? 0,
+    currentTrackTitle: opts?.currentTrackTitle,
+    currentTrackType: opts?.currentTrackType,
     volumeLinear: opts?.volumeLinear ?? 0.7,
     muted: false,
     solo: false,

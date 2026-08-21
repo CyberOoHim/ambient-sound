@@ -180,10 +180,15 @@ export class YouTubePlayerManager {
   private globalPlaying = false;
   private masterVolumeLinear = 1;
   private errorCallback?: (layerId: string, errorCode: number) => void;
+  private endedCallback?: (layerId: string) => void;
   private statusListeners = new Set<YoutubeStatusListener>();
 
   public onError(cb: (layerId: string, errorCode: number) => void): void {
     this.errorCallback = cb;
+  }
+
+  public onTrackEnded(cb: (layerId: string) => void): void {
+    this.endedCallback = cb;
   }
 
   public onStatusChange(cb: YoutubeStatusListener): void {
@@ -606,12 +611,16 @@ export class YouTubePlayerManager {
                 return;
               }
 
-              // Loop fallback if YT loop option stops at end
+              // Loop fallback or playlist onEnded advance
               if (PS && state === PS.ENDED && this.globalPlaying) {
-                try {
-                  player.playVideo();
-                } catch {
-                  /* */
+                if (this.endedCallback) {
+                  this.endedCallback(layerId);
+                } else {
+                  try {
+                    player.playVideo();
+                  } catch {
+                    /* */
+                  }
                 }
               }
             },

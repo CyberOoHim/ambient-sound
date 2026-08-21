@@ -1,9 +1,10 @@
 import { clampCrossfadeSec, getCachedEqualPowerCurves, loopPeriodSec } from './dsp/loop';
 
 export interface SamplePlayerOptions {
-  loopMode: 'native' | 'crossfade';
+  loopMode: 'native' | 'crossfade' | 'once';
   crossfadeMs: number;
   playbackRate: number;
+  onEnded?: () => void;
 }
 
 /**
@@ -59,7 +60,7 @@ export class SamplePlayer {
       const maxOff = Math.max(0, D - 0.05);
       this.offsetSec = Math.min(Math.max(0, offsetSec), maxOff);
     }
-    if (this.opts.loopMode === 'native') {
+    if (this.opts.loopMode === 'native' || this.opts.loopMode === 'once') {
       this.startNative();
     } else {
       this.startCrossfade();
@@ -157,9 +158,16 @@ export class SamplePlayer {
   private startNative(): void {
     const src = this.ctx.createBufferSource();
     src.buffer = this.buffer;
-    src.loop = true;
+    src.loop = this.opts.loopMode !== 'once';
     src.playbackRate.value = this.opts.playbackRate;
     src.connect(this.inputGain);
+    if (this.opts.loopMode === 'once') {
+      src.onended = () => {
+        if (!this.stopped) {
+          this.opts.onEnded?.();
+        }
+      };
+    }
     // start(when, offset) keeps loop phase offset for the life of the node.
     if (this.offsetSec > 0) {
       src.start(0, this.offsetSec);
