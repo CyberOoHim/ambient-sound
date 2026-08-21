@@ -17,8 +17,6 @@
     MASTER_REVERB_WET_DEFAULT,
     MASTER_REVERB_WET_MAX,
     MASTER_TREBLE_DB_DEFAULT,
-    PAN_LFO_RATE_MAX_HZ,
-    PAN_LFO_RATE_MIN_HZ,
     type MixerLayer,
   } from '../audio/types';
   import type { SoundCatalog } from '../assets/catalog';
@@ -408,21 +406,6 @@
 
   function setPan(id: string, pan: number) {
     session.updateLayerCommon(id, { pan });
-    syncFromSession();
-  }
-
-  function setPanLfoEnabled(id: string, panLfoEnabled: boolean) {
-    session.updateLayerCommon(id, { panLfoEnabled });
-    syncFromSession();
-  }
-
-  function setPanLfoRate(id: string, panLfoRateHz: number) {
-    session.updateLayerCommon(id, { panLfoRateHz });
-    syncFromSession();
-  }
-
-  function setPanLfoDepth(id: string, panLfoDepth: number) {
-    session.updateLayerCommon(id, { panLfoDepth });
     syncFromSession();
   }
 
@@ -1084,59 +1067,6 @@
             {/if}
           </div>
 
-          <div class="lfo-row">
-            <label
-              class="lfo-toggle"
-              class:disabled={isYtDisabled}
-              title={isYtDisabled ? 'Auto-pan is not supported for external YouTube streams' : 'Slow automatic pan for motion'}
-            >
-              <input
-                type="checkbox"
-                disabled={isYtDisabled}
-                checked={layer.params.panLfoEnabled}
-                onchange={(e) =>
-                  setPanLfoEnabled(layer.params.id, e.currentTarget.checked)}
-              />
-              Auto-pan
-            </label>
-            {#if layer.params.panLfoEnabled}
-              <div class="controls-compact lfo-sliders">
-                <div class="row mini">
-                  <label for="lfo-rate-{layer.params.id}" title={isYtDisabled ? 'Auto-pan rate is not supported for external YouTube streams' : 'LFO rate'}>Rate</label>
-                  <input
-                    id="lfo-rate-{layer.params.id}"
-                    type="range"
-                    min={PAN_LFO_RATE_MIN_HZ}
-                    max={PAN_LFO_RATE_MAX_HZ}
-                    step="0.01"
-                    disabled={isYtDisabled}
-                    title={isYtDisabled ? 'Auto-pan rate is not supported for external YouTube streams' : undefined}
-                    value={layer.params.panLfoRateHz}
-                    oninput={(e) =>
-                      setPanLfoRate(layer.params.id, Number(e.currentTarget.value))}
-                  />
-                  <span class="filter-val">{isYtDisabled ? 'N/A' : `${layer.params.panLfoRateHz.toFixed(2)}Hz`}</span>
-                </div>
-                <div class="row mini">
-                  <label for="lfo-depth-{layer.params.id}" title={isYtDisabled ? 'Auto-pan depth is not supported for external YouTube streams' : 'LFO depth'}>Depth</label>
-                  <input
-                    id="lfo-depth-{layer.params.id}"
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    disabled={isYtDisabled}
-                    title={isYtDisabled ? 'Auto-pan depth is not supported for external YouTube streams' : undefined}
-                    value={layer.params.panLfoDepth}
-                    oninput={(e) =>
-                      setPanLfoDepth(layer.params.id, Number(e.currentTarget.value))}
-                  />
-                  <span class="filter-val">{isYtDisabled ? 'N/A' : `${Math.round(layer.params.panLfoDepth * 100)}%`}</span>
-                </div>
-              </div>
-            {/if}
-          </div>
-
           <div class="controls-compact filters">
             <div class="row mini">
               <label for="lp-{layer.params.id}" title={isYtDisabled ? 'Low-pass filter is not supported for external YouTube streams' : 'Low-pass (muffled / indoor)'}>
@@ -1275,33 +1205,6 @@
     max-width: 52rem;
     margin: 0 auto;
     padding: 0.75rem 0.85rem 2rem;
-  }
-
-  .lfo-row {
-    margin-top: 0.25rem;
-  }
-
-  .lfo-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    font-size: 0.72rem;
-    color: var(--text-soft);
-    cursor: pointer;
-    user-select: none;
-  }
-
-  .lfo-toggle.disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .lfo-toggle input {
-    accent-color: var(--accent);
-  }
-
-  .lfo-sliders {
-    margin-top: 0.25rem;
   }
 
   /* ── Sticky warm header ── */
