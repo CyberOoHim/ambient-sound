@@ -1004,6 +1004,9 @@ export class AudioEngine {
         panLfoEnabled: params.panLfoEnabled,
         panLfoRateHz: params.panLfoRateHz,
         panLfoDepth: params.panLfoDepth,
+        driftPitch: false,
+        driftPan: false,
+        driftGain: params.driftGain ?? true,
       }, opts);
 
       if (onTrackEnded) {
@@ -1041,6 +1044,9 @@ export class AudioEngine {
           panLfoEnabled: params.panLfoEnabled,
           panLfoRateHz: params.panLfoRateHz,
           panLfoDepth: params.panLfoDepth,
+          driftPitch: params.driftPitch ?? false,
+          driftPan: params.driftPan ?? true,
+          driftGain: params.driftGain ?? true,
         });
 
         if (this.cancelledLoads.has(params.id)) return;
