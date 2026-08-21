@@ -1041,9 +1041,6 @@
                 value={layer.params.pan}
                 oninput={(e) => setPan(layer.params.id, Number(e.currentTarget.value))}
               />
-              {#if isYtDisabled}
-                <span class="pan-disabled-note" title="Stereo panning is not supported for external YouTube streams">N/A</span>
-              {/if}
             </div>
 
             {#if layer.kind === 'noise'}
@@ -1077,9 +1074,6 @@
                   setPanLfoEnabled(layer.params.id, e.currentTarget.checked)}
               />
               Auto-pan
-              {#if isYtDisabled}
-                <span class="pan-disabled-note" title="Auto-pan is not supported for external YouTube streams">N/A</span>
-              {/if}
             </label>
             {#if layer.params.panLfoEnabled}
               <div class="controls-compact lfo-sliders">
@@ -2133,7 +2127,7 @@
   /* ── Side panels grid ── */
   .side-grid {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 0.65rem;
     align-items: start;
   }
@@ -2142,6 +2136,7 @@
     display: flex;
     flex-direction: column;
     gap: 0.65rem;
+    min-width: 0;
   }
 
   .notice-dismiss {
@@ -2193,7 +2188,7 @@
     }
 
     .side-grid {
-      grid-template-columns: 1.15fr 0.85fr;
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
       gap: 0.75rem;
     }
   }
@@ -2229,6 +2224,8 @@
     align-items: center;
     gap: 0.5rem;
     overflow: hidden;
+    min-width: 0;
+    flex: 1;
   }
 
   .yt-strip-thumb {
@@ -2237,13 +2234,22 @@
     object-fit: cover;
     border-radius: 4px;
     flex-shrink: 0;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--border);
   }
 
   .yt-title-group {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .yt-title-group .name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
   }
 
   .badge-yt {
@@ -2253,13 +2259,8 @@
     letter-spacing: 0.03em;
     line-height: 1;
     margin-bottom: 2px;
-  }
-
-  .pan-disabled-note {
-    font-size: 0.72rem;
-    color: #64748b;
-    font-style: italic;
-    align-self: center;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 
   /* Keep element in layout so browsers do not throttle iframe background media playback, but render visually zero opacity/pixels. */
@@ -2312,6 +2313,8 @@
     align-items: center;
     gap: 0.5rem;
     overflow: hidden;
+    min-width: 0;
+    flex: 1;
   }
 
   .playlist-title-group {
@@ -2319,46 +2322,64 @@
     flex-direction: column;
     overflow: hidden;
     gap: 0.15rem;
+    min-width: 0;
+    flex: 1;
   }
 
   .pl-badge-row {
     display: flex;
     align-items: center;
     gap: 0.35rem;
+    min-width: 0;
   }
 
   .badge-pl {
     font-size: 0.65rem;
     font-weight: 700;
-    color: #38bdf8;
+    color: var(--accent);
     letter-spacing: 0.03em;
     line-height: 1;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 
   .pl-name-tag {
     font-size: 0.72rem;
     font-weight: 600;
-    color: #cbd5e1;
-    background: #1e293b;
+    color: var(--text-soft);
+    background: var(--card-soft);
+    border: 1px solid var(--border);
     padding: 0.05rem 0.35rem;
-    border-radius: 3px;
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
   }
 
   .pl-track-info {
     display: flex;
     align-items: center;
     gap: 0.3rem;
+    min-width: 0;
+    overflow: hidden;
   }
 
   .pl-track-icon {
     font-size: 0.75rem;
-    color: #94a3b8;
+    color: var(--muted);
+    flex-shrink: 0;
   }
 
   .pl-track-title {
     font-size: 0.82rem;
     font-weight: 500;
-    color: #f1f5f9;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    flex: 1;
   }
 
   .playlist-track-controls {
@@ -2367,9 +2388,9 @@
     justify-content: space-between;
     gap: 0.5rem;
     padding: 0.35rem 0.5rem;
-    background: #1e242d;
-    border-radius: 4px;
-    border: 1px solid #334155;
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
     margin-top: 0.25rem;
     margin-bottom: 0.35rem;
   }
@@ -2378,24 +2399,26 @@
     display: flex;
     align-items: center;
     gap: 0.3rem;
+    flex-shrink: 0;
   }
 
   .pl-nav-btn {
     padding: 0.2rem 0.5rem;
     font-size: 0.72rem;
     font-weight: 600;
-    background: #2a3340;
-    color: #cbd5e1;
-    border: 1px solid #475569;
-    border-radius: 4px;
+    background: var(--card-soft);
+    color: var(--text-soft);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
     cursor: pointer;
     transition: all 0.15s;
+    white-space: nowrap;
   }
 
   .pl-nav-btn:hover {
-    background: #3b82f6;
+    background: var(--accent);
     color: #ffffff;
-    border-color: #2563eb;
+    border-color: var(--accent-hover);
   }
 
   .pl-shuffle-toggle {
@@ -2404,9 +2427,10 @@
     gap: 0.35rem;
     font-size: 0.75rem;
     font-weight: 500;
-    color: #94a3b8;
+    color: var(--muted);
     cursor: pointer;
     user-select: none;
+    white-space: nowrap;
   }
 
   .pl-shuffle-toggle input[type='checkbox'] {

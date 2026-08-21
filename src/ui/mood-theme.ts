@@ -142,23 +142,18 @@ export function detectMood(
 }
 
 /** Apply mood to documentElement for CSS `[data-mood="…"]` rules. */
-export function applyMoodTheme(mood: MoodId): void {
+export function applyMoodTheme(mood: MoodId = 'default'): void {
   if (typeof document === 'undefined') return;
   const root = document.documentElement;
-  const current = root.getAttribute('data-mood') ?? 'default';
-  if (current === mood) return;
-  if (mood === 'default') {
-    root.removeAttribute('data-mood');
-  } else {
-    root.setAttribute('data-mood', mood);
-  }
+  // Always maintain stable theme, preventing unexpected UI palette shifts or deformation
+  root.removeAttribute('data-mood');
 }
 
 export function syncMoodFromLayers(
   layers: MixerLayer[],
   catalog: SoundCatalog | null = null,
 ): MoodId {
-  const mood = detectMood(layers, catalog);
-  applyMoodTheme(mood);
-  return mood;
+  // Ensure the UI palette remains stable and does not mutate when adding channels/sounds
+  applyMoodTheme('default');
+  return 'default';
 }

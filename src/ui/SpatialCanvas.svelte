@@ -110,10 +110,18 @@
     draggingId = null;
   }
 
+  function isYoutubeLayer(layer?: MixerLayer): boolean {
+    if (!layer) return false;
+    return (
+      layer.kind === 'youtube' ||
+      (layer.kind === 'playlist' && layer.params.currentTrackType === 'youtube')
+    );
+  }
+
   function applyAt(id: string, clientX: number, clientY: number) {
     const layer = layers.find((l) => l.params.id === id);
     const { pan, vol } = xyToParams(clientX, clientY);
-    const effectivePan = layer?.kind === 'youtube' ? 0 : pan;
+    const effectivePan = isYoutubeLayer(layer) ? 0 : pan;
     session.setLayerSpatial(id, effectivePan, vol, { coupleFilter });
   }
 
@@ -121,14 +129,15 @@
     let pan = layer.params.pan;
     let vol = layer.params.volumeLinear;
     let handled = false;
+    const isYt = isYoutubeLayer(layer);
 
     if (e.key === 'ArrowLeft') {
-      if (layer.kind !== 'youtube') {
+      if (!isYt) {
         pan = Math.max(-1, pan - 0.1);
         handled = true;
       }
     } else if (e.key === 'ArrowRight') {
-      if (layer.kind !== 'youtube') {
+      if (!isYt) {
         pan = Math.min(1, pan + 0.1);
         handled = true;
       }
@@ -142,7 +151,7 @@
 
     if (handled) {
       e.preventDefault();
-      session.setLayerSpatial(layer.params.id, layer.kind === 'youtube' ? 0 : pan, vol, { coupleFilter });
+      session.setLayerSpatial(layer.params.id, isYt ? 0 : pan, vol, { coupleFilter });
     }
   }
 </script>
@@ -175,19 +184,20 @@
       <div class="cross-v" aria-hidden="true"></div>
 
       {#each layers as layer (layer.params.id)}
+        {@const isYt = isYoutubeLayer(layer)}
         <button
           type="button"
           class="marker"
           class:muted={layer.params.muted}
           class:dragging={draggingId === layer.params.id}
-          class:vertical-only={layer.kind === 'youtube'}
-          style="left: {panToX(layer.kind === 'youtube' ? 0 : layer.params.pan)}%; top: {volToY(
+          class:vertical-only={isYt}
+          style="left: {panToX(isYt ? 0 : layer.params.pan)}%; top: {volToY(
             layer.params.volumeLinear,
           )}%"
-          title={layer.kind === 'youtube'
+          title={isYt
             ? `${labelFor(layer)} · vertical move only (pan N/A)`
             : `${labelFor(layer)} · pan ${layer.params.pan.toFixed(2)}`}
-          aria-label={layer.kind === 'youtube'
+          aria-label={isYt
             ? `${labelFor(layer)}, volume ${Math.round(
                 layer.params.volumeLinear * 100,
               )}% (vertical move only, pan not available)`
