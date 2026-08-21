@@ -12,9 +12,11 @@
     layers: import('../audio/types').MixerLayer[];
     canAddLayer: boolean;
     onAddYoutube: (videoId: string, url: string, title: string, thumbnailUrl: string) => Promise<void>;
+    open?: boolean;
+    onToggle?: () => void;
   }
 
-  let { layers, canAddLayer, onAddYoutube }: Props = $props();
+  let { layers, canAddLayer, onAddYoutube, open = true, onToggle }: Props = $props();
 
   let inputUrl = $state('');
   let isAdding = $state(false);
@@ -63,25 +65,54 @@
   }
 </script>
 
-<div class="youtube-panel" aria-label="YouTube Streams Manager">
-  <div class="panel-header">
+<div class="youtube-panel" class:collapsed={!open} aria-label="YouTube Streams Manager">
+  <div
+    class="panel-header"
+    onclick={onToggle}
+    role="button"
+    tabindex="0"
+    onkeydown={(e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onToggle?.();
+      }
+    }}
+    aria-expanded={open}
+    aria-label={open ? 'Collapse YouTube deck' : 'Expand YouTube deck'}
+  >
     <div class="header-title">
       <svg class="yt-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
         <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
       </svg>
       <h3>YouTube Audio Streams</h3>
     </div>
-    <div class="channel-cap-badge" class:at-cap={isYoutubeCapReached}>
-      {activeYoutubeCount} / {maxYoutubeLayers} {maxYoutubeLayers === 1 ? 'Channel' : 'Channels'} in Mix
+    <div class="header-actions">
+      <div class="channel-cap-badge" class:at-cap={isYoutubeCapReached}>
+        {activeYoutubeCount} / {maxYoutubeLayers} {maxYoutubeLayers === 1 ? 'Channel' : 'Channels'} in Mix
+      </div>
+      <button
+        type="button"
+        class="expander-btn"
+        onclick={(e) => {
+          e.stopPropagation();
+          onToggle?.();
+        }}
+        aria-expanded={open}
+        aria-label={open ? 'Collapse YouTube deck' : 'Expand YouTube deck'}
+      >
+        <span class="expander-icon" class:collapsed={!open} aria-hidden="true">▾</span>
+      </button>
     </div>
   </div>
 
-  <p class="panel-intro">
-    Paste YouTube URLs to stream background lofi, rain sounds, or music channels alongside your ambient mix.
-    {#if maxYoutubeLayers === 1}
-      <span class="ios-cap-note">Note: iOS WebKit limits media playback to 1 YouTube stream at a time.</span>
-    {/if}
-  </p>
+  {#if open}
+    <div class="panel-body">
+      <p class="panel-intro">
+        Paste YouTube URLs to stream background lofi, rain sounds, or music channels alongside your ambient mix.
+        {#if maxYoutubeLayers === 1}
+          <span class="ios-cap-note">Note: iOS WebKit limits media playback to 1 YouTube stream at a time.</span>
+        {/if}
+      </p>
 
   <form class="add-form" onsubmit={handleAddUrl}>
     <div class="input-row">
@@ -171,6 +202,8 @@
       </div>
     {/if}
   </div>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -186,10 +219,62 @@
     color: #e2e8f0;
   }
 
+  .youtube-panel.collapsed {
+    padding-bottom: 1rem;
+    gap: 0;
+  }
+
+  .panel-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
   .panel-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .expander-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border: none;
+    background: transparent;
+    color: var(--muted, #94a3b8);
+    border-radius: var(--radius-sm, 6px);
+    cursor: pointer;
+    padding: 0;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+    transition: color 0.15s ease, background 0.15s ease;
+  }
+
+  .expander-btn:hover {
+    color: var(--accent, #60a5fa);
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .expander-icon {
+    display: inline-block;
+    transition: transform 0.2s ease;
+    line-height: 1;
+  }
+
+  .expander-icon.collapsed {
+    transform: rotate(-90deg);
   }
 
   .header-title {

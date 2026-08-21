@@ -11,6 +11,13 @@
   } from '../app/youtube-urls';
   import type { LocalAudioMeta } from '../audio/local-audio-store';
 
+  interface Props {
+    open?: boolean;
+    onToggle?: () => void;
+  }
+
+  let { open = true, onToggle }: Props = $props();
+
   let playlists = $state<Playlist[]>(session.playlists);
   let activePlaylistId = $state<string>(session.playlists[0]?.id ?? '');
   let localClips = $state<LocalAudioMeta[]>(session.localAudio);
@@ -144,25 +151,57 @@
   }
 </script>
 
-<div class="playlist-panel" aria-label="Playlists Manager">
-  <div class="panel-header">
+<div class="playlist-panel" class:collapsed={!open} aria-label="Playlists Manager">
+  <div
+    class="panel-header"
+    onclick={onToggle}
+    role="button"
+    tabindex="0"
+    onkeydown={(e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onToggle?.();
+      }
+    }}
+    aria-expanded={open}
+    aria-label={open ? 'Collapse Playlists deck' : 'Expand Playlists deck'}
+  >
     <div class="header-title">
       <span class="pl-icon" aria-hidden="true">📑</span>
       <h3>Playlists</h3>
     </div>
-    <button
-      type="button"
-      class="btn-new"
-      onclick={() => (isCreating = !isCreating)}
-      aria-expanded={isCreating}
-    >
-      {isCreating ? 'Cancel' : '+ New Playlist'}
-    </button>
+    <div class="header-actions">
+      <button
+        type="button"
+        class="btn-new"
+        onclick={(e) => {
+          e.stopPropagation();
+          isCreating = !isCreating;
+        }}
+        aria-expanded={isCreating}
+      >
+        {isCreating ? 'Cancel' : '+ New Playlist'}
+      </button>
+      <button
+        type="button"
+        class="expander-btn"
+        onclick={(e) => {
+          e.stopPropagation();
+          onToggle?.();
+        }}
+        aria-expanded={open}
+        aria-label={open ? 'Collapse Playlists deck' : 'Expand Playlists deck'}
+      >
+        <span class="expander-icon" class:collapsed={!open} aria-hidden="true">▾</span>
+      </button>
+    </div>
   </div>
 
-  <p class="panel-intro">
-    Combine your imported local audio and saved YouTube channels into custom playlists. Add any playlist as an ambient mix layer that plays in sequential rotation or random shuffle.
-  </p>
+  {#if open}
+    <div class="panel-body">
+      <p class="panel-intro">
+        Combine your imported local audio and saved YouTube channels into custom playlists. Add any playlist as an ambient mix layer that plays in sequential rotation or random shuffle.
+      </p>
 
   {#if isCreating}
     <div class="create-form">
@@ -456,6 +495,8 @@
       </div>
     {/if}
   {/if}
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -470,11 +511,63 @@
     font-size: 0.9rem;
   }
 
+  .playlist-panel.collapsed {
+    padding-bottom: 1rem;
+    gap: 0;
+  }
+
+  .panel-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
   .panel-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .expander-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border: none;
+    background: transparent;
+    color: var(--muted, #94a3b8);
+    border-radius: var(--radius-sm, 6px);
+    cursor: pointer;
+    padding: 0;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+    transition: color 0.15s ease, background 0.15s ease;
+  }
+
+  .expander-btn:hover {
+    color: var(--accent, #60a5fa);
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .expander-icon {
+    display: inline-block;
+    transition: transform 0.2s ease;
+    line-height: 1;
+  }
+
+  .expander-icon.collapsed {
+    transform: rotate(-90deg);
   }
 
   .header-title {

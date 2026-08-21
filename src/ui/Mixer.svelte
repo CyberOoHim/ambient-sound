@@ -42,6 +42,11 @@
   import { syncMoodFromLayers } from './mood-theme';
   import { formatRemaining } from './format';
   import { powerSaver, type PowerSaverMode } from '../app/power-saver';
+  import {
+    loadDeckStates,
+    toggleDeckState,
+    type DeckId,
+  } from '../app/deck-storage';
 
   let layers = $state<MixerLayer[]>(session.layers);
   let playing = $state(session.playing);
@@ -81,16 +86,7 @@
   /** Rotating idle tip index for the always-visible status strip. */
   let idleTipIndex = $state(0);
   let idleTipTimer: ReturnType<typeof setInterval> | null = null;
-  let panelOpen = $state<Record<string, boolean>>({
-    library: true,
-    space: false,
-    timer: false,
-    presets: false,
-    binaural: false,
-    oneshot: false,
-    youtube: false,
-    playlist: false,
-  });
+  let deckStates = $state<Record<DeckId, boolean>>(loadDeckStates());
 
   let ytHostDiv = $state<HTMLElement>();
 
@@ -235,8 +231,8 @@
     playlistPanel?.sync();
   }
 
-  function togglePanel(id: string) {
-    panelOpen = { ...panelOpen, [id]: !panelOpen[id] };
+  function toggleDeck(id: DeckId) {
+    deckStates = toggleDeckState(deckStates, id);
   }
 
   function onMinOffsetInput(e: Event) {
@@ -1187,124 +1183,59 @@
   </section>
 
   <div class="side-grid">
-    <div class="accordion-panel" class:open={panelOpen.library}>
+    <div class="accordion-panel" class:open={deckStates.library}>
       <button
         type="button"
         class="accordion-toggle mobile-only"
-        aria-expanded={panelOpen.library}
-        onclick={() => togglePanel('library')}
+        aria-expanded={deckStates.library}
+        onclick={() => toggleDeck('library')}
       >
         Sounds
-        <span class="chev">{panelOpen.library ? '▾' : '▸'}</span>
+        <span class="chev">{deckStates.library ? '▾' : '▸'}</span>
       </button>
-      <div class="accordion-body" class:collapsed={!panelOpen.library}>
+      <div class="accordion-body" class:collapsed={!deckStates.library}>
         <LibraryPanel bind:this={libraryPanel} />
       </div>
     </div>
     <div class="side-stack">
-      <div class="accordion-panel" class:open={panelOpen.space}>
-        <button
-          type="button"
-          class="accordion-toggle mobile-only"
-          aria-expanded={panelOpen.space}
-          onclick={() => togglePanel('space')}
-        >
-          Space
-          <span class="chev">{panelOpen.space ? '▾' : '▸'}</span>
-        </button>
-        <div class="accordion-body" class:collapsed={!panelOpen.space}>
-          <SpatialCanvas layers={layers} />
-        </div>
-      </div>
-      <div class="accordion-panel" class:open={panelOpen.timer}>
-        <button
-          type="button"
-          class="accordion-toggle mobile-only"
-          aria-expanded={panelOpen.timer}
-          onclick={() => togglePanel('timer')}
-        >
-          Timer
-          <span class="chev">{panelOpen.timer ? '▾' : '▸'}</span>
-        </button>
-        <div class="accordion-body" class:collapsed={!panelOpen.timer}>
-          <TimerPanel bind:this={timerPanel} />
-        </div>
-      </div>
-      <div class="accordion-panel" class:open={panelOpen.presets}>
-        <button
-          type="button"
-          class="accordion-toggle mobile-only"
-          aria-expanded={panelOpen.presets}
-          onclick={() => togglePanel('presets')}
-        >
-          Presets
-          <span class="chev">{panelOpen.presets ? '▾' : '▸'}</span>
-        </button>
-        <div class="accordion-body" class:collapsed={!panelOpen.presets}>
-          <PresetsPanel bind:this={presetsPanel} />
-        </div>
-      </div>
-      <div class="accordion-panel" class:open={panelOpen.binaural}>
-        <button
-          type="button"
-          class="accordion-toggle mobile-only"
-          aria-expanded={panelOpen.binaural}
-          onclick={() => togglePanel('binaural')}
-        >
-          Tones
-          <span class="chev">{panelOpen.binaural ? '▾' : '▸'}</span>
-        </button>
-        <div class="accordion-body" class:collapsed={!panelOpen.binaural}>
-          <BinauralPanel bind:this={binauralPanel} />
-        </div>
-      </div>
-      <div class="accordion-panel" class:open={panelOpen.oneshot}>
-        <button
-          type="button"
-          class="accordion-toggle mobile-only"
-          aria-expanded={panelOpen.oneshot}
-          onclick={() => togglePanel('oneshot')}
-        >
-          Events
-          <span class="chev">{panelOpen.oneshot ? '▾' : '▸'}</span>
-        </button>
-        <div class="accordion-body" class:collapsed={!panelOpen.oneshot}>
-          <OneShotPanel bind:this={oneShotPanel} />
-        </div>
-      </div>
-      <div class="accordion-panel" class:open={panelOpen.youtube}>
-        <button
-          type="button"
-          class="accordion-toggle mobile-only"
-          aria-expanded={panelOpen.youtube}
-          onclick={() => togglePanel('youtube')}
-        >
-          YouTube
-          <span class="chev">{panelOpen.youtube ? '▾' : '▸'}</span>
-        </button>
-        <div class="accordion-body" class:collapsed={!panelOpen.youtube}>
-          <YouTubePanel
-            layers={layers}
-            canAddLayer={session.canAddLayer()}
-            onAddYoutube={(videoId, url, title, thumbnailUrl) =>
-              session.addYoutubeLayer(videoId, url, title, thumbnailUrl).then(() => {})}
-          />
-        </div>
-      </div>
-      <div class="accordion-panel" class:open={panelOpen.playlist}>
-        <button
-          type="button"
-          class="accordion-toggle mobile-only"
-          aria-expanded={panelOpen.playlist}
-          onclick={() => togglePanel('playlist')}
-        >
-          Playlists
-          <span class="chev">{panelOpen.playlist ? '▾' : '▸'}</span>
-        </button>
-        <div class="accordion-body" class:collapsed={!panelOpen.playlist}>
-          <PlaylistPanel bind:this={playlistPanel} />
-        </div>
-      </div>
+      <SpatialCanvas
+        layers={layers}
+        open={deckStates.space}
+        onToggle={() => toggleDeck('space')}
+      />
+      <TimerPanel
+        bind:this={timerPanel}
+        open={deckStates.timer}
+        onToggle={() => toggleDeck('timer')}
+      />
+      <PresetsPanel
+        bind:this={presetsPanel}
+        open={deckStates.presets}
+        onToggle={() => toggleDeck('presets')}
+      />
+      <BinauralPanel
+        bind:this={binauralPanel}
+        open={deckStates.binaural}
+        onToggle={() => toggleDeck('binaural')}
+      />
+      <OneShotPanel
+        bind:this={oneShotPanel}
+        open={deckStates.oneshot}
+        onToggle={() => toggleDeck('oneshot')}
+      />
+      <YouTubePanel
+        layers={layers}
+        canAddLayer={session.canAddLayer()}
+        onAddYoutube={(videoId, url, title, thumbnailUrl) =>
+          session.addYoutubeLayer(videoId, url, title, thumbnailUrl).then(() => {})}
+        open={deckStates.youtube}
+        onToggle={() => toggleDeck('youtube')}
+      />
+      <PlaylistPanel
+        bind:this={playlistPanel}
+        open={deckStates.playlist}
+        onToggle={() => toggleDeck('playlist')}
+      />
     </div>
   </div>
 
