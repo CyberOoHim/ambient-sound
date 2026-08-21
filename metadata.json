@@ -1,0 +1,8 @@
+{
+  "name": "Ambient Sound",
+  "description": "Mix soft ambient sounds, sleep timers, and focus tones.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
