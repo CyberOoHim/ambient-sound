@@ -9,6 +9,7 @@
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0 --port 3000",
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
+    "lint": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "sounds:generate": "node scripts/generate-core-pack.mjs",
