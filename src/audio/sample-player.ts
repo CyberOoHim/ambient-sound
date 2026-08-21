@@ -155,6 +155,32 @@ export class SamplePlayer {
     this.offsetSec = 0;
   }
 
+  /**
+   * Smoothly update the playback rate of active and upcoming sources.
+   */
+  setPlaybackRate(rate: number, rampSec = 1.5): void {
+    const safeRate = Number.isFinite(rate) && rate > 0 ? Math.max(0.01, rate) : 1.0;
+    this.opts.playbackRate = safeRate;
+    const t = this.ctx.currentTime;
+    const timeConstant = Math.max(0.05, rampSec / 3);
+
+    if (this.nativeSource) {
+      try {
+        this.nativeSource.playbackRate.setTargetAtTime(safeRate, t, timeConstant);
+      } catch {
+        this.nativeSource.playbackRate.value = safeRate;
+      }
+    }
+
+    for (const seg of this.active) {
+      try {
+        seg.source.playbackRate.setTargetAtTime(safeRate, t, timeConstant);
+      } catch {
+        seg.source.playbackRate.value = safeRate;
+      }
+    }
+  }
+
   private startNative(): void {
     const src = this.ctx.createBufferSource();
     src.buffer = this.buffer;

@@ -64,6 +64,23 @@ export function clampPanLfoDepth(depth: number): number {
   return Math.max(0, Math.min(1, depth));
 }
 
+export interface LayerDriftParams {
+  /** Subtle playbackRate random drift (sample/playlist only). */
+  driftPitch: boolean;
+  /** Gentle stereo field wandering. */
+  driftPan: boolean;
+  /** Organic volume breathing variation with headroom protection. */
+  driftGain: boolean;
+}
+
+export function defaultLayerDrift(isSample = false): LayerDriftParams {
+  return {
+    driftPitch: isSample,
+    driftPan: true,
+    driftGain: true,
+  };
+}
+
 export interface NoiseLayerParams {
   id: string;
   type: NoiseType;
@@ -82,6 +99,9 @@ export interface NoiseLayerParams {
   panLfoEnabled: boolean;
   panLfoRateHz: number;
   panLfoDepth: number;
+  driftPitch: boolean;
+  driftPan: boolean;
+  driftGain: boolean;
 }
 
 export type LoopMode = 'native' | 'crossfade';
@@ -103,6 +123,9 @@ export interface SampleLayerParams {
   panLfoEnabled: boolean;
   panLfoRateHz: number;
   panLfoDepth: number;
+  driftPitch: boolean;
+  driftPan: boolean;
+  driftGain: boolean;
 }
 
 export interface YoutubeLayerParams {
@@ -120,6 +143,9 @@ export interface YoutubeLayerParams {
   panLfoEnabled: boolean;
   panLfoRateHz: number;
   panLfoDepth: number;
+  driftPitch: boolean;
+  driftPan: boolean;
+  driftGain: boolean;
 }
 
 export interface PlaylistLayerParams {
@@ -140,6 +166,9 @@ export interface PlaylistLayerParams {
   panLfoEnabled: boolean;
   panLfoRateHz: number;
   panLfoDepth: number;
+  driftPitch: boolean;
+  driftPan: boolean;
+  driftGain: boolean;
 }
 
 export type MixerLayer =
@@ -186,6 +215,7 @@ export function createDefaultNoiseLayer(
     pan: 0,
     ...defaultLayerFilters(),
     ...defaultPanLfo(),
+    ...defaultLayerDrift(false),
   };
 }
 
@@ -206,6 +236,9 @@ export function createDefaultSampleLayer(
       | 'panLfoEnabled'
       | 'panLfoRateHz'
       | 'panLfoDepth'
+      | 'driftPitch'
+      | 'driftPan'
+      | 'driftGain'
     >
   >,
 ): SampleLayerParams {
@@ -225,6 +258,9 @@ export function createDefaultSampleLayer(
     panLfoEnabled: opts?.panLfoEnabled ?? false,
     panLfoRateHz: opts?.panLfoRateHz ?? PAN_LFO_RATE_DEFAULT_HZ,
     panLfoDepth: opts?.panLfoDepth ?? PAN_LFO_DEPTH_DEFAULT,
+    driftPitch: opts?.driftPitch ?? true,
+    driftPan: opts?.driftPan ?? true,
+    driftGain: opts?.driftGain ?? true,
   };
 }
 
@@ -234,7 +270,12 @@ export function createDefaultYoutubeLayer(
   url: string,
   label: string,
   thumbnailUrl: string,
-  opts?: Partial<Pick<YoutubeLayerParams, 'volumeLinear' | 'pan'>>,
+  opts?: Partial<
+    Pick<
+      YoutubeLayerParams,
+      'volumeLinear' | 'pan' | 'driftPitch' | 'driftPan' | 'driftGain'
+    >
+  >,
 ): YoutubeLayerParams {
   return {
     id,
@@ -248,6 +289,9 @@ export function createDefaultYoutubeLayer(
     pan: opts?.pan ?? 0,
     ...defaultLayerFilters(),
     ...defaultPanLfo(),
+    driftPitch: false,
+    driftPan: false,
+    driftGain: opts?.driftGain ?? true,
   };
 }
 
@@ -264,6 +308,9 @@ export function createDefaultPlaylistLayer(
       | 'currentIndex'
       | 'currentTrackTitle'
       | 'currentTrackType'
+      | 'driftPitch'
+      | 'driftPan'
+      | 'driftGain'
     >
   >,
 ): PlaylistLayerParams {
@@ -281,6 +328,9 @@ export function createDefaultPlaylistLayer(
     pan: opts?.pan ?? 0,
     ...defaultLayerFilters(),
     ...defaultPanLfo(),
+    driftPitch: opts?.driftPitch ?? false,
+    driftPan: opts?.driftPan ?? true,
+    driftGain: opts?.driftGain ?? true,
   };
 }
 

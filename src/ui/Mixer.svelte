@@ -386,6 +386,21 @@
     syncFromSession();
   }
 
+  function setDriftPitch(id: string, driftPitch: boolean) {
+    session.updateLayerCommon(id, { driftPitch });
+    syncFromSession();
+  }
+
+  function setDriftPan(id: string, driftPan: boolean) {
+    session.updateLayerCommon(id, { driftPan });
+    syncFromSession();
+  }
+
+  function setDriftGain(id: string, driftGain: boolean) {
+    session.updateLayerCommon(id, { driftGain });
+    syncFromSession();
+  }
+
   function setNoiseType(id: string, type: NoiseType) {
     session.updateNoiseLayer(id, { type });
     syncFromSession();
@@ -1082,6 +1097,45 @@
               <span class="filter-val">
                 {isYtDisabled ? 'N/A' : filterLabelHp(layer.params.highpassHz ?? FILTER_HP_OPEN_HZ)}
               </span>
+            </div>
+          </div>
+
+          <div class="drift-row">
+            <span class="drift-title" title="Discrete-hold random variation (organic movement)">Drift</span>
+            <div class="drift-chips" role="group" aria-label="Random variation controls">
+              {#if layer.kind === 'sample' || (layer.kind === 'playlist' && layer.params.currentTrackType !== 'youtube')}
+                <button
+                  type="button"
+                  class="chip drift-chip"
+                  class:on={layer.params.driftPitch}
+                  aria-pressed={layer.params.driftPitch}
+                  title="Random pitch drift (±3.5% subtle variation to prevent ear fatigue)"
+                  onclick={() => setDriftPitch(layer.params.id, !layer.params.driftPitch)}
+                >
+                  🎵 Pitch
+                </button>
+              {/if}
+              <button
+                type="button"
+                class="chip drift-chip"
+                class:on={layer.params.driftPan}
+                disabled={isYtDisabled}
+                aria-pressed={layer.params.driftPan}
+                title={isYtDisabled ? 'Panning is not supported for external YouTube streams' : 'Random stereo pan wandering (±0.25 gentle stage motion)'}
+                onclick={() => setDriftPan(layer.params.id, !layer.params.driftPan)}
+              >
+                ↔ Pan
+              </button>
+              <button
+                type="button"
+                class="chip drift-chip"
+                class:on={layer.params.driftGain}
+                aria-pressed={layer.params.driftGain}
+                title="Random volume breathing (+0.5 dB / -2.5 dB subtle swells with anti-clipping protection)"
+                onclick={() => setDriftGain(layer.params.id, !layer.params.driftGain)}
+              >
+                🔊 Gain
+              </button>
             </div>
           </div>
         </article>
@@ -1982,6 +2036,44 @@
 
   .row.mini label {
     font-size: 0.68rem;
+  }
+
+  .drift-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-top: 0.45rem;
+    padding-top: 0.35rem;
+    border-top: 1px dashed var(--border-soft);
+  }
+
+  .drift-title {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted-soft);
+    user-select: none;
+  }
+
+  .drift-chips {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    flex-wrap: wrap;
+  }
+
+  .chip.drift-chip {
+    min-width: auto;
+    height: 1.45rem;
+    padding: 0 0.45rem;
+    font-size: 0.66rem;
+    font-weight: 600;
+    border-radius: var(--radius-pill);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
   }
 
   /* ── Side panels grid ── */

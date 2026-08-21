@@ -1711,6 +1711,9 @@ export class Session {
       panLfoEnabled?: boolean;
       panLfoRateHz?: number;
       panLfoDepth?: number;
+      driftPitch?: boolean;
+      driftPan?: boolean;
+      driftGain?: boolean;
     },
   ): void {
     const layer = this.layers.find((l) => l.params.id === id);

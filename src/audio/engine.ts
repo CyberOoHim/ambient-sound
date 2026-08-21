@@ -2,6 +2,12 @@ import workletUrl from './worklets/noise-processor.js?url';
 import { clampLinear } from './dsp/curves';
 import type { NoiseType } from './dsp/colored-noise';
 import {
+  calculateDriftGain,
+  calculateDriftPan,
+  calculateDriftPitch,
+  calculateRandomInterval,
+} from './dsp/drift';
+import {
   DUPLICATE_MIN_OFFSET_DEFAULT_SEC,
   pickDuplicateStartOffset,
 } from './dsp/loop';
@@ -20,6 +26,7 @@ import {
   layerId,
   layerMuted,
   layerSolo,
+  type LayerDriftParams,
   type MasterToneParams,
   type MixerLayer,
   type NoiseLayerParams,
@@ -28,6 +35,7 @@ import {
   type YoutubeLayerParams,
 } from './types';
 import type { PlaylistItem } from '../app/playlist';
+import { powerSaver } from '../app/power-saver';
 import { SamplePlayer } from './sample-player';
 import {
   decodeCache,
@@ -62,7 +70,14 @@ interface PanLfoNodes {
   depthGain: GainNode;
 }
 
-interface NoiseNodes {
+interface BaseLayerState {
+  baseVolumeLinear: number;
+  basePan: number;
+  driftParams: LayerDriftParams;
+  driftTimer: ReturnType<typeof setTimeout> | null;
+}
+
+interface NoiseNodes extends BaseLayerState {
   kind: 'noise';
   worklet: AudioWorkletNode;
   volume: GainNode;
@@ -77,9 +92,10 @@ interface NoiseNodes {
   panLfo: PanLfoNodes | null;
 }
 
-interface SampleNodes {
+interface SampleNodes extends BaseLayerState {
   kind: 'sample';
   player: SamplePlayer;
+  basePlaybackRate: number;
   volume: GainNode;
   pan: StereoPannerNode;
   muteSolo: GainNode;
@@ -88,9 +104,10 @@ interface SampleNodes {
   panLfo: PanLfoNodes | null;
 }
 
-interface PlaylistNodes {
+interface PlaylistNodes extends BaseLayerState {
   kind: 'playlist';
   player: SamplePlayer | null;
+  basePlaybackRate: number;
   volume: GainNode;
   pan: StereoPannerNode;
   muteSolo: GainNode;
@@ -115,7 +132,7 @@ export interface SampleStartOptions {
 /**
  * Web Audio engine: mix bus + master tone (EQ/reverb) + noise/sample layers.
  *
- * Graph: layers → mixBus → bass → treble → dry/wet reverb → masterGain → analyser → out
+ * Graph: layers → mixBus → bass → treble → dry/wet reverb → limiter → masterGain → analyser → out
  */
 export class AudioEngine {
   private ctx: AudioContext | null = null;
@@ -127,6 +144,8 @@ export class AudioEngine {
   private wetGain: GainNode | null = null;
   private convolver: ConvolverNode | null = null;
   private convolverConnected = false;
+  /** Tier 3 brickwall safety limiter before master gain. */
+  private limiter: DynamicsCompressorNode | null = null;
   /** Final volume control (sleep timer fade, preset crossfade). */
   private master: GainNode | null = null;
   private analyser: AnalyserNode | null = null;
@@ -147,6 +166,18 @@ export class AudioEngine {
   /** User wants audio running (used to re-resume after iOS interrupt). */
   private wantRunning = false;
   private stateChangeBound = false;
+  private powerSaverUnsub: (() => void) | null = null;
+
+  constructor() {
+    this.powerSaverUnsub = powerSaver.subscribe(() => this.onPowerSaverChange());
+  }
+
+  private onPowerSaverChange(): void {
+    if (!this.wantRunning || !this.ctx) return;
+    for (const [id, nodes] of this.layers.entries()) {
+      this.scheduleLayerDrift(id, nodes);
+    }
+  }
   /**
    * Layer ids whose in-flight sample fetch/decode should be discarded.
    * Set by removeLayer / stopAll so a late download cannot start audio
@@ -226,6 +257,14 @@ export class AudioEngine {
         this.convolver = this.ctx.createConvolver();
         this.convolver.buffer = createReverbImpulse(this.ctx);
 
+        // Tier 3 brickwall safety limiter before master gain
+        this.limiter = this.ctx.createDynamicsCompressor();
+        this.limiter.threshold.value = -1.0;
+        this.limiter.knee.value = 6;
+        this.limiter.ratio.value = 20;
+        this.limiter.attack.value = 0.002;
+        this.limiter.release.value = 0.1;
+
         this.master = this.ctx.createGain();
         this.master.gain.value = this.masterVolumeLinear;
 
@@ -241,11 +280,12 @@ export class AudioEngine {
         this.analyserR.fftSize = 1024;
         this.analyserR.smoothingTimeConstant = 0.82;
 
-        // mixBus → EQ → dryGain (+ dynamic convolver → wetGain) → master → analyser / splitter → out
+        // mixBus → EQ → dryGain (+ dynamic convolver → wetGain) → limiter → master → analyser / splitter → out
         this.mixBus.connect(this.bassEq);
         this.bassEq.connect(this.trebleEq);
         this.trebleEq.connect(this.dryGain);
-        this.dryGain.connect(this.master);
+        this.dryGain.connect(this.limiter);
+        this.limiter.connect(this.master);
         this.master.connect(this.analyser);
         this.master.connect(this.splitter);
         this.splitter.connect(this.analyserL, 0);
@@ -272,14 +312,15 @@ export class AudioEngine {
     if (this.dryGain) this.dryGain.gain.value = 1 - w * 0.9;
     if (this.wetGain) this.wetGain.gain.value = w;
 
-    if (!this.trebleEq || !this.convolver || !this.wetGain || !this.master) return;
+    const targetNode = this.limiter ?? this.master;
+    if (!this.trebleEq || !this.convolver || !this.wetGain || !targetNode) return;
 
     if (w > 0.001) {
       if (!this.convolverConnected) {
         try {
           this.trebleEq.connect(this.convolver);
           this.convolver.connect(this.wetGain);
-          this.wetGain.connect(this.master);
+          this.wetGain.connect(targetNode);
           this.convolverConnected = true;
         } catch {
           /* already connected */
@@ -290,7 +331,7 @@ export class AudioEngine {
         try {
           this.trebleEq.disconnect(this.convolver);
           this.convolver.disconnect(this.wetGain);
-          this.wetGain.disconnect(this.master);
+          this.wetGain.disconnect(targetNode);
         } catch {
           /* already disconnected */
         }
@@ -344,12 +385,13 @@ export class AudioEngine {
     }
     await this.mediaOutput.play();
     youtubePlayerManager.setGlobalPlaying(true);
-    for (const layer of this.layers.values()) {
+    for (const [id, layer] of this.layers.entries()) {
       if (layer.kind === 'sample') {
         layer.player.resume();
       } else if (layer.kind === 'playlist' && layer.player) {
         layer.player.resume();
       }
+      this.scheduleLayerDrift(id, layer);
     }
     // Unmute Web Audio after transport pause. Session.play may immediately
     // re-zero for holdSilent crossfades; visibility/onstatechange need this.
@@ -406,6 +448,10 @@ export class AudioEngine {
   async suspend(): Promise<void> {
     this.wantRunning = false;
     for (const layer of this.layers.values()) {
+      if (layer.driftTimer != null) {
+        clearTimeout(layer.driftTimer);
+        layer.driftTimer = null;
+      }
       if (layer.kind === 'sample') {
         layer.player.pause();
       } else if (layer.kind === 'playlist' && layer.player) {
@@ -701,15 +747,32 @@ export class AudioEngine {
       userLp,
       userHp,
       panLfo: null,
+      baseVolumeLinear: params.volumeLinear,
+      basePan: params.pan,
+      driftParams: {
+        driftPitch: false,
+        driftPan: params.driftPan ?? true,
+        driftGain: params.driftGain ?? true,
+      },
+      driftTimer: null,
     };
     this.syncPanLfo(nodes, params);
     this.layers.set(params.id, nodes);
+    this.scheduleLayerDrift(params.id, nodes);
   }
 
   updateNoiseLayer(params: NoiseLayerParams): void {
     const nodes = this.layers.get(params.id);
     if (!nodes || nodes.kind !== 'noise' || !this.ctx) return;
     const t = this.ctx.currentTime;
+
+    nodes.baseVolumeLinear = params.volumeLinear;
+    nodes.basePan = params.pan;
+    nodes.driftParams = {
+      driftPitch: false,
+      driftPan: params.driftPan ?? true,
+      driftGain: params.driftGain ?? true,
+    };
 
     nodes.worklet.port.postMessage({
       type: 'setNoiseType',
@@ -726,8 +789,11 @@ export class AudioEngine {
 
     this.configureFilter(nodes.filter, params.type);
     this.applyUserFilters(nodes.userHp, nodes.userLp, params.highpassHz, params.lowpassHz);
-    nodes.volume.gain.setTargetAtTime(clampLinear(params.volumeLinear), t, 0.015);
+    if (!nodes.driftParams.driftGain) {
+      nodes.volume.gain.setTargetAtTime(clampLinear(params.volumeLinear), t, 0.015);
+    }
     this.syncPanLfo(nodes, params);
+    this.scheduleLayerDrift(params.id, nodes);
   }
 
   async addSampleLayer(
@@ -800,9 +866,19 @@ export class AudioEngine {
         userLp,
         userHp,
         panLfo: null,
+        baseVolumeLinear: params.volumeLinear,
+        basePan: params.pan,
+        basePlaybackRate: params.playbackRate,
+        driftParams: {
+          driftPitch: params.driftPitch ?? true,
+          driftPan: params.driftPan ?? true,
+          driftGain: params.driftGain ?? true,
+        },
+        driftTimer: null,
       };
       this.syncPanLfo(nodes, params);
       this.layers.set(params.id, nodes);
+      this.scheduleLayerDrift(params.id, nodes);
     } finally {
       this.inflightLoads.delete(params.id);
       this.cancelledLoads.delete(params.id);
@@ -863,10 +939,20 @@ export class AudioEngine {
     const nodes = this.layers.get(params.id);
     if (!nodes || nodes.kind !== 'sample' || !this.ctx) return;
     const t = this.ctx.currentTime;
-    nodes.volume.gain.setTargetAtTime(clampLinear(params.volumeLinear), t, 0.015);
+    nodes.baseVolumeLinear = params.volumeLinear;
+    nodes.basePan = params.pan;
+    nodes.basePlaybackRate = params.playbackRate;
+    nodes.driftParams = {
+      driftPitch: params.driftPitch ?? true,
+      driftPan: params.driftPan ?? true,
+      driftGain: params.driftGain ?? true,
+    };
+    if (!nodes.driftParams.driftGain) {
+      nodes.volume.gain.setTargetAtTime(clampLinear(params.volumeLinear), t, 0.015);
+    }
     this.applyUserFilters(nodes.userHp, nodes.userLp, params.highpassHz, params.lowpassHz);
     this.syncPanLfo(nodes, params);
-    // Rate / loop mode: apply only on restart (v1 simplification)
+    this.scheduleLayerDrift(params.id, nodes);
   }
 
   async addPlaylistLayer(
@@ -1013,9 +1099,19 @@ export class AudioEngine {
           userHp,
           panLfo: null,
           activeType: 'local',
+          baseVolumeLinear: params.volumeLinear,
+          basePan: params.pan,
+          basePlaybackRate: 1,
+          driftParams: {
+            driftPitch: params.driftPitch ?? false,
+            driftPan: params.driftPan ?? true,
+            driftGain: params.driftGain ?? true,
+          },
+          driftTimer: null,
         };
         this.syncPanLfo(nodes, params);
         this.layers.set(params.id, nodes);
+        this.scheduleLayerDrift(params.id, nodes);
       } finally {
         this.inflightLoads.delete(params.id);
         this.cancelledLoads.delete(params.id);
@@ -1040,6 +1136,9 @@ export class AudioEngine {
         panLfoEnabled: params.panLfoEnabled,
         panLfoRateHz: params.panLfoRateHz,
         panLfoDepth: params.panLfoDepth,
+        driftPitch: params.driftPitch,
+        driftPan: params.driftPan,
+        driftGain: params.driftGain,
       });
       return;
     }
@@ -1047,11 +1146,20 @@ export class AudioEngine {
     const nodes = this.layers.get(params.id);
     if (!nodes || nodes.kind !== 'playlist' || !this.ctx) return;
     const t = this.ctx.currentTime;
-    nodes.volume.gain.setTargetAtTime(
-      clampLinear(params.volumeLinear),
-      t,
-      0.015,
-    );
+    nodes.baseVolumeLinear = params.volumeLinear;
+    nodes.basePan = params.pan;
+    nodes.driftParams = {
+      driftPitch: params.driftPitch ?? false,
+      driftPan: params.driftPan ?? true,
+      driftGain: params.driftGain ?? true,
+    };
+    if (!nodes.driftParams.driftGain) {
+      nodes.volume.gain.setTargetAtTime(
+        clampLinear(params.volumeLinear),
+        t,
+        0.015,
+      );
+    }
     this.applyUserFilters(
       nodes.userHp,
       nodes.userLp,
@@ -1059,6 +1167,102 @@ export class AudioEngine {
       params.lowpassHz,
     );
     this.syncPanLfo(nodes, params);
+    this.scheduleLayerDrift(params.id, nodes);
+  }
+
+  /**
+   * Total mix energy sum for multi-layer drift headroom scaling.
+   */
+  getMixEnergy(): number {
+    let energy = 0;
+    for (const nodes of this.layers.values()) {
+      const v = Math.max(0, Math.min(1, nodes.baseVolumeLinear ?? 0));
+      if (v > 0) energy += v * v;
+    }
+    return energy;
+  }
+
+  /**
+   * Sparse discrete-hold random variation scheduler for pitch, pan, and gain.
+   */
+  private scheduleLayerDrift(id: string, nodes: LayerNodes): void {
+    if (nodes.driftTimer != null) {
+      clearTimeout(nodes.driftTimer);
+      nodes.driftTimer = null;
+    }
+
+    if (!this.ctx || !this.wantRunning || this.ctx.state !== 'running' || !nodes.driftParams) {
+      return;
+    }
+
+    const { driftPitch, driftPan, driftGain } = nodes.driftParams;
+    const hasAnyDrift = driftPitch || driftPan || driftGain;
+    const t = this.ctx.currentTime;
+
+    if (!hasAnyDrift) {
+      // Restore exact base parameters
+      if (nodes.volume) {
+        nodes.volume.gain.setTargetAtTime(clampLinear(nodes.baseVolumeLinear ?? 0.7), t, 0.1);
+      }
+      if (nodes.pan) {
+        nodes.pan.pan.setTargetAtTime(Math.max(-1, Math.min(1, nodes.basePan ?? 0)), t, 0.1);
+      }
+      if (nodes.kind === 'sample' && nodes.player) {
+        nodes.player.setPlaybackRate(nodes.basePlaybackRate ?? 1, 0.5);
+      } else if (nodes.kind === 'playlist' && nodes.player) {
+        nodes.player.setPlaybackRate(nodes.basePlaybackRate ?? 1, 0.5);
+      }
+      return;
+    }
+
+    const eco = powerSaver.isPowerSaverActive();
+    const { holdSec, rampSec } = calculateRandomInterval(eco);
+    const tc = Math.max(0.1, rampSec / 3);
+
+    // 1. Pitch Drift (disabled in eco mode to avoid resampling compute)
+    if (nodes.kind === 'sample' && nodes.player) {
+      if (driftPitch && !eco) {
+        const rate = calculateDriftPitch(nodes.basePlaybackRate ?? 1);
+        nodes.player.setPlaybackRate(rate, rampSec);
+      } else {
+        nodes.player.setPlaybackRate(nodes.basePlaybackRate ?? 1, 0.5);
+      }
+    } else if (nodes.kind === 'playlist' && nodes.player) {
+      if (driftPitch && !eco) {
+        const rate = calculateDriftPitch(nodes.basePlaybackRate ?? 1);
+        nodes.player.setPlaybackRate(rate, rampSec);
+      } else {
+        nodes.player.setPlaybackRate(nodes.basePlaybackRate ?? 1, 0.5);
+      }
+    }
+
+    // 2. Pan Drift
+    if (nodes.pan) {
+      if (driftPan) {
+        const pan = calculateDriftPan(nodes.basePan ?? 0);
+        nodes.pan.pan.setTargetAtTime(pan, t, tc);
+      } else {
+        nodes.pan.pan.setTargetAtTime(Math.max(-1, Math.min(1, nodes.basePan ?? 0)), t, 0.1);
+      }
+    }
+
+    // 3. Gain Drift with Multi-Tier Saturation Prevention
+    if (nodes.volume) {
+      if (driftGain) {
+        const energy = this.getMixEnergy();
+        const gain = calculateDriftGain(nodes.baseVolumeLinear ?? 0.7, energy);
+        nodes.volume.gain.setTargetAtTime(clampLinear(gain), t, tc);
+      } else {
+        nodes.volume.gain.setTargetAtTime(clampLinear(nodes.baseVolumeLinear ?? 0.7), t, 0.1);
+      }
+    }
+
+    const nextDelayMs = Math.max(500, Math.round((holdSec + rampSec) * 1000));
+    nodes.driftTimer = setTimeout(() => {
+      if (this.layers.get(id) === nodes) {
+        this.scheduleLayerDrift(id, nodes);
+      }
+    }, nextDelayMs);
   }
 
   /**
@@ -1174,6 +1378,10 @@ export class AudioEngine {
     const nodes = this.layers.get(id);
     if (!nodes) return;
     try {
+      if (nodes.driftTimer != null) {
+        clearTimeout(nodes.driftTimer);
+        nodes.driftTimer = null;
+      }
       this.disposePanLfo(nodes);
       if (nodes.kind === 'noise') {
         nodes.worklet.disconnect();
@@ -1288,6 +1496,8 @@ export class AudioEngine {
 
   async dispose(): Promise<void> {
     this.wantRunning = false;
+    this.powerSaverUnsub?.();
+    this.powerSaverUnsub = null;
     this.stopAll();
     this.mediaOutput.dispose();
     decodeCache.clear();
@@ -1301,6 +1511,14 @@ export class AudioEngine {
       this.dryGain = null;
       this.wetGain = null;
       this.convolver = null;
+      if (this.limiter) {
+        try {
+          this.limiter.disconnect();
+        } catch {
+          /* */
+        }
+        this.limiter = null;
+      }
       this.master = null;
       this.analyser = null;
       this.splitter = null;
