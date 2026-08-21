@@ -59,6 +59,8 @@ export interface YTPlayerInstance {
   destroy: () => void;
   getIframe: () => HTMLIFrameElement;
   getPlayerState?: () => number;
+  loadVideoById?: (videoId: string | { videoId: string; startSeconds?: number }) => void;
+  cueVideoById?: (videoId: string | { videoId: string; startSeconds?: number }) => void;
 }
 
 /** Lifecycle status for a layer's YouTube player (UI + diagnostics). */
@@ -375,14 +377,12 @@ export class YouTubePlayerManager {
     this.globalPlaying = wantPlay || this.globalPlaying;
 
     const existing = this.players.get(layerId);
-    if (
-      existing &&
-      existing.videoId === videoId &&
-      (existing.isReady || existing.status === 'loading')
-    ) {
+    if (existing) {
       existing.layerVolumeLinear = Math.max(0, Math.min(1, initialVolumeLinear));
       existing.pendingMuted = initialMuted;
-      if (existing.isReady) {
+
+      // Case 1: Same video, ready
+      if (existing.videoId === videoId && existing.isReady && existing.player) {
         this.applyPlayerState(layerId);
         if (wantPlay || this.globalPlaying) {
           this.tryPlayEntry(layerId);
@@ -391,11 +391,46 @@ export class YouTubePlayerManager {
         }
         return;
       }
-      // Still loading same video — wait for current create (bounded by its timeout).
-      return this.waitForReady(layerId, YOUTUBE_PLAYER_READY_TIMEOUT_MS);
+
+      // Case 2: Same video, still loading
+      if (existing.videoId === videoId && existing.status === 'loading') {
+        return this.waitForReady(layerId, YOUTUBE_PLAYER_READY_TIMEOUT_MS);
+      }
+
+      // Case 3: Different video, but existing player is already READY!
+      // Reuse the existing iframe by calling loadVideoById / cueVideoById.
+      // This avoids tearing down the iframe, preserving the user-activation origin and avoiding autoplay blocks.
+      if (existing.isReady && existing.player) {
+        existing.videoId = videoId;
+        this.applyPlayerState(layerId);
+        try {
+          if (wantPlay || this.globalPlaying) {
+            this.setStatus(layerId, 'loading');
+            if (typeof existing.player.loadVideoById === 'function') {
+              existing.player.loadVideoById(videoId);
+            } else {
+              this.tryPlayEntry(layerId);
+            }
+            this.scheduleAutoplayProbe(layerId, existing.generation);
+          } else {
+            if (typeof existing.player.cueVideoById === 'function') {
+              existing.player.cueVideoById(videoId);
+            } else {
+              this.tryPauseEntry(layerId);
+            }
+            this.setStatus(layerId, 'paused');
+          }
+          return;
+        } catch (err) {
+          console.warn(
+            `Error switching video on existing player for ${layerId}, recreating:`,
+            err,
+          );
+        }
+      }
     }
 
-    // Different video or no player: (re)create
+    // Different video or no ready player: (re)create
     return this.createPlayer(
       layerId,
       videoId,

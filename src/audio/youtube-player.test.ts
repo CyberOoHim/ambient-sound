@@ -81,6 +81,8 @@ function mockPlayer(): YTPlayerInstance {
       } as unknown as HTMLIFrameElement;
     }),
     getPlayerState: vi.fn(() => 1),
+    loadVideoById: vi.fn(),
+    cueVideoById: vi.fn(),
   };
 }
 
@@ -285,7 +287,7 @@ describe('YouTubePlayerManager', () => {
     vi.useRealTimers();
   });
 
-  it('recreates when videoId changes', async () => {
+  it('reuses existing player without destroying when videoId changes on ready player', async () => {
     const instances: YTPlayerInstance[] = [];
 
     (window as unknown as { YT: unknown }).YT = {
@@ -314,9 +316,18 @@ describe('YouTubePlayerManager', () => {
     };
 
     await manager.ensurePlayer('yt-1', 'video111111', host, 0.7, false, false);
+    expect(instances).toHaveLength(1);
+
     await manager.ensurePlayer('yt-1', 'video222222', host, 0.7, false, false);
-    expect(instances).toHaveLength(2);
-    expect(instances[0]!.destroy).toHaveBeenCalled();
+    expect(instances).toHaveLength(1);
+    expect(instances[0]!.destroy).not.toHaveBeenCalled();
+    expect(instances[0]!.cueVideoById).toHaveBeenCalledWith('video222222');
     expect(manager.getVideoId('yt-1')).toBe('video222222');
+
+    // And when playing
+    await manager.ensurePlayer('yt-1', 'video333333', host, 0.7, false, true);
+    expect(instances).toHaveLength(1);
+    expect(instances[0]!.loadVideoById).toHaveBeenCalledWith('video333333');
+    expect(manager.getVideoId('yt-1')).toBe('video333333');
   });
 });

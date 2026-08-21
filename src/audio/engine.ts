@@ -951,6 +951,7 @@ export class AudioEngine {
     params: PlaylistLayerParams,
     item?: PlaylistItem,
     onTrackEnded?: () => void,
+    opts?: { wantPlay?: boolean; preloadOnly?: boolean },
   ): Promise<void> {
     if (!item) {
       this.removeLayer(params.id);
@@ -995,7 +996,7 @@ export class AudioEngine {
         panLfoEnabled: params.panLfoEnabled,
         panLfoRateHz: params.panLfoRateHz,
         panLfoDepth: params.panLfoDepth,
-      });
+      }, opts);
 
       if (onTrackEnded) {
         youtubePlayerManager.onTrackEnded((endedLayerId) => {
@@ -1073,7 +1074,10 @@ export class AudioEngine {
           },
         });
 
-        if (this.wantRunning) {
+        const shouldPlay =
+          opts?.preloadOnly !== true &&
+          (opts?.wantPlay ?? this.wantRunning);
+        if (shouldPlay) {
           player.start();
         }
 

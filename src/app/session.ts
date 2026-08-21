@@ -803,13 +803,26 @@ export class Session {
     // YouTube starts in parallel and must NOT block the transport UI / busy flag.
     const toStart = [...this.layers];
     const youtubeLayers = toStart.filter((l) => l.kind === 'youtube');
-    const otherLayers = toStart.filter((l) => l.kind !== 'youtube');
+    const playlistYtLayers = toStart.filter(
+      (l) => l.kind === 'playlist' && l.params.currentTrackType === 'youtube',
+    );
+    const otherLayers = toStart.filter(
+      (l) =>
+        l.kind !== 'youtube' &&
+        !(l.kind === 'playlist' && l.params.currentTrackType === 'youtube'),
+    );
 
     // Handle YT players that weren't isReady during the sync gesture call above.
     for (const layer of youtubeLayers) {
       if (!this.hasLayer(layer.params.id)) continue;
       if (!youtubePlayerManager.isPlayerReady(layer.params.id)) {
         void this.ensureYoutubeInEngine(layer, true);
+      }
+    }
+    for (const layer of playlistYtLayers) {
+      if (!this.hasLayer(layer.params.id)) continue;
+      if (!youtubePlayerManager.isPlayerReady(layer.params.id)) {
+        void this.ensurePlaylistInEngine(layer, true);
       }
     }
 
@@ -1699,6 +1712,10 @@ export class Session {
       if (this.hasLayer(id) && this.playing) {
         audioEngine.applyMuteSolo(this.layers);
       }
+    } else if (firstItem?.type === 'youtube') {
+      // Pre-warm the YouTube iframe in the background while paused
+      // so clicking Play will start immediately in the gesture handler.
+      void this.ensurePlaylistInEngine(layer, false);
     }
     this.notify();
     return id;
@@ -1783,7 +1800,7 @@ export class Session {
 
   async ensurePlaylistInEngine(
     layer: MixerLayer,
-    _wantPlay = true,
+    wantPlay = true,
   ): Promise<void> {
     if (layer.kind !== 'playlist') return;
     const id = layer.params.id;
@@ -1808,15 +1825,24 @@ export class Session {
     layer.params.currentTrackType = item?.type;
 
     if (item?.type === 'youtube') {
-      this.youtubeStatus.set(id, 'loading');
+      const curStatus = youtubePlayerManager.getStatus(id);
+      this.youtubeStatus.set(
+        id,
+        curStatus === 'idle' ? 'loading' : curStatus,
+      );
     }
 
     try {
-      await audioEngine.addPlaylistLayer(layer.params, item, () => {
-        void this.nextPlaylistTrack(id);
-      });
+      await audioEngine.addPlaylistLayer(
+        layer.params,
+        item,
+        () => {
+          void this.nextPlaylistTrack(id);
+        },
+        { wantPlay, preloadOnly: !wantPlay && !this.playing },
+      );
       if (item?.type === 'youtube') {
-        this.youtubeStatus.set(id, 'playing');
+        this.youtubeStatus.set(id, youtubePlayerManager.getStatus(id));
       }
     } catch (err) {
       console.warn('ensurePlaylistInEngine failed:', err);
@@ -1847,6 +1873,12 @@ export class Session {
     for (const layer of this.layers) {
       if (layer.kind === 'youtube') {
         void this.ensureYoutubeInEngine(layer, this.playing);
+      } else if (layer.kind === 'playlist') {
+        const pl = this.playlists.find((p) => p.id === layer.params.playlistId);
+        const curItem = pl?.items[layer.params.currentIndex ?? 0];
+        if (curItem?.type === 'youtube') {
+          void this.ensurePlaylistInEngine(layer, this.playing);
+        }
       }
     }
   }
@@ -2268,6 +2300,12 @@ export class Session {
     for (const layer of this.layers) {
       if (layer.kind === 'youtube') {
         void this.ensureYoutubeInEngine(layer, false);
+      } else if (layer.kind === 'playlist') {
+        const pl = this.playlists.find((p) => p.id === layer.params.playlistId);
+        const curItem = pl?.items[layer.params.currentIndex ?? 0];
+        if (curItem?.type === 'youtube') {
+          void this.ensurePlaylistInEngine(layer, false);
+        }
       }
     }
 
