@@ -201,4 +201,51 @@ describe('AudioEngine transport pause / play gate', () => {
     expect(wetGain.disconnect).toHaveBeenCalledWith(master);
     expect(e.convolverConnected).toBe(false);
   });
+
+  it('calculates independent left and right peak levels from stereo analysers', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const e = engine as any;
+    e.analyserL = {
+      fftSize: 4,
+      getFloatTimeDomainData: (buf: Float32Array) => {
+        buf[0] = 0.2;
+        buf[1] = -0.65;
+        buf[2] = 0.1;
+        buf[3] = -0.4;
+      },
+    };
+    e.analyserR = {
+      fftSize: 4,
+      getFloatTimeDomainData: (buf: Float32Array) => {
+        buf[0] = 0.1;
+        buf[1] = 0.35;
+        buf[2] = -0.85;
+        buf[3] = 0.2;
+      },
+    };
+
+    const levels = engine.getPeakLevels();
+    expect(levels.left).toBeCloseTo(0.65, 5);
+    expect(levels.right).toBeCloseTo(0.85, 5);
+  });
+
+  it('falls back to mono getPeakLevel if stereo analysers are not present', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const e = engine as any;
+    e.analyserL = null;
+    e.analyserR = null;
+    e.analyser = {
+      fftSize: 4,
+      getFloatTimeDomainData: (buf: Float32Array) => {
+        buf[0] = 0.3;
+        buf[1] = -0.5;
+        buf[2] = 0.1;
+        buf[3] = -0.2;
+      },
+    };
+
+    const levels = engine.getPeakLevels();
+    expect(levels.left).toBeCloseTo(0.5, 5);
+    expect(levels.right).toBeCloseTo(0.5, 5);
+  });
 });

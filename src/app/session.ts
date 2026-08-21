@@ -1916,6 +1916,10 @@ export class Session {
     this.updateLayerCommon(id, patch);
   }
 
+  getPeakLevels(): { left: number; right: number } {
+    return audioEngine.getPeakLevels();
+  }
+
   getPeakLevel(): number {
     return audioEngine.getPeakLevel();
   }

@@ -140,6 +140,9 @@ export class AudioEngine {
    */
   private oneShotPreviewBus: GainNode | null = null;
   private analyser: AnalyserNode | null = null;
+  private splitter: ChannelSplitterNode | null = null;
+  private analyserL: AnalyserNode | null = null;
+  private analyserR: AnalyserNode | null = null;
   private workletReady = false;
   private layers = new Map<string, LayerNodes>();
   private masterVolumeLinear = 1;
@@ -149,6 +152,8 @@ export class AudioEngine {
   private catalog: SoundCatalog | null = null;
   private mediaOutput = new MediaOutput();
   private peakBuf: Float32Array<ArrayBuffer> | null = null;
+  private peakBufL: Float32Array<ArrayBuffer> | null = null;
+  private peakBufR: Float32Array<ArrayBuffer> | null = null;
   /** User wants audio running (used to re-resume after iOS interrupt). */
   private wantRunning = false;
   private stateChangeBound = false;
@@ -249,18 +254,30 @@ export class AudioEngine {
         this.analyser.fftSize = 2048;
         this.analyser.smoothingTimeConstant = 0.82;
 
-        // mixBus → EQ → dryGain (+ dynamic convolver → wetGain) → master → analyser → out
+        this.splitter = this.ctx.createChannelSplitter(2);
+        this.analyserL = this.ctx.createAnalyser();
+        this.analyserL.fftSize = 1024;
+        this.analyserL.smoothingTimeConstant = 0.82;
+        this.analyserR = this.ctx.createAnalyser();
+        this.analyserR.fftSize = 1024;
+        this.analyserR.smoothingTimeConstant = 0.82;
+
+        // mixBus → EQ → dryGain (+ dynamic convolver → wetGain) → master → analyser / splitter → out
         this.mixBus.connect(this.bassEq);
         this.bassEq.connect(this.trebleEq);
         this.trebleEq.connect(this.dryGain);
         this.dryGain.connect(this.master);
         this.master.connect(this.analyser);
+        this.master.connect(this.splitter);
+        this.splitter.connect(this.analyserL, 0);
+        this.splitter.connect(this.analyserR, 1);
         this.applyReverbMix(this.masterTone.reverbWet);
 
         // Parallel preview path (one-shots only) that ignores transport mute.
         this.oneShotPreviewBus = this.ctx.createGain();
         this.oneShotPreviewBus.gain.value = 0;
         this.oneShotPreviewBus.connect(this.analyser);
+        this.oneShotPreviewBus.connect(this.splitter);
 
         // Mobile (iOS + Android): route via HTMLAudioElement for background
         // playback / media controls. Desktop: analyser → destination.
@@ -409,6 +426,9 @@ export class AudioEngine {
     if (!this.oneShotPreviewBus) {
       this.oneShotPreviewBus = this.ctx.createGain();
       this.oneShotPreviewBus.connect(this.analyser);
+      if (this.splitter) {
+        this.oneShotPreviewBus.connect(this.splitter);
+      }
     }
     const t = this.ctx.currentTime;
     this.oneShotPreviewBus.gain.cancelScheduledValues(t);
@@ -1279,6 +1299,41 @@ export class AudioEngine {
     }
   }
 
+  getPeakLevels(): { left: number; right: number } {
+    let left = 0;
+    let right = 0;
+
+    if (this.analyserL) {
+      if (!this.peakBufL || this.peakBufL.length !== this.analyserL.fftSize) {
+        this.peakBufL = new Float32Array(this.analyserL.fftSize);
+      }
+      this.analyserL.getFloatTimeDomainData(this.peakBufL);
+      for (let i = 0; i < this.peakBufL.length; i++) {
+        const a = Math.abs(this.peakBufL[i]!);
+        if (a > left) left = a;
+      }
+    }
+
+    if (this.analyserR) {
+      if (!this.peakBufR || this.peakBufR.length !== this.analyserR.fftSize) {
+        this.peakBufR = new Float32Array(this.analyserR.fftSize);
+      }
+      this.analyserR.getFloatTimeDomainData(this.peakBufR);
+      for (let i = 0; i < this.peakBufR.length; i++) {
+        const a = Math.abs(this.peakBufR[i]!);
+        if (a > right) right = a;
+      }
+    }
+
+    if (!this.analyserL && !this.analyserR) {
+      const peak = this.getPeakLevel();
+      left = peak;
+      right = peak;
+    }
+
+    return { left, right };
+  }
+
   getPeakLevel(): number {
     if (!this.analyser) return 0;
     if (!this.peakBuf || this.peakBuf.length !== this.analyser.fftSize) {
@@ -1326,6 +1381,12 @@ export class AudioEngine {
       this.convolver = null;
       this.master = null;
       this.analyser = null;
+      this.splitter = null;
+      this.analyserL = null;
+      this.analyserR = null;
+      this.peakBuf = null;
+      this.peakBufL = null;
+      this.peakBufR = null;
       this.workletReady = false;
       this.stateChangeBound = false;
     }

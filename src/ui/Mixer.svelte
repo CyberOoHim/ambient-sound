@@ -47,6 +47,8 @@
   let playing = $state(session.playing);
   let masterDb = $state(linearToDb(session.masterVolumeLinear));
   let peak = $state(0);
+  let peakL = $state(0);
+  let peakR = $state(0);
   let error = $state<string | null>(null);
   let busy = $state(false);
   /** Sample layer ids currently fetching FreeSound files (for "Downloading…" UI). */
@@ -484,11 +486,23 @@
     }
     const tick = (now: DOMHighResTimeStamp) => {
       if (!session.playing) {
-        if (peak > 0.005) {
-          peak *= 0.85;
+        let animating = false;
+        if (peakL > 0.005) {
+          peakL *= 0.85;
+          animating = true;
+        } else {
+          peakL = 0;
+        }
+        if (peakR > 0.005) {
+          peakR *= 0.85;
+          animating = true;
+        } else {
+          peakR = 0;
+        }
+        peak = Math.max(peakL, peakR);
+        if (animating) {
           meterRaf = requestAnimationFrame(tick);
         } else {
-          peak = 0;
           meterRaf = 0; // Enter deep sleep
         }
         return;
@@ -497,7 +511,10 @@
       const meterThrottleMs = powerSaverStatus.active ? 66 : 33;
       if (now - lastMeterTime >= meterThrottleMs) {
         lastMeterTime = now;
-        peak = session.getPeakLevel();
+        const levels = session.getPeakLevels();
+        peakL = levels.left;
+        peakR = levels.right;
+        peak = Math.max(peakL, peakR);
       }
       if (session.timer.status === 'running' || session.timer.status === 'fading') {
         const remaining = session.remainingMs();
@@ -655,8 +672,19 @@
         oninput={(e) => setMasterDb(Number(e.currentTarget.value))}
       />
       <span class="db">{masterDb.toFixed(0)} dB</span>
-      <div class="meter" aria-hidden="true">
-        <div class="meter-fill" style="width: {Math.min(100, peak * 100)}%"></div>
+      <div class="meter-stereo" aria-hidden="true">
+        <div class="meter-channel">
+          <span class="meter-ch-label">L</span>
+          <div class="meter-track">
+            <div class="meter-fill" style="width: {Math.min(100, peakL * 100)}%"></div>
+          </div>
+        </div>
+        <div class="meter-channel">
+          <span class="meter-ch-label">R</span>
+          <div class="meter-track">
+            <div class="meter-fill" style="width: {Math.min(100, peakR * 100)}%"></div>
+          </div>
+        </div>
       </div>
     </div>
   </header>
@@ -1527,7 +1555,7 @@
     grid-template-columns: auto 1fr auto;
     grid-template-rows: auto auto;
     align-items: center;
-    gap: 0.2rem 0.5rem;
+    gap: 0.15rem 0.5rem;
     min-width: 0;
   }
 
@@ -1556,13 +1584,44 @@
     min-width: 2.6rem;
   }
 
-  .meter {
+  .meter-stereo {
     grid-column: 2 / -1;
     grid-row: 2;
-    height: 0.22rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .meter-channel {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    min-width: 0;
+    width: 100%;
+    height: 3px;
+  }
+
+  .meter-ch-label {
+    font-size: 0.52rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--muted);
+    letter-spacing: 0.02em;
+    user-select: none;
+    flex-shrink: 0;
+    width: 0.55rem;
+    text-align: center;
+  }
+
+  .meter-track {
+    flex: 1;
+    height: 100%;
     background: var(--bg);
     border-radius: var(--radius-pill);
     overflow: hidden;
+    min-width: 0;
   }
 
   .meter-fill {
