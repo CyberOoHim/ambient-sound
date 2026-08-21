@@ -59,6 +59,7 @@ export interface YTPlayerInstance {
   destroy: () => void;
   getIframe: () => HTMLIFrameElement;
   getPlayerState?: () => number;
+  seekTo?: (seconds: number, allowSeekAhead?: boolean) => void;
   loadVideoById?: (videoId: string | { videoId: string; startSeconds?: number }) => void;
   cueVideoById?: (videoId: string | { videoId: string; startSeconds?: number }) => void;
 }
@@ -238,6 +239,8 @@ export class YouTubePlayerManager {
     return Math.round(effectiveLinear * 100);
   }
 
+  private globalUnmuteAttached = false;
+
   private applyPlayerState(layerId: string): void {
     const entry = this.players.get(layerId);
     if (!entry || !entry.isReady || !entry.player) return;
@@ -265,6 +268,46 @@ export class YouTubePlayerManager {
     }
   }
 
+  private attachGlobalUnmuteListener(): void {
+    if (this.globalUnmuteAttached || typeof window === 'undefined') return;
+    this.globalUnmuteAttached = true;
+
+    const onUserInteraction = () => {
+      this.globalUnmuteAttached = false;
+      window.removeEventListener('pointerdown', onUserInteraction, true);
+      window.removeEventListener('keydown', onUserInteraction, true);
+      window.removeEventListener('touchstart', onUserInteraction, true);
+      window.removeEventListener('click', onUserInteraction, true);
+
+      // Restore unmuted audio levels for all active players
+      for (const [id, entry] of this.players.entries()) {
+        if (entry.isReady && entry.player) {
+          this.applyPlayerState(id);
+          if (entry.status === 'blocked' && this.globalPlaying) {
+            this.tryPlayEntry(id);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('pointerdown', onUserInteraction, {
+      capture: true,
+      once: true,
+    });
+    window.addEventListener('keydown', onUserInteraction, {
+      capture: true,
+      once: true,
+    });
+    window.addEventListener('touchstart', onUserInteraction, {
+      capture: true,
+      once: true,
+    });
+    window.addEventListener('click', onUserInteraction, {
+      capture: true,
+      once: true,
+    });
+  }
+
   private scheduleAutoplayProbe(layerId: string, generation: number): void {
     const entry = this.players.get(layerId);
     if (!entry) return;
@@ -273,8 +316,31 @@ export class YouTubePlayerManager {
       const e = this.players.get(layerId);
       if (!e || e.generation !== generation || !this.globalPlaying) return;
       if (e.status === 'playing' || e.status === 'error') return;
-      // Still not PLAYING after playVideo — browser likely blocked unmuted autoplay.
-      this.setStatus(layerId, 'blocked');
+
+      // Still not PLAYING after playVideo — attempt seamless muted fallback first
+      // (browsers always permit muted autoplay on existing iframes)
+      try {
+        if (
+          e.player &&
+          typeof e.player.mute === 'function' &&
+          typeof e.player.playVideo === 'function'
+        ) {
+          e.player.mute();
+          e.player.playVideo();
+          this.attachGlobalUnmuteListener();
+        }
+      } catch {
+        /* ignore */
+      }
+
+      // Check again after recovery probe window before declaring blocked
+      setTimeout(() => {
+        const current = this.players.get(layerId);
+        if (!current || current.generation !== generation || !this.globalPlaying)
+          return;
+        if (current.status === 'playing' || current.status === 'error') return;
+        this.setStatus(layerId, 'blocked');
+      }, 1500);
     }, YOUTUBE_AUTOPLAY_PROBE_MS);
   }
 
@@ -381,39 +447,49 @@ export class YouTubePlayerManager {
       existing.layerVolumeLinear = Math.max(0, Math.min(1, initialVolumeLinear));
       existing.pendingMuted = initialMuted;
 
-      // Case 1: Same video, ready
-      if (existing.videoId === videoId && existing.isReady && existing.player) {
-        this.applyPlayerState(layerId);
-        if (wantPlay || this.globalPlaying) {
-          this.tryPlayEntry(layerId);
-        } else {
-          this.tryPauseEntry(layerId);
-        }
-        return;
-      }
-
-      // Case 2: Same video, still loading
-      if (existing.videoId === videoId && existing.status === 'loading') {
-        return this.waitForReady(layerId, YOUTUBE_PLAYER_READY_TIMEOUT_MS);
-      }
-
-      // Case 3: Different video, but existing player is already READY!
-      // Reuse the existing iframe by calling loadVideoById / cueVideoById.
-      // This avoids tearing down the iframe, preserving the user-activation origin and avoiding autoplay blocks.
+      // Case 1: Existing player is already READY!
+      // Reuse the existing iframe by calling playVideo/loadVideoById/cueVideoById.
+      // This avoids tearing down the iframe, resets position if ended,
+      // preserves the user-activation origin, and avoids browser autoplay blocks.
       if (existing.isReady && existing.player) {
+        const isSameVideo = existing.videoId === videoId;
         existing.videoId = videoId;
         this.applyPlayerState(layerId);
         try {
           if (wantPlay || this.globalPlaying) {
             this.setStatus(layerId, 'loading');
-            if (typeof existing.player.loadVideoById === 'function') {
-              existing.player.loadVideoById(videoId);
+            if (!isSameVideo) {
+              if (typeof existing.player.loadVideoById === 'function') {
+                existing.player.loadVideoById(videoId);
+              } else {
+                this.tryPlayEntry(layerId);
+              }
             } else {
-              this.tryPlayEntry(layerId);
+              // Same video: if ended (state 0), reload/seek to 0 so it restarts
+              const state = existing.player.getPlayerState?.();
+              if (state === 0 /* ENDED */) {
+                if (typeof existing.player.loadVideoById === 'function') {
+                  existing.player.loadVideoById(videoId);
+                } else {
+                  try {
+                    if (typeof existing.player.seekTo === 'function') {
+                      existing.player.seekTo(0, true);
+                    }
+                  } catch {
+                    /* ignore */
+                  }
+                  this.tryPlayEntry(layerId);
+                }
+              } else {
+                this.tryPlayEntry(layerId);
+              }
             }
             this.scheduleAutoplayProbe(layerId, existing.generation);
           } else {
-            if (typeof existing.player.cueVideoById === 'function') {
+            if (
+              !isSameVideo &&
+              typeof existing.player.cueVideoById === 'function'
+            ) {
               existing.player.cueVideoById(videoId);
             } else {
               this.tryPauseEntry(layerId);
@@ -427,6 +503,11 @@ export class YouTubePlayerManager {
             err,
           );
         }
+      }
+
+      // Case 2: Same video, still loading
+      if (existing.videoId === videoId && existing.status === 'loading') {
+        return this.waitForReady(layerId, YOUTUBE_PLAYER_READY_TIMEOUT_MS);
       }
     }
 
@@ -735,6 +816,13 @@ export class YouTubePlayerManager {
 
     entry.pendingMuted = muted;
     this.applyPlayerState(layerId);
+  }
+
+  /**
+   * Pause player for a layer while keeping the iframe ready for reuse.
+   */
+  public pausePlayer(layerId: string): void {
+    this.tryPauseEntry(layerId);
   }
 
   /**

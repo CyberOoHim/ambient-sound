@@ -1009,7 +1009,7 @@ export class AudioEngine {
     }
 
     if (item.type === 'local' && item.assetId) {
-      youtubePlayerManager.destroyPlayer(params.id);
+      youtubePlayerManager.pausePlayer(params.id);
       this.mediaOutput.setHasYoutubeLayers(
         youtubePlayerManager.hasActivePlayers(),
       );

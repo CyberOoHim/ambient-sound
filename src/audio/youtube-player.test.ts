@@ -81,6 +81,7 @@ function mockPlayer(): YTPlayerInstance {
       } as unknown as HTMLIFrameElement;
     }),
     getPlayerState: vi.fn(() => 1),
+    seekTo: vi.fn(),
     loadVideoById: vi.fn(),
     cueVideoById: vi.fn(),
   };
@@ -329,5 +330,23 @@ describe('YouTubePlayerManager', () => {
     expect(instances).toHaveLength(1);
     expect(instances[0]!.loadVideoById).toHaveBeenCalledWith('video333333');
     expect(manager.getVideoId('yt-1')).toBe('video333333');
+
+    // When same video was playing, ensurePlayer plays without destroying
+    await manager.ensurePlayer('yt-1', 'video333333', host, 0.7, false, true);
+    expect(instances).toHaveLength(1);
+    expect(instances[0]!.playVideo).toHaveBeenCalled();
+    expect(instances[0]!.destroy).not.toHaveBeenCalled();
+
+    // Rotating back to the same video when ENDED (state 0) reloads cleanly from 0
+    instances[0]!.getPlayerState = vi.fn(() => 0);
+    await manager.ensurePlayer('yt-1', 'video333333', host, 0.7, false, true);
+    expect(instances).toHaveLength(1);
+    expect(instances[0]!.loadVideoById).toHaveBeenCalledWith('video333333');
+    expect(instances[0]!.destroy).not.toHaveBeenCalled();
+
+    // Pausing keeps the player instance
+    manager.pausePlayer('yt-1');
+    expect(instances[0]!.pauseVideo).toHaveBeenCalled();
+    expect(manager.isPlayerReady('yt-1')).toBe(true);
   });
 });
