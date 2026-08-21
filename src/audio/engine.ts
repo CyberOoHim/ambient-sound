@@ -35,10 +35,6 @@ import {
 } from './decode-cache';
 import { assetUrl, findAsset, type SoundCatalog } from '../assets/catalog';
 import { MediaOutput } from './media-output';
-import { OneShotEngine, type OneShotTriggerEvent } from './one-shot-engine';
-import { loadOneShotConfigFromStorage } from '../app/one-shot';
-import { BinauralEngine } from './binaural-engine';
-import { loadBinauralConfigFromStorage } from '../app/binaural';
 import { getLocalAudioData } from './local-audio-store';
 import { youtubePlayerManager } from './youtube-player';
 
@@ -123,7 +119,7 @@ export interface SampleStartOptions {
  */
 export class AudioEngine {
   private ctx: AudioContext | null = null;
-  /** Sum of all layers / tones / one-shots (unity gain). */
+  /** Sum of all layers (unity gain). */
   private mixBus: GainNode | null = null;
   private bassEq: BiquadFilterNode | null = null;
   private trebleEq: BiquadFilterNode | null = null;
@@ -133,12 +129,6 @@ export class AudioEngine {
   private convolverConnected = false;
   /** Final volume control (sleep timer fade, preset crossfade). */
   private master: GainNode | null = null;
-  /**
-   * One-shot test/preview bus → analyser, bypassing masterGain.
-   * Lets "Test random event" play while transport is paused without
-   * unmuting core loops / noise still feeding the silent master bus.
-   */
-  private oneShotPreviewBus: GainNode | null = null;
   private analyser: AnalyserNode | null = null;
   private splitter: ChannelSplitterNode | null = null;
   private analyserL: AnalyserNode | null = null;
@@ -166,14 +156,6 @@ export class AudioEngine {
   /** Sample layer ids currently awaiting fetch/decode. */
   private inflightLoads = new Set<string>();
   private youtubeHostElement: HTMLElement | null = null;
-
-  public oneShotEngine: OneShotEngine;
-  public binauralEngine: BinauralEngine;
-
-  constructor() {
-    this.oneShotEngine = new OneShotEngine(loadOneShotConfigFromStorage());
-    this.binauralEngine = new BinauralEngine(loadBinauralConfigFromStorage());
-  }
 
   setYoutubeHostElement(el: HTMLElement | null): void {
     this.youtubeHostElement = el;
@@ -212,9 +194,6 @@ export class AudioEngine {
 
   setCatalog(catalog: SoundCatalog): void {
     this.catalog = catalog;
-    if (this.ctx && this.mixBus) {
-      this.oneShotEngine.setAudioTarget(this.ctx, this.mixBus, catalog);
-    }
   }
 
   private initPromise: Promise<AudioContext> | null = null;
@@ -273,20 +252,11 @@ export class AudioEngine {
         this.splitter.connect(this.analyserR, 1);
         this.applyReverbMix(this.masterTone.reverbWet);
 
-        // Parallel preview path (one-shots only) that ignores transport mute.
-        this.oneShotPreviewBus = this.ctx.createGain();
-        this.oneShotPreviewBus.gain.value = 0;
-        this.oneShotPreviewBus.connect(this.analyser);
-        this.oneShotPreviewBus.connect(this.splitter);
-
         // Mobile (iOS + Android): route via HTMLAudioElement for background
         // playback / media controls. Desktop: analyser → destination.
         this.mediaOutput.attach(this.ctx, this.analyser);
         this.mediaOutput.connectDestination(this.ctx, this.analyser);
         this.bindStateChange(this.ctx);
-
-        this.oneShotEngine.setAudioTarget(this.ctx, this.mixBus, this.catalog);
-        this.binauralEngine.setAudioTarget(this.ctx, this.mixBus);
       }
       if (!this.workletReady) {
         await this.ctx.audioWorklet.addModule(workletUrl);
@@ -357,9 +327,6 @@ export class AudioEngine {
       if (this.wantRunning && (state === 'interrupted' || state === 'suspended')) {
         void ctx.resume().then(() => {
           this.mediaOutput.play();
-          // Restart sub-engines that were torn down during the interruption
-          this.oneShotEngine.start();
-          this.binauralEngine.start();
           youtubePlayerManager.setGlobalPlaying(true);
           if (!this.fading) {
             this.restoreMasterGain();
@@ -376,8 +343,6 @@ export class AudioEngine {
       await ctx.resume();
     }
     await this.mediaOutput.play();
-    this.oneShotEngine.start();
-    this.binauralEngine.start();
     youtubePlayerManager.setGlobalPlaying(true);
     for (const layer of this.layers.values()) {
       if (layer.kind === 'sample') {
@@ -395,53 +360,12 @@ export class AudioEngine {
 
   /**
    * Wake AudioContext after a user gesture without starting mix transport.
-   * Does not unmute master, start schedulers, play media output, or touch YT.
+   * Does not unmute master, play media output, or touch YT.
    */
   async resumeContextOnly(): Promise<void> {
     const ctx = await this.ensureContext();
     if (ctx.state !== 'running') {
       await ctx.resume();
-    }
-  }
-
-  /**
-   * Play a one-shot for the test button while the mix may be stopped.
-   *
-   * When transport is paused, routes through {@link oneShotPreviewBus}
-   * (bypasses master gain) so the event is audible without unmuting loops
-   * / noise still connected to the silent master bus. Does not set
-   * wantRunning, start one-shot/binaural schedulers, or resume YouTube.
-   */
-  async previewOneShot(
-    specificAssetId?: string,
-  ): Promise<OneShotTriggerEvent | null> {
-    await this.resumeContextOnly();
-    if (!this.ctx || !this.analyser || !this.mixBus) {
-      return null;
-    }
-    // Mix already audible — fire on the normal bus through master.
-    if (this.wantRunning) {
-      return this.oneShotEngine.triggerRandomEvent(specificAssetId);
-    }
-    if (!this.oneShotPreviewBus) {
-      this.oneShotPreviewBus = this.ctx.createGain();
-      this.oneShotPreviewBus.connect(this.analyser);
-      if (this.splitter) {
-        this.oneShotPreviewBus.connect(this.splitter);
-      }
-    }
-    const t = this.ctx.currentTime;
-    this.oneShotPreviewBus.gain.cancelScheduledValues(t);
-    this.oneShotPreviewBus.gain.setValueAtTime(this.masterVolumeLinear, t);
-    this.oneShotEngine.setAudioTarget(this.ctx, this.oneShotPreviewBus, this.catalog);
-    try {
-      return await this.oneShotEngine.triggerRandomEvent(specificAssetId);
-    } finally {
-      // Restore default routing; zero preview bus so nothing leaks after.
-      this.oneShotEngine.setAudioTarget(this.ctx, this.mixBus, this.catalog);
-      // Leave gain up briefly so in-flight bursts/tails finish; they use
-      // their own per-burst envelopes and will end themselves.
-      // (Zeroing immediately would click-cut long thunder tails.)
     }
   }
 
@@ -481,8 +405,6 @@ export class AudioEngine {
 
   async suspend(): Promise<void> {
     this.wantRunning = false;
-    this.oneShotEngine.stop();
-    this.binauralEngine.stop();
     for (const layer of this.layers.values()) {
       if (layer.kind === 'sample') {
         layer.player.pause();
@@ -1353,8 +1275,6 @@ export class AudioEngine {
   }
 
   stopAll(): void {
-    this.oneShotEngine.stop();
-    this.binauralEngine.stop();
     youtubePlayerManager.destroyAll();
     this.mediaOutput.setHasYoutubeLayers(false);
     // Cancel every sample still downloading, not only layers already wired.
@@ -1368,8 +1288,6 @@ export class AudioEngine {
 
   async dispose(): Promise<void> {
     this.wantRunning = false;
-    this.oneShotEngine.stop();
-    this.binauralEngine.stop();
     this.stopAll();
     this.mediaOutput.dispose();
     decodeCache.clear();

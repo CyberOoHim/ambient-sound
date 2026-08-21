@@ -285,7 +285,6 @@ html[data-power-saver='true'] body {
 html[data-power-saver='true'] .panel,
 html[data-power-saver='true'] .modal-backdrop,
 html[data-power-saver='true'] .modal-box,
-html[data-power-saver='true'] .oneshot-panel,
 html[data-power-saver='true'] .youtube-panel {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -293,8 +292,6 @@ html[data-power-saver='true'] .youtube-panel {
 }
 
 html[data-power-saver='true'] .pulse-indicator.pulsing,
-html[data-power-saver='true'] .radar-event-ping.pulse .ping-ring,
-html[data-power-saver='true'] .radar-canvas.active-pulse,
 html[data-power-saver='true'] .timer-indicator.fading .dot,
 html[data-power-saver='true'] .dl-progress.indeterminate .dl-progress-fill {
   animation: none !important;

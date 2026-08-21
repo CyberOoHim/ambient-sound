@@ -28,8 +28,6 @@
   import TimerPanel from './TimerPanel.svelte';
   import PresetsPanel from './PresetsPanel.svelte';
   import LibraryPanel from './LibraryPanel.svelte';
-  import OneShotPanel from './OneShotPanel.svelte';
-  import BinauralPanel from './BinauralPanel.svelte';
   import YouTubePanel from './YouTubePanel.svelte';
   import PlaylistPanel from './PlaylistPanel.svelte';
   import AttributionsPanel from './AttributionsPanel.svelte';
@@ -63,8 +61,6 @@
   let loadNotice = $state<string | null>(null);
   /** layerId → YouTube player status for mix strip labels */
   let youtubeStatus = $state<Record<string, string>>({});
-  let enableHint = $state<string | null>(session.enableHint);
-  let oneShotFireToast = $state<string | null>(session.oneShotFireToast);
   let timerStatus = $state(session.timer.status);
   let timerRemainingMs = $state<number | null>(session.remainingMs());
   let catalog = $state<SoundCatalog | null>(session.catalog);
@@ -91,8 +87,6 @@
   let timerPanel: TimerPanel | undefined = $state();
   let presetsPanel: PresetsPanel | undefined = $state();
   let libraryPanel: LibraryPanel | undefined = $state();
-  let oneShotPanel: OneShotPanel | undefined = $state();
-  let binauralPanel: BinauralPanel | undefined = $state();
   let playlistPanel: PlaylistPanel | undefined = $state();
 
   let meterRaf = 0;
@@ -108,8 +102,6 @@
     'Stack layers — mute, solo, and pan each one.',
     'Try Surprise me for a complementary mix.',
     'Sleep timer fades out when you are ready to rest.',
-    'One-shot packs sprinkle distant events into the mix.',
-    'Binaural tones work best with headphones.',
     'Drag on the spatial canvas to place layers in stereo.',
     'Import your own loops from the library.',
     'Copy link to share your current mix.',
@@ -170,17 +162,6 @@
         dismissLabel: 'Got it',
       };
     }
-    if (enableHint) {
-      return {
-        text: enableHint,
-        kind: 'info',
-        dismiss: () => session.clearEnableHint(),
-        dismissLabel: 'Dismiss',
-      };
-    }
-    if (oneShotFireToast) {
-      return { text: `✦ ${oneShotFireToast}`, kind: 'fire' };
-    }
     if (loadingIds.length > 0) {
       return {
         text: `Downloading sound${loadingIds.length > 1 ? 's' : ''}…`,
@@ -209,8 +190,6 @@
       ytStat[id] = s;
     }
     youtubeStatus = ytStat;
-    enableHint = session.enableHint;
-    oneShotFireToast = session.oneShotFireToast;
     minOffsetSec = session.duplicateMinOffsetSec;
     masterBassDb = session.masterTone.bassDb;
     masterTrebleDb = session.masterTone.trebleDb;
@@ -224,8 +203,6 @@
     timerPanel?.sync();
     presetsPanel?.sync();
     libraryPanel?.sync();
-    oneShotPanel?.sync();
-    binauralPanel?.sync();
     playlistPanel?.sync();
   }
 
@@ -1142,16 +1119,6 @@
         bind:this={presetsPanel}
         open={deckStates.presets}
         onToggle={() => toggleDeck('presets')}
-      />
-      <BinauralPanel
-        bind:this={binauralPanel}
-        open={deckStates.binaural}
-        onToggle={() => toggleDeck('binaural')}
-      />
-      <OneShotPanel
-        bind:this={oneShotPanel}
-        open={deckStates.oneshot}
-        onToggle={() => toggleDeck('oneshot')}
       />
       <YouTubePanel
         layers={layers}

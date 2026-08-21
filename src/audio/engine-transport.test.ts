@@ -51,10 +51,6 @@ describe('AudioEngine transport pause / play gate', () => {
     e.workletReady = true;
     e.wantRunning = true;
     e.masterVolumeLinear = 0.75;
-    e.oneShotEngine.stop = vi.fn();
-    e.oneShotEngine.start = vi.fn();
-    e.binauralEngine.stop = vi.fn();
-    e.binauralEngine.start = vi.fn();
     e.mediaOutput.pause = vi.fn();
     e.mediaOutput.play = vi.fn(async () => {});
   });
@@ -74,38 +70,6 @@ describe('AudioEngine transport pause / play gate', () => {
     expect(gain.value).toBe(0);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect((engine as any).wantRunning).toBe(false);
-  });
-
-  it('previewOneShot does not enable transport or unmute master', async () => {
-    await engine.suspend();
-    expect(gain.value).toBe(0);
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const e = engine as any;
-    e.mixBus = {};
-    e.analyser = {};
-    e.catalog = {};
-    e.oneShotPreviewBus = {
-      gain: {
-        cancelScheduledValues: vi.fn(),
-        setValueAtTime: vi.fn(),
-      },
-      connect: vi.fn(),
-    };
-    e.oneShotEngine.setAudioTarget = vi.fn();
-    e.oneShotEngine.triggerRandomEvent = vi.fn(async () => null);
-    e.ensureContext = vi.fn(async () => ctx);
-    // resumeContextOnly path
-    ctx.state = 'running';
-
-    await engine.previewOneShot();
-
-    expect(gain.value).toBe(0);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    expect((engine as any).wantRunning).toBe(false);
-    expect(e.oneShotEngine.triggerRandomEvent).toHaveBeenCalled();
-    expect(e.mediaOutput.play).not.toHaveBeenCalled();
-    expect(e.oneShotEngine.start).not.toHaveBeenCalled();
   });
 
   it('resume restores stored master volume', async () => {

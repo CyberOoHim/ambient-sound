@@ -22,8 +22,6 @@ import {
   type PresetTimerConfig,
   type PresetV1,
 } from './presets';
-import type { BinauralConfig } from './binaural';
-import type { OneShotConfig } from './one-shot';
 
 export const SHARE_HASH_PREFIX = 'mix=';
 export const ATTRIBUTIONS_HASH = 'attributions';
@@ -35,8 +33,6 @@ export interface SharePayload {
   master: PresetMaster;
   layers: MixerLayer[];
   timer?: PresetTimerConfig | null;
-  binaural?: BinauralConfig | null;
-  oneShot?: OneShotConfig | null;
 }
 
 export type LocationHashIntent =
@@ -241,8 +237,6 @@ export function presetToSharePayload(preset: PresetV1): SharePayload {
     master: compactMaster(preset.master),
     layers: preset.layers,
     timer: preset.timer ?? null,
-    ...(preset.binaural !== undefined ? { binaural: preset.binaural } : {}),
-    ...(preset.oneShot !== undefined ? { oneShot: preset.oneShot } : {}),
   };
 }
 
@@ -254,8 +248,6 @@ export function encodeSharePayload(payload: SharePayload): string {
     master: compactMaster(payload.master),
     layers: payload.layers.map((l) => compactLayer(l)),
     ...(payload.timer ? { timer: payload.timer } : {}),
-    ...(payload.binaural != null ? { binaural: payload.binaural } : {}),
-    ...(payload.oneShot != null ? { oneShot: payload.oneShot } : {}),
   };
   return utf8ToBase64Url(JSON.stringify(compact));
 }
@@ -278,8 +270,6 @@ export function decodeSharePayload(encoded: string): PresetV1 | null {
       master: o.master,
       layers: o.layers,
       timer: o.timer,
-      binaural: o.binaural,
-      oneShot: o.oneShot,
     };
     return parsePreset(asPreset);
   } catch {

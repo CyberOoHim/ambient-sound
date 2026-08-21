@@ -92,20 +92,6 @@ import {
   type SoundCatalog,
 } from '../assets/catalog';
 import { decodeCache } from '../audio/decode-cache';
-import {
-  loadOneShotConfigFromStorage,
-  saveOneShotConfigToStorage,
-  loadCustomOneShotPacksFromStorage,
-  saveCustomOneShotPacksToStorage,
-  type OneShotConfig,
-  type CustomOneShotPack,
-} from './one-shot';
-import {
-  loadBinauralConfigFromStorage,
-  saveBinauralConfigToStorage,
-  type BinauralConfig,
-} from './binaural';
-import type { OneShotTriggerEvent } from '../audio/one-shot-engine';
 
 let nextId = 1;
 
@@ -184,17 +170,6 @@ export class Session {
    */
   loadNotice: string | null = null;
 
-  /**
-   * Short hint when enabling binaural/one-shot while paused (FIX-01).
-   */
-  enableHint: string | null = null;
-
-  /**
-   * Ephemeral toast when a one-shot event fires (ENH-10).
-   */
-  oneShotFireToast: string | null = null;
-  private oneShotToastTimer: ReturnType<typeof setTimeout> | null = null;
-
   timerDefaults: PresetTimerConfig = { durationSec: 30 * 60, fadeSec: 60 };
 
   timer: TimerState = {
@@ -221,11 +196,6 @@ export class Session {
 
   playlists: Playlist[] = loadPlaylistsFromStorage();
 
-  customOneShotPacks: CustomOneShotPack[] = loadCustomOneShotPacksFromStorage();
-  oneShotConfig: OneShotConfig = loadOneShotConfigFromStorage(this.customOneShotPacks);
-  lastOneShotTrigger: OneShotTriggerEvent | null = null;
-  binauralConfig: BinauralConfig = loadBinauralConfigFromStorage();
-
   /** User-imported clips (ENH-13); metadata only — audio lives in IndexedDB. */
   localAudio: LocalAudioMeta[] = [];
   private localAudioReady: Promise<void> | null = null;
@@ -247,10 +217,6 @@ export class Session {
   constructor() {
     this.presets = loadPresetsFromStorage().presets;
     this.duplicateMinOffsetSec = loadDuplicateMinOffsetSec();
-    // Load packs + side configs first so scene fields in last session can override.
-    this.customOneShotPacks = loadCustomOneShotPacksFromStorage();
-    this.oneShotConfig = loadOneShotConfigFromStorage(this.customOneShotPacks);
-    this.binauralConfig = loadBinauralConfigFromStorage();
 
     const last = loadLastSession();
     const defaultPreset = this.presets[0];
@@ -264,9 +230,6 @@ export class Session {
       ];
     }
     audioEngine.setMasterTone(this.masterTone);
-    audioEngine.oneShotEngine.setCustomPacks(this.customOneShotPacks);
-    audioEngine.oneShotEngine.setConfig(this.oneShotConfig);
-    audioEngine.binauralEngine.updateConfig(this.binauralConfig);
 
     // Eagerly pre-create YouTube iframes (no autoplay) so they reach
     // isReady before the user clicks Play. This lets playVideo() fire
@@ -318,141 +281,6 @@ export class Session {
         this.notify();
       }
     });
-    audioEngine.oneShotEngine.addListener((evt) => {
-      if (evt) {
-        this.lastOneShotTrigger = evt;
-        this.showOneShotFireToast(evt);
-        this.notify();
-      }
-    });
-  }
-
-  private showOneShotFireToast(evt: OneShotTriggerEvent): void {
-    this.oneShotFireToast = `${evt.packLabel}: ${evt.assetLabel}`;
-    if (this.oneShotToastTimer) clearTimeout(this.oneShotToastTimer);
-    this.oneShotToastTimer = setTimeout(() => {
-      this.oneShotFireToast = null;
-      this.oneShotToastTimer = null;
-      this.notify();
-    }, 2200);
-  }
-
-  clearEnableHint(): void {
-    if (this.enableHint == null) return;
-    this.enableHint = null;
-    this.notify();
-  }
-
-  private setEnableHintIfPaused(feature: string): void {
-    if (this.playing) {
-      this.enableHint = null;
-      return;
-    }
-    this.enableHint = `${feature} starts with Play`;
-  }
-
-  updateBinauralConfig(partial: Partial<BinauralConfig>): void {
-    this.binauralConfig = { ...this.binauralConfig, ...partial };
-    saveBinauralConfigToStorage(this.binauralConfig);
-    audioEngine.binauralEngine.updateConfig(this.binauralConfig);
-    if (partial.enabled === true) {
-      this.setEnableHintIfPaused('Tone generator');
-      // If already playing, engines are running; updateConfig applies immediately.
-    } else if (partial.enabled === false) {
-      this.enableHint = null;
-    }
-    this.notify();
-  }
-
-  updateOneShotConfig(partial: Partial<OneShotConfig>): void {
-    this.oneShotConfig = { ...this.oneShotConfig, ...partial };
-    saveOneShotConfigToStorage(this.oneShotConfig);
-    audioEngine.oneShotEngine.setConfig(this.oneShotConfig);
-    if (partial.enabled === true) {
-      this.setEnableHintIfPaused('One-shot events');
-    } else if (partial.enabled === false) {
-      this.enableHint = null;
-    }
-    this.notify();
-  }
-
-  createCustomOneShotPack(
-    label: string,
-    icon = '📦',
-    description = 'User defined sound pack',
-    assetIds: string[] = []
-  ): CustomOneShotPack {
-    const id = `custom-pack-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const newPack: CustomOneShotPack = {
-      id,
-      label: label.trim() || 'Custom Pack',
-      icon: icon || '📦',
-      description,
-      assetIds: [...assetIds],
-      isCustom: true,
-    };
-    this.customOneShotPacks = [...this.customOneShotPacks, newPack];
-    saveCustomOneShotPacksToStorage(this.customOneShotPacks);
-    audioEngine.oneShotEngine.setCustomPacks(this.customOneShotPacks);
-
-    if (!this.oneShotConfig.selectedPacks.includes(id)) {
-      this.updateOneShotConfig({ selectedPacks: [...this.oneShotConfig.selectedPacks, id] });
-    } else {
-      this.notify();
-    }
-    return newPack;
-  }
-
-  renameCustomOneShotPack(packId: string, newLabel: string): void {
-    this.customOneShotPacks = this.customOneShotPacks.map((p) =>
-      p.id === packId ? { ...p, label: newLabel.trim() || p.label } : p
-    );
-    saveCustomOneShotPacksToStorage(this.customOneShotPacks);
-    audioEngine.oneShotEngine.setCustomPacks(this.customOneShotPacks);
-    this.notify();
-  }
-
-  deleteCustomOneShotPack(packId: string): void {
-    this.customOneShotPacks = this.customOneShotPacks.filter((p) => p.id !== packId);
-    saveCustomOneShotPacksToStorage(this.customOneShotPacks);
-    audioEngine.oneShotEngine.setCustomPacks(this.customOneShotPacks);
-
-    const updatedSelectedPacks = this.oneShotConfig.selectedPacks.filter((id) => id !== packId);
-    this.updateOneShotConfig({
-      selectedPacks: updatedSelectedPacks.length > 0 ? updatedSelectedPacks : ['storm'],
-    });
-  }
-
-  updateCustomOneShotPackAssets(packId: string, assetIds: string[]): void {
-    this.customOneShotPacks = this.customOneShotPacks.map((p) =>
-      p.id === packId ? { ...p, assetIds: [...assetIds] } : p
-    );
-    saveCustomOneShotPacksToStorage(this.customOneShotPacks);
-    audioEngine.oneShotEngine.setCustomPacks(this.customOneShotPacks);
-    this.notify();
-  }
-
-  async triggerOneShotNow(specificAssetId?: string): Promise<OneShotTriggerEvent | null> {
-    await this.ensureCatalogReady();
-    let evt: OneShotTriggerEvent | null;
-    if (this.playing) {
-      // Mix is live: normal path through master bus + keep transport warm.
-      await audioEngine.resume();
-      evt = await audioEngine.oneShotEngine.triggerRandomEvent(specificAssetId);
-    } else {
-      // Mix stopped: still allow the test button, but via a master-bypass
-      // preview path so core loops / noise / YT stay silent and paused.
-      evt = await audioEngine.previewOneShot(specificAssetId);
-    }
-    if (evt) {
-      this.lastOneShotTrigger = evt;
-      this.notify();
-    }
-    return evt;
-  }
-
-  getOneShotHistory(): OneShotTriggerEvent[] {
-    return audioEngine.oneShotEngine.getEventHistory();
   }
 
   setDuplicateMinOffsetSec(sec: number): void {
@@ -748,8 +576,6 @@ export class Session {
       masterVolumeLinear: this.masterVolumeLinear,
       masterTone: this.masterTone,
       timerDefaults: this.timerDefaults,
-      binaural: this.binauralConfig,
-      oneShot: this.oneShotConfig,
     });
     saveLastSession(snap);
   }
@@ -796,7 +622,6 @@ export class Session {
     } else {
       audioEngine.restoreMasterGain();
     }
-    this.enableHint = null;
 
     // Snapshot ids at start; layers may be removed while samples download.
     // Failed sample downloads auto-remove that layer and continue the rest.
@@ -1132,16 +957,13 @@ export class Session {
   /**
    * Build a random complementary mix (ENH-04). Replaces current layers.
    */
-  async surpriseMe(options?: { includeBinaural?: boolean; includeOneShot?: boolean }): Promise<void> {
+  async surpriseMe(): Promise<void> {
     await this.ensureCatalogReady();
     if (!this.catalog || this.catalog.assets.length === 0) {
       this.setLoadNotice('Catalog not ready — try again in a moment.');
       this.notify();
       return;
     }
-
-    const includeBinaural = options?.includeBinaural ?? false;
-    const includeOneShot = options?.includeOneShot ?? false;
 
     // Curated complementary groups (asset ids that work well together across all core loop categories)
     const groups: string[][] = [
@@ -1259,13 +1081,6 @@ export class Session {
 
     this.masterVolumeLinear = 0.85;
     audioEngine.setMasterVolumeLinear(this.masterVolumeLinear);
-
-    if (!includeBinaural) {
-      this.updateBinauralConfig({ enabled: false });
-    }
-    if (!includeOneShot) {
-      this.updateOneShotConfig({ enabled: false });
-    }
 
     this.playing = false;
     if (wasPlaying && this.layers.length > 0) {
@@ -2265,18 +2080,6 @@ export class Session {
         fadeSec: preset.timer.fadeSec,
       };
     }
-    // Scene fields: apply when present so older mixer-only presets leave
-    // current binaural/one-shot settings alone.
-    if (preset.binaural) {
-      this.binauralConfig = { ...preset.binaural };
-      saveBinauralConfigToStorage(this.binauralConfig);
-      audioEngine.binauralEngine.updateConfig(this.binauralConfig);
-    }
-    if (preset.oneShot) {
-      this.oneShotConfig = { ...preset.oneShot };
-      saveOneShotConfigToStorage(this.oneShotConfig);
-      audioEngine.oneShotEngine.setConfig(this.oneShotConfig);
-    }
   }
 
   /**
@@ -2342,8 +2145,6 @@ export class Session {
       masterVolumeLinear: this.masterVolumeLinear,
       masterTone: this.masterTone,
       timerDefaults: this.timerDefaults,
-      binaural: this.binauralConfig,
-      oneShot: this.oneShotConfig,
     });
     if (existing) {
       preset.createdAt = existing.createdAt;
@@ -2362,7 +2163,7 @@ export class Session {
 
   /**
    * Apply a full scene from a shared link or imported preset (layers +
-   * optional binaural/one-shot). Does not add to the saved presets list.
+   * optional timer). Does not add to the saved presets list.
    */
   async applySharedScene(preset: PresetV1): Promise<void> {
     await this.swapSceneWithCrossfade(preset);
@@ -2378,8 +2179,6 @@ export class Session {
       masterVolumeLinear: this.masterVolumeLinear,
       masterTone: this.masterTone,
       timerDefaults: this.timerDefaults,
-      binaural: this.binauralConfig,
-      oneShot: this.oneShotConfig,
     });
   }
 

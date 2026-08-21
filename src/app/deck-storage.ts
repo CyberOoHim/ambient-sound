@@ -7,8 +7,6 @@ export type DeckId =
   | 'space'
   | 'timer'
   | 'presets'
-  | 'binaural'
-  | 'oneshot'
   | 'youtube'
   | 'playlist'
   | 'library';
@@ -17,8 +15,6 @@ export const ALL_DECK_IDS: readonly DeckId[] = [
   'space',
   'timer',
   'presets',
-  'binaural',
-  'oneshot',
   'youtube',
   'playlist',
   'library',
@@ -28,8 +24,6 @@ export const DEFAULT_DECK_STATES: Record<DeckId, boolean> = {
   space: true,
   timer: true,
   presets: true,
-  binaural: true,
-  oneshot: true,
   youtube: true,
   playlist: true,
   library: true,

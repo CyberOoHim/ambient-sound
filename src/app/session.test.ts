@@ -89,73 +89,6 @@ describe('Session transport pause/play state', () => {
     await session.pause();
     expect(session.playing).toBe(false);
   });
-
-  it('triggerOneShotNow previews without resuming transport while paused', async () => {
-    const session = new Session();
-    session.playing = false;
-
-    const { audioEngine } = await import('../audio/engine');
-    const resumeSpy = vi.spyOn(audioEngine, 'resume').mockResolvedValue(undefined);
-    const previewSpy = vi.spyOn(audioEngine, 'previewOneShot').mockResolvedValue({
-      packId: 'birds',
-      packLabel: 'Birds',
-      assetId: 'birds_morning',
-      assetLabel: 'Morning birds',
-      timestamp: Date.now(),
-      pan: 0,
-      pitch: 1,
-      distanceFilterCutoff: 8000,
-      burstCount: 1,
-    });
-    const triggerSpy = vi
-      .spyOn(audioEngine.oneShotEngine, 'triggerRandomEvent')
-      .mockResolvedValue(null);
-
-    const evt = await session.triggerOneShotNow();
-
-    expect(evt?.assetId).toBe('birds_morning');
-    expect(session.playing).toBe(false);
-    expect(resumeSpy).not.toHaveBeenCalled();
-    expect(previewSpy).toHaveBeenCalled();
-    expect(triggerSpy).not.toHaveBeenCalled();
-
-    resumeSpy.mockRestore();
-    previewSpy.mockRestore();
-    triggerSpy.mockRestore();
-  });
-
-  it('triggerOneShotNow uses full transport path while playing', async () => {
-    const session = new Session();
-    session.playing = true;
-
-    const { audioEngine } = await import('../audio/engine');
-    const resumeSpy = vi.spyOn(audioEngine, 'resume').mockResolvedValue(undefined);
-    const previewSpy = vi.spyOn(audioEngine, 'previewOneShot').mockResolvedValue(null);
-    const triggerSpy = vi
-      .spyOn(audioEngine.oneShotEngine, 'triggerRandomEvent')
-      .mockResolvedValue({
-        packId: 'birds',
-        packLabel: 'Birds',
-        assetId: 'birds_morning',
-        assetLabel: 'Morning birds',
-        timestamp: Date.now(),
-        pan: 0,
-        pitch: 1,
-        distanceFilterCutoff: 8000,
-        burstCount: 1,
-      });
-
-    const evt = await session.triggerOneShotNow();
-
-    expect(evt?.assetId).toBe('birds_morning');
-    expect(resumeSpy).toHaveBeenCalled();
-    expect(previewSpy).not.toHaveBeenCalled();
-    expect(triggerSpy).toHaveBeenCalled();
-
-    resumeSpy.mockRestore();
-    previewSpy.mockRestore();
-    triggerSpy.mockRestore();
-  });
 });
 
 
@@ -319,34 +252,6 @@ describe('Session timer countdown and fade state', () => {
   });
 });
 
-describe('Session binaural configuration state', () => {
-  let session: Session;
-
-  beforeEach(() => {
-    session = new Session();
-  });
-
-  it('updates binaural config and notifies listeners', () => {
-    const listener = vi.fn();
-    session.subscribe(listener);
-
-    session.updateBinauralConfig({
-      enabled: true,
-      mode: 'isochronic',
-      preset: 'theta',
-      carrierFreq: 220,
-      beatFreq: 6,
-    });
-
-    expect(session.binauralConfig.enabled).toBe(true);
-    expect(session.binauralConfig.mode).toBe('isochronic');
-    expect(session.binauralConfig.preset).toBe('theta');
-    expect(session.binauralConfig.carrierFreq).toBe(220);
-    expect(session.binauralConfig.beatFreq).toBe(6);
-    expect(listener).toHaveBeenCalled();
-  });
-});
-
 describe('Session surpriseMe behavior', () => {
   let session: Session;
 
@@ -409,17 +314,6 @@ describe('Session surpriseMe behavior', () => {
 
     expect(session.layers.length).toBeGreaterThanOrEqual(2);
     expect(session.loadNotice).toMatch(/^Surprise mix:/);
-  });
-
-  it('disables binaural and one-shot by default unless explicitly included', async () => {
-    vi.spyOn(session as any, 'ensureCatalogReady').mockImplementation(async () => {});
-    session.binauralConfig.enabled = true;
-    session.oneShotConfig.enabled = true;
-
-    await session.surpriseMe();
-
-    expect(session.binauralConfig.enabled).toBe(false);
-    expect(session.oneShotConfig.enabled).toBe(false);
   });
 });
 

@@ -14,7 +14,6 @@
     "test:watch": "vitest",
     "sounds:generate": "node scripts/generate-core-pack.mjs",
     "sounds:freesound": "node scripts/fetch-freesound-core.mjs",
-    "sounds:events": "node scripts/extract-one-shot-events.mjs",
     "validate-manifests": "node scripts/validate-manifests.mjs"
   },
   "devDependencies": {

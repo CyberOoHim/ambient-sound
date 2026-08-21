@@ -53,7 +53,7 @@ describe('Deck Expander Storage', () => {
     expect(loaded.space).toBe(false);
     expect(loaded.timer).toBe(false);
     expect(loaded.presets).toBe(true);
-    expect(loaded.binaural).toBe(true);
+    expect(loaded.youtube).toBe(true);
   });
 
   it('gracefully handles corrupted JSON in localStorage', () => {

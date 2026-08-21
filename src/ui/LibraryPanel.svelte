@@ -308,21 +308,15 @@
     return false;
   }
 
-  // Hide dedicated one-shot event clips from continuous layer library
-  function isLibraryAsset(asset: CatalogAsset): boolean {
-    return !asset.id.startsWith('event_');
-  }
-
   const filteredAssets = $derived(
     assets.filter(
       (a) =>
-        isLibraryAsset(a) &&
         matchesFilter(a, filterGroup) &&
         matchesSearch(a, searchQuery),
     ),
   );
 
-  const libraryAssets = $derived(assets.filter(isLibraryAsset));
+  const libraryAssets = $derived(assets);
 
   function shortTitle(title: string): string {
     return title;

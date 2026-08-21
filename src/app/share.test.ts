@@ -36,30 +36,6 @@ const sample: PresetV1 = {
     },
   ],
   timer: { durationSec: 1800, fadeSec: 60 },
-  binaural: {
-    enabled: true,
-    mode: 'binaural',
-    preset: 'alpha',
-    carrierFreq: 200,
-    beatFreq: 10,
-    volumeLinear: 0.4,
-    waveform: 'sine',
-  },
-  oneShot: {
-    enabled: true,
-    density: 'subtle',
-    customIntervalMs: 60_000,
-    selectedPacks: ['forest'],
-    selectedAssets: ['birds_morning', 'owls_forest'],
-    volumeLinear: 0.6,
-    spatialPan: true,
-    pitchJitter: true,
-    distanceFilter: true,
-    burstSequence: true,
-    acousticTail: false,
-    earlyReflections: true,
-    dopplerShift: true,
-  },
 };
 
 describe('share codec', () => {
@@ -70,10 +46,6 @@ describe('share codec', () => {
     expect(decoded).not.toBeNull();
     expect(decoded!.name).toBe('Forest Focus');
     expect(decoded!.layers).toHaveLength(1);
-    expect(decoded!.binaural?.enabled).toBe(true);
-    expect(decoded!.binaural?.preset).toBe('alpha');
-    expect(decoded!.oneShot?.enabled).toBe(true);
-    expect(decoded!.oneShot?.selectedPacks).toEqual(['forest']);
     expect(decoded!.timer?.durationSec).toBe(1800);
   });
 

@@ -21,10 +21,7 @@
   }
 
   function sceneHint(p: PresetV1): string {
-    const parts = [`${p.layers.length} layer${p.layers.length === 1 ? '' : 's'}`];
-    if (p.binaural?.enabled) parts.push('tones');
-    if (p.oneShot?.enabled) parts.push('events');
-    return parts.join(' · ');
+    return `${p.layers.length} layer${p.layers.length === 1 ? '' : 's'}`;
   }
 
   async function load(id: string) {
@@ -61,7 +58,7 @@
     name = '';
     selectedId = p.id;
     sync();
-    message = `Saved “${p.name}” (mix + tones + events)`;
+    message = `Saved “${p.name}”`;
   }
 
   function remove(id: string) {
