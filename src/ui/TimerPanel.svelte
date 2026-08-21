@@ -2,6 +2,13 @@
   import { session } from '../app/session';
   import { formatDurationLabel, formatRemaining } from './format';
 
+  interface Props {
+    open?: boolean;
+    onToggle?: () => void;
+  }
+
+  let { open = true, onToggle }: Props = $props();
+
   let durationSec = $state(session.timerDefaults.durationSec);
   let activeDurationSec = $state(session.timer.durationSec);
   let fadeSec = $state(session.timerDefaults.fadeSec);
@@ -109,22 +116,52 @@
   const running = $derived(status === 'running' || status === 'fading');
 </script>
 
-<section class="panel timer" class:is-fading={status === 'fading'} class:pomodoro={pomodoroEnabled}>
-  <header class="panel-head">
-    <h2>{pomodoroEnabled ? 'Focus timer' : 'Sleep timer'}</h2>
-    {#if running}
-      <span class="countdown" class:fading={status === 'fading'}>
-        {remainingMs != null ? formatRemaining(remainingMs) : '—'}
-        {#if pomodoroEnabled}
-          · {pomodoroPhase === 'work' ? 'work' : 'break'}
-        {:else if status === 'fading'}
-          · fading
-        {/if}
-      </span>
-    {:else if status === 'done'}
-      <span class="countdown done">Ended</span>
-    {/if}
+<section class="panel timer" class:is-fading={status === 'fading'} class:pomodoro={pomodoroEnabled} class:collapsed={!open}>
+  <header
+    class="panel-head"
+    onclick={onToggle}
+    role="button"
+    tabindex="0"
+    onkeydown={(e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onToggle?.();
+      }
+    }}
+    aria-expanded={open}
+    aria-label={open ? 'Collapse Timer deck' : 'Expand Timer deck'}
+  >
+    <div class="head-left">
+      <h2>{pomodoroEnabled ? 'Focus timer' : 'Sleep timer'}</h2>
+      {#if running}
+        <span class="countdown" class:fading={status === 'fading'}>
+          {remainingMs != null ? formatRemaining(remainingMs) : '—'}
+          {#if pomodoroEnabled}
+            · {pomodoroPhase === 'work' ? 'work' : 'break'}
+          {:else if status === 'fading'}
+            · fading
+          {/if}
+        </span>
+      {:else if status === 'done'}
+        <span class="countdown done">Ended</span>
+      {/if}
+    </div>
+    <button
+      type="button"
+      class="expander-btn"
+      onclick={(e) => {
+        e.stopPropagation();
+        onToggle?.();
+      }}
+      aria-expanded={open}
+      aria-label={open ? 'Collapse Timer deck' : 'Expand Timer deck'}
+    >
+      <span class="expander-icon" class:collapsed={!open} aria-hidden="true">▾</span>
+    </button>
   </header>
+
+  {#if open}
+    <div class="panel-body">
 
   {#if !running}
     <div class="mode-tabs" role="tablist" aria-label="Timer mode">
@@ -269,15 +306,17 @@
     </div>
   {/if}
 
-  <div class="actions">
-    {#if running}
-      <button type="button" class="secondary" onclick={cancel}>Cancel</button>
-    {:else}
-      <button type="button" class="primary" disabled={busy} onclick={() => void start()}>
-        {mode === 'pomodoro' ? 'Start focus' : 'Start timer'}
-      </button>
-    {/if}
-  </div>
+      <div class="actions">
+        {#if running}
+          <button type="button" class="secondary" onclick={cancel}>Cancel</button>
+        {:else}
+          <button type="button" class="primary" disabled={busy} onclick={() => void start()}>
+            {mode === 'pomodoro' ? 'Start focus' : 'Start timer'}
+          </button>
+        {/if}
+      </div>
+    </div>
+  {/if}
 </section>
 
 <style>
@@ -288,6 +327,10 @@
     padding: 0.65rem 0.75rem 0.7rem;
     box-shadow: var(--shadow-card);
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .panel.collapsed {
+    padding-bottom: 0.65rem;
   }
 
   .panel.timer.is-fading {
@@ -304,7 +347,52 @@
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .panel:not(.collapsed) .panel-head {
     margin-bottom: 0.45rem;
+  }
+
+  .head-left {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .expander-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    padding: 0;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+    transition: color 0.15s ease, background 0.15s ease;
+  }
+
+  .expander-btn:hover {
+    color: var(--accent);
+    background: var(--card-soft);
+  }
+
+  .expander-icon {
+    display: inline-block;
+    transition: transform 0.2s ease;
+    line-height: 1;
+  }
+
+  .expander-icon.collapsed {
+    transform: rotate(-90deg);
   }
 
   h2 {

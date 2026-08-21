@@ -8,9 +8,11 @@
 
   interface Props {
     layers: MixerLayer[];
+    open?: boolean;
+    onToggle?: () => void;
   }
 
-  let { layers }: Props = $props();
+  let { layers, open = true, onToggle }: Props = $props();
 
   let coupleFilter = $state(true);
   let draggingId: string | null = $state(null);
@@ -156,64 +158,95 @@
   }
 </script>
 
-<section class="panel spatial">
-  <header class="panel-head">
-    <h2>Space</h2>
-    <p class="hint">drag / arrows · L/R pan · up quiet</p>
+<section class="panel spatial" class:collapsed={!open}>
+  <header
+    class="panel-head"
+    onclick={onToggle}
+    role="button"
+    tabindex="0"
+    onkeydown={(e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onToggle?.();
+      }
+    }}
+    aria-expanded={open}
+    aria-label={open ? 'Collapse Space deck' : 'Expand Space deck'}
+  >
+    <div class="head-left">
+      <h2>Space</h2>
+      <p class="hint">drag / arrows · L/R pan · up quiet</p>
+    </div>
+    <button
+      type="button"
+      class="expander-btn"
+      onclick={(e) => {
+        e.stopPropagation();
+        onToggle?.();
+      }}
+      aria-expanded={open}
+      aria-label={open ? 'Collapse Space deck' : 'Expand Space deck'}
+    >
+      <span class="expander-icon" class:collapsed={!open} aria-hidden="true">▾</span>
+    </button>
   </header>
 
-  <label class="couple">
-    <input type="checkbox" bind:checked={coupleFilter} />
-    Distance filter
-  </label>
+  {#if open}
+    <div class="panel-body">
+      <label class="couple">
+        <input type="checkbox" bind:checked={coupleFilter} />
+        Distance filter
+      </label>
 
-  {#if layers.length === 0}
-    <p class="empty">Add sounds to place them in space.</p>
-  {:else}
-    <div
-      class="surface"
-      bind:this={surface}
-      role="application"
-      aria-label="Spatial sound canvas. Horizontal is pan, vertical is volume."
-    >
-      <div class="axis x-left" aria-hidden="true">L</div>
-      <div class="axis x-right" aria-hidden="true">R</div>
-      <div class="axis y-top" aria-hidden="true">far</div>
-      <div class="axis y-bot" aria-hidden="true">near</div>
-      <div class="cross-h" aria-hidden="true"></div>
-      <div class="cross-v" aria-hidden="true"></div>
-
-      {#each layers as layer (layer.params.id)}
-        {@const isYt = isYoutubeLayer(layer)}
-        <button
-          type="button"
-          class="marker"
-          class:muted={layer.params.muted}
-          class:dragging={draggingId === layer.params.id}
-          class:vertical-only={isYt}
-          style="left: {panToX(isYt ? 0 : layer.params.pan)}%; top: {volToY(
-            layer.params.volumeLinear,
-          )}%"
-          title={isYt
-            ? `${labelFor(layer)} · vertical move only (pan N/A)`
-            : `${labelFor(layer)} · pan ${layer.params.pan.toFixed(2)}`}
-          aria-label={isYt
-            ? `${labelFor(layer)}, volume ${Math.round(
-                layer.params.volumeLinear * 100,
-              )}% (vertical move only, pan not available)`
-            : `${labelFor(layer)}, pan ${layer.params.pan.toFixed(2)}, volume ${Math.round(
-                layer.params.volumeLinear * 100,
-              )}%`}
-          onpointerdown={(e) => onPointerDown(e, layer.params.id)}
-          onpointermove={onPointerMove}
-          onpointerup={onPointerUp}
-          onpointercancel={onPointerUp}
-          onkeydown={(e) => onKeyDown(e, layer)}
+      {#if layers.length === 0}
+        <p class="empty">Add sounds to place them in space.</p>
+      {:else}
+        <div
+          class="surface"
+          bind:this={surface}
+          role="application"
+          aria-label="Spatial sound canvas. Horizontal is pan, vertical is volume."
         >
-          <span class="ico" aria-hidden="true">{iconFor(layer)}</span>
-          <span class="lab">{labelFor(layer)}</span>
-        </button>
-      {/each}
+          <div class="axis x-left" aria-hidden="true">L</div>
+          <div class="axis x-right" aria-hidden="true">R</div>
+          <div class="axis y-top" aria-hidden="true">far</div>
+          <div class="axis y-bot" aria-hidden="true">near</div>
+          <div class="cross-h" aria-hidden="true"></div>
+          <div class="cross-v" aria-hidden="true"></div>
+
+          {#each layers as layer (layer.params.id)}
+            {@const isYt = isYoutubeLayer(layer)}
+            <button
+              type="button"
+              class="marker"
+              class:muted={layer.params.muted}
+              class:dragging={draggingId === layer.params.id}
+              class:vertical-only={isYt}
+              style="left: {panToX(isYt ? 0 : layer.params.pan)}%; top: {volToY(
+                layer.params.volumeLinear,
+              )}%"
+              title={isYt
+                ? `${labelFor(layer)} · vertical move only (pan N/A)`
+                : `${labelFor(layer)} · pan ${layer.params.pan.toFixed(2)}`}
+              aria-label={isYt
+                ? `${labelFor(layer)}, volume ${Math.round(
+                    layer.params.volumeLinear * 100,
+                  )}% (vertical move only, pan not available)`
+                : `${labelFor(layer)}, pan ${layer.params.pan.toFixed(2)}, volume ${Math.round(
+                    layer.params.volumeLinear * 100,
+                  )}%`}
+              onpointerdown={(e) => onPointerDown(e, layer.params.id)}
+              onpointermove={onPointerMove}
+              onpointerup={onPointerUp}
+              onpointercancel={onPointerUp}
+              onkeydown={(e) => onKeyDown(e, layer)}
+            >
+              <span class="ico" aria-hidden="true">{iconFor(layer)}</span>
+              <span class="lab">{labelFor(layer)}</span>
+            </button>
+          {/each}
+        </div>
+      {/if}
     </div>
   {/if}
 </section>
@@ -227,12 +260,61 @@
     box-shadow: var(--shadow-card);
   }
 
+  .panel.collapsed {
+    padding-bottom: 0.65rem;
+  }
+
   .panel-head {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .panel:not(.collapsed) .panel-head {
     margin-bottom: 0.4rem;
+  }
+
+  .head-left {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .expander-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    padding: 0;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+    transition: color 0.15s ease, background 0.15s ease;
+  }
+
+  .expander-btn:hover {
+    color: var(--accent);
+    background: var(--card-soft);
+  }
+
+  .expander-icon {
+    display: inline-block;
+    transition: transform 0.2s ease;
+    line-height: 1;
+  }
+
+  .expander-icon.collapsed {
+    transform: rotate(-90deg);
   }
 
   h2 {

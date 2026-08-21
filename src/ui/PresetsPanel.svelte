@@ -3,6 +3,13 @@
   import type { PresetV1 } from '../app/presets';
   import { buildShareUrl, shareUrlLength } from '../app/share';
 
+  interface Props {
+    open?: boolean;
+    onToggle?: () => void;
+  }
+
+  let { open = true, onToggle }: Props = $props();
+
   let presets = $state<PresetV1[]>(session.presets);
   let name = $state('');
   let selectedId = $state<string | null>(null);
@@ -130,68 +137,99 @@
   }
 </script>
 
-<section class="panel presets">
-  <header class="panel-head">
-    <h2>Presets</h2>
-    <p class="hint">auto-saves last mix</p>
+<section class="panel presets" class:collapsed={!open}>
+  <header
+    class="panel-head"
+    onclick={onToggle}
+    role="button"
+    tabindex="0"
+    onkeydown={(e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onToggle?.();
+      }
+    }}
+    aria-expanded={open}
+    aria-label={open ? 'Collapse Presets deck' : 'Expand Presets deck'}
+  >
+    <div class="head-left">
+      <h2>Presets</h2>
+      <p class="hint">auto-saves last mix</p>
+    </div>
+    <button
+      type="button"
+      class="expander-btn"
+      onclick={(e) => {
+        e.stopPropagation();
+        onToggle?.();
+      }}
+      aria-expanded={open}
+      aria-label={open ? 'Collapse Presets deck' : 'Expand Presets deck'}
+    >
+      <span class="expander-icon" class:collapsed={!open} aria-hidden="true">▾</span>
+    </button>
   </header>
 
-  <div class="save-row">
-    <input
-      type="text"
-      placeholder="Name this mix…"
-      bind:value={name}
-      maxlength="48"
-      aria-label="Preset name"
-    />
-    <button type="button" class="primary" onclick={save}>Save</button>
-  </div>
+  {#if open}
+    <div class="panel-body">
+      <div class="save-row">
+        <input
+          type="text"
+          placeholder="Name this mix…"
+          bind:value={name}
+          maxlength="48"
+          aria-label="Preset name"
+        />
+        <button type="button" class="primary" onclick={save}>Save</button>
+      </div>
 
-  {#if presets.length === 0}
-    <p class="empty">No presets yet — save your favorite mix.</p>
-  {:else}
-    <ul class="list">
-      {#each presets as p (p.id)}
-        <li class:selected={selectedId === p.id}>
-          <button
-            type="button"
-            class="name"
-            disabled={busy}
-            onclick={() => void load(p.id)}
-          >
-            <span class="title">{p.name}</span>
-            <span class="meta">{sceneHint(p)}</span>
-          </button>
-          <button
-            type="button"
-            class="chip danger"
-            aria-label="Delete {p.name}"
-            onclick={() => remove(p.id)}
-          >
-            ×
-          </button>
-        </li>
-      {/each}
-    </ul>
-  {/if}
+      {#if presets.length === 0}
+        <p class="empty">No presets yet — save your favorite mix.</p>
+      {:else}
+        <ul class="list">
+          {#each presets as p (p.id)}
+            <li class:selected={selectedId === p.id}>
+              <button
+                type="button"
+                class="name"
+                disabled={busy}
+                onclick={() => void load(p.id)}
+              >
+                <span class="title">{p.name}</span>
+                <span class="meta">{sceneHint(p)}</span>
+              </button>
+              <button
+                type="button"
+                class="chip danger"
+                aria-label="Delete {p.name}"
+                onclick={() => remove(p.id)}
+              >
+                ×
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {/if}
 
-  <div class="io">
-    <button type="button" class="secondary" onclick={() => void copyShareLink()}>
-      Copy link
-    </button>
-    <button type="button" class="secondary" onclick={() => void exportSelected()}>
-      Copy JSON
-    </button>
-    <button type="button" class="secondary" onclick={() => void importFromClipboard()}>
-      Paste JSON
-    </button>
-    <button type="button" class="secondary" onclick={restoreDefaults}>
-      Restore defaults
-    </button>
-  </div>
+      <div class="io">
+        <button type="button" class="secondary" onclick={() => void copyShareLink()}>
+          Copy link
+        </button>
+        <button type="button" class="secondary" onclick={() => void exportSelected()}>
+          Copy JSON
+        </button>
+        <button type="button" class="secondary" onclick={() => void importFromClipboard()}>
+          Paste JSON
+        </button>
+        <button type="button" class="secondary" onclick={restoreDefaults}>
+          Restore defaults
+        </button>
+      </div>
 
-  {#if message}
-    <p class="msg" role="status">{message}</p>
+      {#if message}
+        <p class="msg" role="status">{message}</p>
+      {/if}
+    </div>
   {/if}
 </section>
 
@@ -204,12 +242,61 @@
     box-shadow: var(--shadow-card);
   }
 
+  .panel.collapsed {
+    padding-bottom: 0.65rem;
+  }
+
   .panel-head {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .panel:not(.collapsed) .panel-head {
     margin-bottom: 0.45rem;
+  }
+
+  .head-left {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .expander-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    padding: 0;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+    transition: color 0.15s ease, background 0.15s ease;
+  }
+
+  .expander-btn:hover {
+    color: var(--accent);
+    background: var(--card-soft);
+  }
+
+  .expander-icon {
+    display: inline-block;
+    transition: transform 0.2s ease;
+    line-height: 1;
+  }
+
+  .expander-icon.collapsed {
+    transform: rotate(-90deg);
   }
 
   h2 {

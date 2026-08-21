@@ -8,6 +8,13 @@
   } from '../app/binaural';
   import { linearToDb, dbToLinear } from '../audio/dsp/curves';
 
+  interface Props {
+    open?: boolean;
+    onToggle?: () => void;
+  }
+
+  let { open = true, onToggle }: Props = $props();
+
   let config = $state(session.binauralConfig);
 
   export function sync() {
@@ -67,8 +74,21 @@
   const presetList = Object.values(BRAINWAVE_PRESETS);
 </script>
 
-<div class="binaural-panel">
-  <div class="panel-header">
+<div class="binaural-panel" class:collapsed={!open}>
+  <div
+    class="panel-header"
+    onclick={onToggle}
+    role="button"
+    tabindex="0"
+    onkeydown={(e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onToggle?.();
+      }
+    }}
+    aria-expanded={open}
+    aria-label={open ? 'Collapse Tone Generator deck' : 'Expand Tone Generator deck'}
+  >
     <div class="header-info">
       <h3>
         <span>🎧</span> Tone Generator
@@ -77,26 +97,45 @@
         Binaural beats & isochronic tones for deep sleep, meditation & focus.
       </p>
     </div>
-    <button
-      class="toggle-btn"
-      class:active={config.enabled}
-      onclick={toggleEnabled}
-      type="button"
-      aria-label="Toggle Tone Generator"
-    >
-      <span class="toggle-track">
-        <span class="toggle-thumb"></span>
-      </span>
-      <span class="toggle-label">{config.enabled ? 'Enabled' : 'Disabled'}</span>
-    </button>
+    <div class="header-actions">
+      <button
+        class="toggle-btn"
+        class:active={config.enabled}
+        onclick={(e) => {
+          e.stopPropagation();
+          toggleEnabled();
+        }}
+        type="button"
+        aria-label="Toggle Tone Generator"
+      >
+        <span class="toggle-track">
+          <span class="toggle-thumb"></span>
+        </span>
+        <span class="toggle-label">{config.enabled ? 'Enabled' : 'Disabled'}</span>
+      </button>
+      <button
+        type="button"
+        class="expander-btn"
+        onclick={(e) => {
+          e.stopPropagation();
+          onToggle?.();
+        }}
+        aria-expanded={open}
+        aria-label={open ? 'Collapse Tone Generator deck' : 'Expand Tone Generator deck'}
+      >
+        <span class="expander-icon" class:collapsed={!open} aria-hidden="true">▾</span>
+      </button>
+    </div>
   </div>
 
-  {#if config.enabled && !playing}
-    <p class="paused-hint" role="status">Starts with Play</p>
-  {/if}
+  {#if open}
+    <div class="panel-body">
+      {#if config.enabled && !playing}
+        <p class="paused-hint" role="status">Starts with Play</p>
+      {/if}
 
-  {#if config.enabled}
-    <div class="panel-content">
+      {#if config.enabled}
+        <div class="panel-content">
       <!-- Mode Tabs -->
       <div class="mode-tabs">
         <button
@@ -249,6 +288,8 @@
       </div>
     </div>
   {/if}
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -261,11 +302,56 @@
     box-shadow: var(--shadow-soft, 0 4px 12px rgba(0, 0, 0, 0.15));
   }
 
+  .binaural-panel.collapsed {
+    padding-bottom: 1rem;
+  }
+
   .panel-header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
     gap: 0.75rem;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .expander-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border: none;
+    background: transparent;
+    color: var(--muted, #94a3b8);
+    border-radius: var(--radius-sm, 6px);
+    cursor: pointer;
+    padding: 0;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+    transition: color 0.15s ease, background 0.15s ease;
+  }
+
+  .expander-btn:hover {
+    color: var(--accent, #60a5fa);
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .expander-icon {
+    display: inline-block;
+    transition: transform 0.2s ease;
+    line-height: 1;
+  }
+
+  .expander-icon.collapsed {
+    transform: rotate(-90deg);
   }
 
   .header-info h3 {
