@@ -6,14 +6,15 @@
     type PlaylistItem,
   } from '../app/playlist';
   import {
-    extractYouTubeVideoId,
-    fetchYouTubeTitle,
-    getYouTubeThumbnailUrl,
+    loadSavedYouTubeItems,
+    type YouTubeItem,
   } from '../app/youtube-urls';
-  import { importLocalAudioFile } from '../audio/local-audio-store';
+  import type { LocalAudioMeta } from '../audio/local-audio-store';
 
   let playlists = $state<Playlist[]>(session.playlists);
   let activePlaylistId = $state<string>(session.playlists[0]?.id ?? '');
+  let localClips = $state<LocalAudioMeta[]>(session.localAudio);
+  let savedYouTubeItems = $state<YouTubeItem[]>(loadSavedYouTubeItems());
 
   let activePlaylist = $derived(
     playlists.find((p) => p.id === activePlaylistId) ?? playlists[0],
@@ -31,20 +32,20 @@
 
   // Adding track state
   let trackAddMode = $state<'local' | 'youtube'>('local');
-  let youtubeUrl = $state('');
-  let isAddingTrack = $state(false);
-  let trackError = $state<string | null>(null);
-
-  let fileInputRef = $state<HTMLInputElement>();
 
   export function sync() {
     playlists = session.playlists;
+    localClips = session.localAudio;
+    savedYouTubeItems = loadSavedYouTubeItems();
     if (playlists.length > 0 && (!activePlaylistId || !playlists.some((p) => p.id === activePlaylistId))) {
       activePlaylistId = playlists[0]?.id ?? '';
     }
   }
 
   onMount(() => {
+    void session.ensureLocalAudioReady().then(() => {
+      sync();
+    });
     const unsub = session.subscribe(() => {
       sync();
     });
@@ -98,72 +99,26 @@
     }
   }
 
-  async function handleAddLocalFiles(e: Event) {
-    const target = e.target as HTMLInputElement;
-    const files = target.files;
-    if (!files || files.length === 0 || !activePlaylist) return;
-
-    isAddingTrack = true;
-    trackError = null;
-
-    try {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        if (!file) continue;
-        if (!file.type.startsWith('audio/') && !/\.(mp3|wav|ogg|m4a|aac|flac)$/i.test(file.name)) {
-          continue;
-        }
-
-        const localMeta = await importLocalAudioFile(file);
-
-        session.addPlaylistItem(activePlaylist.id, {
-          type: 'local',
-          title: localMeta.title || file.name.replace(/\.[^/.]+$/, ''),
-          assetId: localMeta.id,
-        });
-      }
-      playlists = session.playlists;
-    } catch (err) {
-      trackError = err instanceof Error ? err.message : 'Failed to import local audio file.';
-    } finally {
-      isAddingTrack = false;
-      if (target) target.value = '';
-    }
+  function handleAddLocalClip(clip: LocalAudioMeta) {
+    if (!activePlaylist) return;
+    session.addPlaylistItem(activePlaylist.id, {
+      type: 'local',
+      title: clip.title,
+      assetId: clip.id,
+    });
+    playlists = session.playlists;
   }
 
-  async function handleAddYouTube(e?: SubmitEvent) {
-    if (e) e.preventDefault();
-    if (!youtubeUrl.trim() || !activePlaylist || isAddingTrack) return;
-
-    isAddingTrack = true;
-    trackError = null;
-
-    try {
-      const trimmed = youtubeUrl.trim();
-      const videoId = extractYouTubeVideoId(trimmed);
-      if (!videoId) {
-        trackError = 'Invalid YouTube URL. Please enter a standard video or stream link.';
-        isAddingTrack = false;
-        return;
-      }
-
-      const title = await fetchYouTubeTitle(videoId);
-      const thumbnailUrl = getYouTubeThumbnailUrl(videoId);
-      session.addPlaylistItem(activePlaylist.id, {
-        type: 'youtube',
-        title,
-        url: trimmed,
-        videoId,
-        thumbnailUrl,
-      });
-
-      youtubeUrl = '';
-      playlists = session.playlists;
-    } catch (err) {
-      trackError = err instanceof Error ? err.message : 'Failed to add YouTube video.';
-    } finally {
-      isAddingTrack = false;
-    }
+  function handleAddSavedYouTube(item: YouTubeItem) {
+    if (!activePlaylist) return;
+    session.addPlaylistItem(activePlaylist.id, {
+      type: 'youtube',
+      title: item.title,
+      videoId: item.videoId,
+      url: item.url,
+      thumbnailUrl: item.thumbnailUrl,
+    });
+    playlists = session.playlists;
   }
 
   function handleRemoveItem(itemId: string) {
@@ -206,7 +161,7 @@
   </div>
 
   <p class="panel-intro">
-    Combine local audio files and YouTube streams into custom playlists. Add any playlist as an ambient mix layer that plays sequentially or randomly.
+    Combine your imported local audio and saved YouTube channels into custom playlists. Add any playlist as an ambient mix layer that plays in sequential rotation or random shuffle.
   </p>
 
   {#if isCreating}
@@ -247,7 +202,7 @@
 
   {#if playlists.length === 0}
     <div class="empty-state">
-      <p>No playlists yet. Create one above to start organizing local sounds and YouTube streams.</p>
+      <p>No playlists yet. Create one above to start organizing your saved sounds and channels.</p>
     </div>
   {:else}
     <!-- Playlist tabs -->
@@ -339,73 +294,95 @@
           {/if}
         </div>
 
-        <!-- Add Tracks Section -->
+        <!-- Add Tracks Section (Picker from Imported Audio & Saved YouTube Channels) -->
         <div class="add-track-section">
+          <div class="picker-header">
+            <h5 class="items-head">Add Saved Tracks to Playlist</h5>
+          </div>
+
           <div class="add-modes">
             <button
               type="button"
               class="mode-btn"
               class:selected={trackAddMode === 'local'}
-              onclick={() => {
-                trackAddMode = 'local';
-                trackError = null;
-              }}
+              onclick={() => (trackAddMode = 'local')}
             >
-              📁 Add Local Audio
+              📁 Imported Local Audio ({localClips.length})
             </button>
             <button
               type="button"
               class="mode-btn"
               class:selected={trackAddMode === 'youtube'}
-              onclick={() => {
-                trackAddMode = 'youtube';
-                trackError = null;
-              }}
+              onclick={() => (trackAddMode = 'youtube')}
             >
-              ▶ Add YouTube URL
+              ▶ Saved YouTube Streams ({savedYouTubeItems.length})
             </button>
           </div>
 
           {#if trackAddMode === 'local'}
-            <div class="add-local-area">
-              <input
-                type="file"
-                accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac"
-                multiple
-                bind:this={fileInputRef}
-                style="display: none;"
-                onchange={handleAddLocalFiles}
-              />
-              <button
-                type="button"
-                class="btn-file-select"
-                disabled={isAddingTrack}
-                onclick={() => fileInputRef?.click()}
-              >
-                <span class="file-icon">📂</span>
-                <span>{isAddingTrack ? 'Importing audio files…' : 'Choose Local Audio Files (MP3, WAV, OGG, M4A, FLAC)'}</span>
-              </button>
-            </div>
+            {#if localClips.length === 0}
+              <div class="empty-picker">
+                <p class="picker-hint">No local audio clips imported yet.</p>
+                <p class="picker-sub">Import your own audio files in the <strong>Sound Library</strong> panel to add them here.</p>
+              </div>
+            {:else}
+              <div class="picker-list">
+                {#each localClips as clip (clip.id)}
+                  <div class="picker-item">
+                    <div class="picker-icon">🎵</div>
+                    <div class="picker-info">
+                      <span class="picker-title" title={clip.title}>{clip.title}</span>
+                      <span class="picker-meta">
+                        {clip.byteLength >= 1024 * 1024
+                          ? `${(clip.byteLength / (1024 * 1024)).toFixed(1)} MB`
+                          : `${Math.round(clip.byteLength / 1024)} KB`}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      class="btn-add-track"
+                      title="Add to {activePlaylist.name}"
+                      onclick={() => handleAddLocalClip(clip)}
+                    >
+                      + Add
+                    </button>
+                  </div>
+                {/each}
+              </div>
+            {/if}
           {:else}
-            <form class="add-yt-form" onsubmit={handleAddYouTube}>
-              <input
-                type="text"
-                placeholder="Paste YouTube video or livestream URL…"
-                bind:value={youtubeUrl}
-                disabled={isAddingTrack}
-              />
-              <button
-                type="submit"
-                class="btn-primary"
-                disabled={isAddingTrack || !youtubeUrl.trim()}
-              >
-                {isAddingTrack ? 'Adding…' : 'Add Track'}
-              </button>
-            </form>
-          {/if}
-
-          {#if trackError}
-            <p class="track-error">{trackError}</p>
+            {#if savedYouTubeItems.length === 0}
+              <div class="empty-picker">
+                <p class="picker-hint">No YouTube channels saved yet.</p>
+                <p class="picker-sub">Save video or stream links in the <strong>YouTube Streams</strong> panel to add them here.</p>
+              </div>
+            {:else}
+              <div class="picker-list">
+                {#each savedYouTubeItems as yt (yt.id)}
+                  <div class="picker-item">
+                    <div class="picker-thumb-wrapper">
+                      {#if yt.thumbnailUrl}
+                        <img src={yt.thumbnailUrl} alt={yt.title} class="picker-thumb" loading="lazy" />
+                      {:else}
+                        <div class="picker-thumb-placeholder yt">▶</div>
+                      {/if}
+                    </div>
+                    <div class="picker-info">
+                      <span class="picker-title" title={yt.title}>{yt.title}</span>
+                      <span class="picker-meta yt-tag">YouTube</span>
+                    </div>
+                    <button
+                      type="button"
+                      class="btn-add-track"
+                      title="Add to {activePlaylist.name}"
+                      onclick={() => handleAddSavedYouTube(yt)}
+                    >
+                      + Add
+                    </button>
+                  </div>
+                {/each}
+              </div>
+            {/if}
           {/if}
         </div>
 
@@ -414,7 +391,7 @@
           <h5 class="items-head">Tracks in Playlist</h5>
           {#if activePlaylist.items.length === 0}
             <div class="empty-items">
-              <p>No tracks added yet. Use the buttons above to import local files or add YouTube streams.</p>
+              <p>No tracks added yet. Select tracks from your imported local audio or saved YouTube channels above.</p>
             </div>
           {:else}
             <div class="items-list">
@@ -812,11 +789,17 @@
   .add-track-section {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.55rem;
     padding: 0.75rem;
     background: #1a1e26;
-    border: 1px dashed #334155;
+    border: 1px solid #334155;
     border-radius: 6px;
+  }
+
+  .picker-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
   }
 
   .add-modes {
@@ -843,41 +826,129 @@
     border-color: #3b82f6;
   }
 
-  .add-local-area {
-    display: flex;
+  .empty-picker {
+    padding: 1rem;
+    text-align: center;
+    background: #14171d;
+    border: 1px dashed #334155;
+    border-radius: 5px;
   }
 
-  .btn-file-select {
+  .picker-hint {
+    margin: 0 0 0.25rem 0;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #cbd5e1;
+  }
+
+  .picker-sub {
+    margin: 0;
+    font-size: 0.75rem;
+    color: #64748b;
+  }
+
+  .picker-sub strong {
+    color: #94a3b8;
+  }
+
+  .picker-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    max-height: 180px;
+    overflow-y: auto;
+    padding-right: 0.2rem;
+  }
+
+  .picker-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.55rem;
+    background: #20252e;
+    border: 1px solid #2d3748;
+    border-radius: 5px;
+    transition: background 0.15s;
+  }
+
+  .picker-item:hover {
+    background: #262d38;
+  }
+
+  .picker-icon {
+    font-size: 0.85rem;
+    min-width: 1.5rem;
+    text-align: center;
+  }
+
+  .picker-thumb-wrapper {
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .picker-thumb {
     width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .picker-thumb-placeholder {
+    width: 100%;
+    height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
-    padding: 0.65rem 1rem;
-    background: #20252e;
-    border: 1px dashed #475569;
-    border-radius: 5px;
-    color: #cbd5e1;
-    font-size: 0.82rem;
-    cursor: pointer;
-    transition: all 0.15s;
+    font-size: 0.75rem;
   }
 
-  .btn-file-select:hover:not(:disabled) {
-    background: #28303b;
-    border-color: #3b82f6;
-    color: #fff;
+  .picker-thumb-placeholder.yt {
+    background: #7f1d1d;
+    color: #fca5a5;
   }
 
-  .add-yt-form {
+  .picker-info {
+    flex: 1;
+    min-width: 0;
     display: flex;
-    gap: 0.4rem;
+    flex-direction: column;
+    gap: 0.1rem;
   }
 
-  .track-error {
-    margin: 0;
+  .picker-title {
+    font-size: 0.8rem;
+    color: #f1f5f9;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .picker-meta {
+    font-size: 0.68rem;
+    color: #64748b;
+  }
+
+  .picker-meta.yt-tag {
     color: #f87171;
-    font-size: 0.78rem;
+  }
+
+  .btn-add-track {
+    padding: 0.2rem 0.55rem;
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+
+  .btn-add-track:hover {
+    background: #1d4ed8;
   }
 
   .items-container {
@@ -1036,3 +1107,4 @@
     background: rgba(239, 68, 68, 0.15);
   }
 </style>
+
