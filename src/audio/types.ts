@@ -77,6 +77,9 @@ export interface LayerLiveDrift {
   livePan: number;
   liveVol: number;
   liveRate: number;
+  targetPan: number;
+  targetVol: number;
+  targetRate: number;
   basePan: number;
   baseVol: number;
   baseRate: number;

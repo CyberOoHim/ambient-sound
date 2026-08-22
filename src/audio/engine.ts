@@ -1235,6 +1235,9 @@ export class AudioEngine {
         livePan: basePan,
         liveVol: baseVol,
         liveRate: baseRate,
+        targetPan: basePan,
+        targetVol: baseVol,
+        targetRate: baseRate,
         basePan,
         baseVol,
         baseRate,
@@ -1258,14 +1261,21 @@ export class AudioEngine {
     const liveVol = driftParams.driftGain ? startGain + (targetGain - startGain) * ease : baseVol;
     const liveRate = driftParams.driftPitch ? startRate + (targetRate - startRate) * ease : baseRate;
 
-    const panDelta = livePan - basePan;
-    const gainDbDelta = linearToDb(Math.max(0.0001, liveVol)) - linearToDb(Math.max(0.0001, baseVol));
-    const pitchPercentDelta = baseRate > 0 ? ((liveRate / baseRate) - 1) * 100 : 0;
+    const effectiveTargetPan = driftParams.driftPan ? targetPan : basePan;
+    const effectiveTargetVol = driftParams.driftGain ? targetGain : baseVol;
+    const effectiveTargetRate = driftParams.driftPitch ? targetRate : baseRate;
+
+    const panDelta = effectiveTargetPan - basePan;
+    const gainDbDelta = linearToDb(Math.max(0.0001, effectiveTargetVol)) - linearToDb(Math.max(0.0001, baseVol));
+    const pitchPercentDelta = baseRate > 0 && driftParams.driftPitch ? ((effectiveTargetRate / baseRate) - 1) * 100 : 0;
 
     return {
       livePan: Math.max(-1, Math.min(1, livePan)),
       liveVol: Math.max(0, Math.min(1, liveVol)),
       liveRate,
+      targetPan: Math.max(-1, Math.min(1, effectiveTargetPan)),
+      targetVol: Math.max(0, Math.min(1, effectiveTargetVol)),
+      targetRate: effectiveTargetRate,
       basePan,
       baseVol,
       baseRate,

@@ -2,7 +2,7 @@
   /**
    * 2D spatial sound canvas (ENH-14).
    * X = pan (−1..1), Y = volume (top quiet / far, bottom loud / near).
-   * Displays static target placements and bounded drift areas without continuous animation loops.
+   * Displays target placements, bounded drift areas, and rolling history telemetry.
    */
   import { session } from '../app/session';
   import type { MixerLayer } from '../audio/types';
@@ -12,6 +12,28 @@
     GAIN_DRIFT_MAX_MULT,
   } from '../audio/dsp/drift';
 
+  const MAX_HISTORY_DEPTH = 20;
+
+  export interface LayerDriftMetric {
+    id: string;
+    label: string;
+    icon: string;
+    isYoutube: boolean;
+    supportsPitch: boolean;
+    panDelta: number;
+    gainDbDelta: number;
+    pitchPercentDelta: number;
+    targetPan: number;
+    targetVol: number;
+    targetRate: number;
+  }
+
+  export interface DriftHistoryEntry {
+    id: string;
+    timestamp: string;
+    layers: LayerDriftMetric[];
+  }
+
   interface Props {
     layers: MixerLayer[];
     playing?: boolean;
@@ -19,12 +41,16 @@
     onToggle?: () => void;
   }
 
-  let { layers, open = true, onToggle }: Props = $props();
+  let { layers, playing = false, open = true, onToggle }: Props = $props();
 
   let coupleFilter = $state(true);
   let showDriftZones = $state(true);
   let draggingId: string | null = $state(null);
   let surface: HTMLDivElement | undefined = $state();
+
+  let liveTargets = $state<Record<string, { pan: number; vol: number }>>({});
+  let historyLog = $state<DriftHistoryEntry[]>([]);
+  let pollTimer: ReturnType<typeof setInterval> | null = null;
 
   function labelFor(layer: MixerLayer): string {
     if (layer.kind === 'noise') {
@@ -112,22 +138,6 @@
     );
   }
 
-  function supportsPan(layer: MixerLayer): boolean {
-    return !isYoutubeLayer(layer);
-  }
-
-  function toggleDrift(id: string, type: 'pitch' | 'pan' | 'gain') {
-    const layer = layers.find((l) => l.params.id === id);
-    if (!layer) return;
-    if (type === 'pitch') {
-      session.updateLayerCommon(id, { driftPitch: !layer.params.driftPitch });
-    } else if (type === 'pan') {
-      session.updateLayerCommon(id, { driftPan: !layer.params.driftPan });
-    } else if (type === 'gain') {
-      session.updateLayerCommon(id, { driftGain: !layer.params.driftGain });
-    }
-  }
-
   interface DriftZoneInfo {
     hasAny: boolean;
     hasPan: boolean;
@@ -186,6 +196,86 @@
     };
   }
 
+  function syncTargetsAndRecord(shouldRecordHistory = false) {
+    const nextTargets: Record<string, { pan: number; vol: number }> = {};
+    const metrics: LayerDriftMetric[] = [];
+    const now = new Date();
+    const timeStr = now.toTimeString().slice(0, 8);
+
+    for (const layer of layers) {
+      if (draggingId === layer.params.id) {
+        continue;
+      }
+      const isYt = isYoutubeLayer(layer);
+      const supPitch = supportsPitch(layer);
+      const d = playing ? session.getLayerLiveDrift(layer.params.id) : null;
+
+      const pan = isYt ? 0 : (d ? d.targetPan : layer.params.pan);
+      const vol = d ? d.targetVol : layer.params.volumeLinear;
+
+      nextTargets[layer.params.id] = { pan, vol };
+
+      if (shouldRecordHistory && playing) {
+        metrics.push({
+          id: layer.params.id,
+          label: labelFor(layer),
+          icon: iconFor(layer),
+          isYoutube: isYt,
+          supportsPitch: supPitch,
+          panDelta: d ? d.panDelta : 0,
+          gainDbDelta: d ? d.gainDbDelta : 0,
+          pitchPercentDelta: d ? d.pitchPercentDelta : 0,
+          targetPan: pan,
+          targetVol: vol,
+          targetRate: d
+            ? d.targetRate
+            : 'playbackRate' in layer.params
+              ? (layer.params.playbackRate ?? 1)
+              : 1,
+        });
+      }
+    }
+
+    // Preserve dragging target if active
+    if (draggingId && liveTargets[draggingId]) {
+      nextTargets[draggingId] = liveTargets[draggingId];
+    }
+
+    liveTargets = nextTargets;
+
+    if (shouldRecordHistory && playing && metrics.length > 0) {
+      const newEntry: DriftHistoryEntry = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        timestamp: timeStr,
+        layers: metrics,
+      };
+      historyLog = [newEntry, ...historyLog.slice(0, MAX_HISTORY_DEPTH - 1)];
+    }
+  }
+
+  $effect(() => {
+    if (pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+
+    syncTargetsAndRecord(false);
+
+    if (open && playing && layers.length > 0) {
+      syncTargetsAndRecord(true);
+      pollTimer = setInterval(() => {
+        syncTargetsAndRecord(true);
+      }, 1000);
+    }
+
+    return () => {
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+    };
+  });
+
   function onPointerDown(e: PointerEvent, id: string) {
     e.preventDefault();
     draggingId = id;
@@ -207,12 +297,17 @@
       }
     }
     draggingId = null;
+    syncTargetsAndRecord(false);
   }
 
   function applyAt(id: string, clientX: number, clientY: number) {
     const layer = layers.find((l) => l.params.id === id);
     const { pan, vol } = xyToParams(clientX, clientY);
     const effectivePan = isYoutubeLayer(layer) ? 0 : pan;
+    liveTargets = {
+      ...liveTargets,
+      [id]: { pan: effectivePan, vol },
+    };
     session.setLayerSpatial(id, effectivePan, vol, { coupleFilter });
   }
 
@@ -242,10 +337,14 @@
 
     if (handled) {
       e.preventDefault();
-      session.setLayerSpatial(layer.params.id, isYt ? 0 : pan, vol, { coupleFilter });
+      const effectivePan = isYt ? 0 : pan;
+      liveTargets = {
+        ...liveTargets,
+        [layer.params.id]: { pan: effectivePan, vol },
+      };
+      session.setLayerSpatial(layer.params.id, effectivePan, vol, { coupleFilter });
     }
   }
-
 </script>
 
 <section class="panel spatial" class:collapsed={!open}>
@@ -328,23 +427,25 @@
 
           {#each layers as layer (layer.params.id)}
             {@const isYt = isYoutubeLayer(layer)}
-            {@const targetPan = isYt ? 0 : layer.params.pan}
-            {@const targetVol = layer.params.volumeLinear}
+            {@const pos = liveTargets[layer.params.id] ?? {
+              pan: isYt ? 0 : layer.params.pan,
+              vol: layer.params.volumeLinear,
+            }}
 
             <div
               class="marker"
               class:muted={layer.params.muted}
               class:dragging={draggingId === layer.params.id}
               class:vertical-only={isYt}
-              style="left: {panToX(targetPan)}%; top: {volToY(targetVol)}%"
+              style="left: {panToX(pos.pan)}%; top: {volToY(pos.vol)}%"
               tabindex="0"
               role="button"
               title={isYt
-                ? `${labelFor(layer)} · volume ${Math.round(targetVol * 100)}% · vertical move only`
-                : `${labelFor(layer)} · pan ${targetPan.toFixed(2)} · vol ${Math.round(targetVol * 100)}%`}
+                ? `${labelFor(layer)} · volume ${Math.round(pos.vol * 100)}% · vertical move only`
+                : `${labelFor(layer)} · pan ${pos.pan.toFixed(2)} · vol ${Math.round(pos.vol * 100)}%`}
               aria-label={isYt
-                ? `${labelFor(layer)}, volume ${Math.round(targetVol * 100)}%`
-                : `${labelFor(layer)}, pan ${targetPan.toFixed(2)}, volume ${Math.round(targetVol * 100)}%`}
+                ? `${labelFor(layer)}, volume ${Math.round(pos.vol * 100)}%`
+                : `${labelFor(layer)}, pan ${pos.pan.toFixed(2)}, volume ${Math.round(pos.vol * 100)}%`}
               onpointerdown={(e) => onPointerDown(e, layer.params.id)}
               onpointermove={onPointerMove}
               onpointerup={onPointerUp}
@@ -355,80 +456,114 @@
                 <span class="ico" aria-hidden="true">{iconFor(layer)}</span>
                 <span class="lab">{labelFor(layer)}</span>
               </div>
-
-              <div class="drift-chips" role="group" aria-label="Random variation status">
-                {#if supportsPan(layer)}
-                  <button
-                    type="button"
-                    class="drift-chip"
-                    class:on={layer.params.driftPan}
-                    title={layer.params.driftPan
-                      ? 'Pan drift: enabled (click to disable)'
-                      : 'Enable stereo pan drift (±0.25 wandering)'}
-                    aria-label="Toggle pan drift"
-                    aria-pressed={layer.params.driftPan}
-                    onpointerdown={(e) => e.stopPropagation()}
-                    onclick={(e) => {
-                      e.stopPropagation();
-                      toggleDrift(layer.params.id, 'pan');
-                    }}
-                  >
-                    {#if layer.params.driftPan}
-                      ↔ on
-                    {:else}
-                      ↔ off
-                    {/if}
-                  </button>
-                {/if}
-
-                <button
-                  type="button"
-                  class="drift-chip"
-                  class:on={layer.params.driftGain}
-                  title={layer.params.driftGain
-                    ? 'Gain drift: enabled (click to disable)'
-                    : 'Enable volume gain drift (volume breathing)'}
-                  aria-label="Toggle gain drift"
-                  aria-pressed={layer.params.driftGain}
-                  onpointerdown={(e) => e.stopPropagation()}
-                  onclick={(e) => {
-                    e.stopPropagation();
-                    toggleDrift(layer.params.id, 'gain');
-                  }}
-                >
-                  {#if layer.params.driftGain}
-                    🔊 on
-                  {:else}
-                    🔊 off
-                  {/if}
-                </button>
-
-                {#if supportsPitch(layer)}
-                  <button
-                    type="button"
-                    class="drift-chip"
-                    class:on={layer.params.driftPitch}
-                    title={layer.params.driftPitch
-                      ? 'Pitch drift: enabled (click to disable)'
-                      : 'Enable pitch drift (±3.5% random micro-pitch variation)'}
-                    aria-label="Toggle pitch drift"
-                    aria-pressed={layer.params.driftPitch}
-                    onpointerdown={(e) => e.stopPropagation()}
-                    onclick={(e) => {
-                      e.stopPropagation();
-                      toggleDrift(layer.params.id, 'pitch');
-                    }}
-                  >
-                    {#if layer.params.driftPitch}
-                      🎵 on
-                    {:else}
-                      🎵 off
-                    {/if}
-                  </button>
-                {/if}
-              </div>
             </div>
           {/each}
+        </div>
+
+        <div class="drift-log-section">
+          <div class="drift-log-head">
+            <div class="log-title-area">
+              <span
+                class="pulse-indicator"
+                class:recording={playing && layers.length > 0}
+                aria-hidden="true"
+              ></span>
+              <span class="log-title">Drift History Log</span>
+              <span class="log-badge">{historyLog.length}/{MAX_HISTORY_DEPTH}</span>
+            </div>
+            {#if historyLog.length > 0}
+              <button
+                type="button"
+                class="clear-log-btn"
+                onclick={() => (historyLog = [])}
+                title="Clear drift history log"
+              >
+                Clear
+              </button>
+            {/if}
+          </div>
+
+          {#if historyLog.length === 0}
+            <div class="log-empty">
+              {#if playing}
+                Capturing drift telemetry…
+              {:else}
+                Start playback to record real-time drift telemetry (depth: {MAX_HISTORY_DEPTH}).
+              {/if}
+            </div>
+          {:else}
+            <div class="log-table-container">
+              <table class="log-table">
+                <thead>
+                  <tr>
+                    <th class="th-time">Time</th>
+                    <th class="th-layer">Layer</th>
+                    <th class="th-num" title="Stereo Pan Offset (ΔPan)">ΔPan</th>
+                    <th class="th-num" title="Gain Breathing Offset (ΔGain)">ΔGain</th>
+                    <th class="th-num" title="Pitch Micro-Drift Offset (ΔPitch)">ΔPitch</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each historyLog as entry (entry.id)}
+                    {#each entry.layers as m, idx (entry.id + '-' + m.id)}
+                      <tr class:row-first={idx === 0}>
+                        {#if idx === 0}
+                          <td class="td-time" rowspan={entry.layers.length}>
+                            <span class="time-stamp">{entry.timestamp}</span>
+                          </td>
+                        {/if}
+                        <td class="td-layer">
+                          <span class="l-ico">{m.icon}</span>
+                          <span class="l-lab">{m.label}</span>
+                        </td>
+                        <td class="td-num">
+                          {#if m.isYoutube}
+                            <span class="val-center">0.00</span>
+                          {:else}
+                            <span
+                              class="val-chip"
+                              class:pos={m.panDelta > 0.005}
+                              class:neg={m.panDelta < -0.005}
+                            >
+                              {m.panDelta > 0
+                                ? `+${m.panDelta.toFixed(2)}`
+                                : m.panDelta.toFixed(2)}
+                            </span>
+                          {/if}
+                        </td>
+                        <td class="td-num">
+                          <span
+                            class="val-chip"
+                            class:pos={m.gainDbDelta > 0.05}
+                            class:neg={m.gainDbDelta < -0.05}
+                          >
+                            {m.gainDbDelta > 0
+                              ? `+${m.gainDbDelta.toFixed(1)} dB`
+                              : `${m.gainDbDelta.toFixed(1)} dB`}
+                          </span>
+                        </td>
+                        <td class="td-num">
+                          {#if m.supportsPitch}
+                            <span
+                              class="val-chip"
+                              class:pos={m.pitchPercentDelta > 0.05}
+                              class:neg={m.pitchPercentDelta < -0.05}
+                            >
+                              {m.pitchPercentDelta > 0
+                                ? `+${m.pitchPercentDelta.toFixed(1)}%`
+                                : `${m.pitchPercentDelta.toFixed(1)}%`}
+                            </span>
+                          {:else}
+                            <span class="val-na">—</span>
+                          {/if}
+                        </td>
+                      </tr>
+                    {/each}
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+          {/if}
         </div>
       {/if}
     </div>
@@ -635,10 +770,9 @@
     position: absolute;
     transform: translate(-50%, -50%);
     display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: 0.2rem;
-    padding: 0.3rem 0.45rem 0.28rem;
+    justify-content: center;
+    padding: 0.25rem 0.5rem;
     border-radius: var(--radius-sm);
     border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
     background: color-mix(in srgb, var(--card) 92%, var(--accent-dim));
@@ -646,12 +780,11 @@
     font: inherit;
     cursor: grab;
     box-shadow: var(--shadow-soft);
-    min-width: 5.2rem;
-    max-width: 13rem;
+    white-space: nowrap;
     z-index: 2;
     touch-action: none;
     user-select: none;
-    transition: box-shadow 0.15s ease, border-color 0.15s ease;
+    transition: box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
   }
 
   .marker-head {
@@ -690,55 +823,199 @@
   }
 
   .lab {
-    font-size: 0.6rem;
+    font-size: 0.64rem;
     font-weight: 650;
     color: var(--text-soft);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 6.5rem;
+    max-width: 7.5rem;
   }
 
-  .drift-chips {
+  /* --- Rolling Drift History Log Styles --- */
+  .drift-log-section {
+    margin-top: 0.65rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.45rem 0.55rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .drift-log-head {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 0.2rem;
-    flex-wrap: nowrap;
+    justify-content: space-between;
+    gap: 0.5rem;
   }
 
-  .drift-chip {
-    display: inline-flex;
+  .log-title-area {
+    display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 0.12rem;
-    padding: 0.09rem 0.26rem;
-    font-size: 0.54rem;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    font-weight: 550;
-    line-height: 1.15;
+    gap: 0.35rem;
+  }
+
+  .pulse-indicator {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    background: var(--muted-soft);
+    transition: background 0.2s ease;
+  }
+
+  .pulse-indicator.recording {
+    background: #22c55e;
+    box-shadow: 0 0 6px #22c55e;
+  }
+
+  .log-title {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-soft);
+  }
+
+  .log-badge {
+    font-size: 0.58rem;
+    padding: 0.05rem 0.3rem;
     border-radius: var(--radius-pill);
+    background: var(--card);
     border: 1px solid var(--border);
-    background: var(--bg);
+    color: var(--muted);
+    font-family: ui-monospace, monospace;
+  }
+
+  .clear-log-btn {
+    padding: 0.1rem 0.38rem;
+    font-size: 0.6rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--card);
     color: var(--muted-soft);
     cursor: pointer;
-    user-select: none;
-    touch-action: manipulation;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .clear-log-btn:hover {
+    color: var(--text);
+    border-color: var(--accent);
+  }
+
+  .log-empty {
+    font-size: 0.68rem;
+    color: var(--muted-soft);
+    font-style: italic;
+    padding: 0.4rem 0.2rem;
+    text-align: center;
+  }
+
+  .log-table-container {
+    max-height: 9.5rem;
+    overflow-y: auto;
+    overflow-x: auto;
+    border-radius: var(--radius-sm);
+    border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  }
+
+  .log-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.62rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+
+  .log-table thead {
+    position: sticky;
+    top: 0;
+    background: color-mix(in srgb, var(--card) 95%, var(--bg));
+    z-index: 1;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .log-table th {
+    padding: 0.22rem 0.35rem;
+    font-weight: 650;
+    color: var(--muted);
+    text-align: left;
     white-space: nowrap;
-    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
   }
 
-  .drift-chip:hover {
-    color: var(--text);
-    border-color: var(--accent);
-    transform: scale(1.04);
+  .log-table th.th-num {
+    text-align: right;
   }
 
-  .drift-chip.on {
-    background: color-mix(in srgb, var(--accent) 26%, var(--card));
-    border-color: var(--accent);
-    color: var(--text);
-    box-shadow: 0 0 4px var(--accent-glow);
+  .log-table td {
+    padding: 0.18rem 0.35rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 35%, transparent);
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+
+  .row-first td {
+    border-top: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+  }
+
+  .td-time {
+    vertical-align: top;
+    color: var(--muted);
+    background: color-mix(in srgb, var(--bg) 80%, var(--card));
+    border-right: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
     font-weight: 600;
+  }
+
+  .time-stamp {
+    font-size: 0.58rem;
+    color: var(--muted-soft);
+  }
+
+  .td-layer {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    color: var(--text-soft);
+    font-weight: 550;
+    max-width: 7rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .l-ico {
+    font-size: 0.72rem;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .l-lab {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .td-num {
+    text-align: right;
+  }
+
+  .val-chip {
+    display: inline-block;
+    padding: 0.05rem 0.25rem;
+    border-radius: var(--radius-sm);
+    color: var(--text-soft);
+  }
+
+  .val-chip.pos {
+    color: #38bdf8;
+    background: color-mix(in srgb, #38bdf8 12%, transparent);
+  }
+
+  .val-chip.neg {
+    color: #f472b6;
+    background: color-mix(in srgb, #f472b6 12%, transparent);
+  }
+
+  .val-center,
+  .val-na {
+    color: var(--muted-soft);
   }
 </style>
