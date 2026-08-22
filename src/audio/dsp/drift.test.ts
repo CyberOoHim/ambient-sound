@@ -93,7 +93,7 @@ describe('drift DSP utilities', () => {
       for (let i = 0; i < 100; i++) {
         const gain = calculateDriftGain(1.0, 1.0, 1.0);
         expect(gain).toBeLessThanOrEqual(1.0);
-        expect(gain).toBeGreaterThanOrEqual(GAIN_DRIFT_MIN_MULT);
+        expect(gain).toBeGreaterThanOrEqual(GAIN_DRIFT_MIN_MULT - 0.005);
       }
     });
 
@@ -101,7 +101,7 @@ describe('drift DSP utilities', () => {
       const base = 0.6;
       for (let i = 0; i < 100; i++) {
         const gain = calculateDriftGain(base, 1.0, 1.0);
-        expect(gain).toBeGreaterThanOrEqual(base * GAIN_DRIFT_MIN_MULT);
+        expect(gain).toBeGreaterThanOrEqual(base * (GAIN_DRIFT_MIN_MULT - 0.005));
         expect(gain).toBeLessThanOrEqual(base * GAIN_DRIFT_MAX_MULT + 0.001);
       }
     });

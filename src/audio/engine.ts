@@ -689,7 +689,9 @@ export class AudioEngine {
     params: YoutubeLayerParams,
     opts?: { wantPlay?: boolean; preloadOnly?: boolean },
   ): Promise<void> {
-    const host = this.youtubeHostElement ?? document.body;
+    const host =
+      this.youtubeHostElement ??
+      (typeof document !== 'undefined' ? document.body : (null as unknown as HTMLElement));
     const wantPlay =
       opts?.preloadOnly === true
         ? false
