@@ -7,6 +7,7 @@
    */
   import { onDestroy, onMount } from 'svelte';
   import { session } from '../app/session';
+  import { powerSaver } from '../app/power-saver';
   import type { LayerLiveDrift, MixerLayer } from '../audio/types';
   import {
     PAN_DRIFT_MAX_OFFSET,
@@ -29,6 +30,9 @@
   let surface: HTMLDivElement | undefined = $state();
   let liveStates = $state<Record<string, LayerLiveDrift>>({});
   let liveRaf = 0;
+  let lastLiveTime = 0;
+  let unsubSession: (() => void) | undefined;
+  let unsubPowerSaver: (() => void) | undefined;
 
   function labelFor(layer: MixerLayer): string {
     if (layer.kind === 'noise') {
@@ -250,31 +254,39 @@
     }
   }
 
-  function updateLive() {
-    if (
-      !open ||
-      typeof document === 'undefined' ||
-      document.visibilityState === 'hidden'
-    ) {
-      liveRaf = 0;
+  function isLiveActive(): boolean {
+    const isPlaying = playing || session.playing;
+    return (
+      open &&
+      isPlaying &&
+      layers.length > 0 &&
+      typeof document !== 'undefined' &&
+      document.visibilityState !== 'hidden'
+    );
+  }
+
+  function updateLive(now: DOMHighResTimeStamp) {
+    if (!isLiveActive()) {
+      stopLiveLoop();
+      liveStates = {};
       return;
     }
-    const updated: Record<string, LayerLiveDrift> = {};
-    for (const layer of layers) {
-      const d = session.getLayerLiveDrift(layer.params.id);
-      if (d) updated[layer.params.id] = d;
+    const eco = powerSaver.isPowerSaverActive();
+    const throttleMs = eco ? 66 : 33;
+    if (now - lastLiveTime >= throttleMs) {
+      lastLiveTime = now;
+      const updated: Record<string, LayerLiveDrift> = {};
+      for (const layer of layers) {
+        const d = session.getLayerLiveDrift(layer.params.id);
+        if (d) updated[layer.params.id] = d;
+      }
+      liveStates = updated;
     }
-    liveStates = updated;
     liveRaf = requestAnimationFrame(updateLive);
   }
 
   function ensureLiveLoop() {
-    if (
-      liveRaf === 0 &&
-      open &&
-      typeof document !== 'undefined' &&
-      document.visibilityState !== 'hidden'
-    ) {
+    if (liveRaf === 0 && isLiveActive()) {
       liveRaf = requestAnimationFrame(updateLive);
     }
   }
@@ -287,7 +299,7 @@
   }
 
   $effect(() => {
-    if (open && layers.length > 0) {
+    if (isLiveActive()) {
       ensureLiveLoop();
     } else {
       stopLiveLoop();
@@ -297,24 +309,52 @@
 
   onMount(() => {
     const onVis = () => {
-      if (document.visibilityState === 'hidden') {
+      if (!isLiveActive()) {
         stopLiveLoop();
-      } else if (open) {
+        liveStates = {};
+      } else {
         ensureLiveLoop();
       }
     };
     document.addEventListener('visibilitychange', onVis);
-    if (open) {
+
+    unsubSession = session.subscribe(() => {
+      if (!isLiveActive()) {
+        stopLiveLoop();
+        liveStates = {};
+      } else {
+        ensureLiveLoop();
+      }
+    });
+
+    unsubPowerSaver = powerSaver.subscribe(() => {
+      if (!isLiveActive()) {
+        stopLiveLoop();
+        liveStates = {};
+      }
+    });
+
+    if (isLiveActive()) {
       ensureLiveLoop();
+    } else {
+      stopLiveLoop();
+      liveStates = {};
     }
+
     return () => {
       document.removeEventListener('visibilitychange', onVis);
+      unsubSession?.();
+      unsubPowerSaver?.();
       stopLiveLoop();
+      liveStates = {};
     };
   });
 
   onDestroy(() => {
+    unsubSession?.();
+    unsubPowerSaver?.();
     stopLiveLoop();
+    liveStates = {};
   });
 </script>
 
@@ -730,7 +770,7 @@
     );
     pointer-events: none;
     z-index: 1;
-    transition: width 0.2s ease, height 0.2s ease, left 0.1s linear, top 0.1s linear;
+    transition: width 0.2s ease, height 0.2s ease;
   }
 
   .drift-zone.has-pitch {

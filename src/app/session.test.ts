@@ -533,4 +533,71 @@ describe('Session mix settings defaults', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect((session as any).fadeWakeupTimer).toBeNull();
   });
+
+  describe('Session getLayerLiveDrift', () => {
+    it('returns null for non-existent layer', () => {
+      const session = new Session();
+      expect(session.getLayerLiveDrift('invalid_id')).toBeNull();
+    });
+
+    it('returns zero deltas and base parameters when session is idle', () => {
+      const session = new Session();
+      session.layers = [
+        {
+          kind: 'sample',
+          params: {
+            id: 's1',
+            assetId: 'rain',
+            label: 'Rain',
+            volumeLinear: 0.8,
+            pan: -0.4,
+            driftPan: true,
+            driftGain: true,
+            driftPitch: true,
+            muted: false,
+            solo: false,
+          },
+        },
+      ];
+
+      const drift = session.getLayerLiveDrift('s1');
+      expect(drift).not.toBeNull();
+      expect(drift?.livePan).toBe(-0.4);
+      expect(drift?.liveVol).toBe(0.8);
+      expect(drift?.panDelta).toBe(0);
+      expect(drift?.gainDbDelta).toBe(0);
+      expect(drift?.pitchPercentDelta).toBe(0);
+      expect(drift?.driftPanActive).toBe(true);
+      expect(drift?.driftGainActive).toBe(true);
+      expect(drift?.driftPitchActive).toBe(true);
+    });
+
+    it('forces livePan to 0 for YouTube layers', () => {
+      const session = new Session();
+      session.layers = [
+        {
+          kind: 'youtube',
+          params: {
+            id: 'yt1',
+            videoId: 'jfKfPfyJRdk',
+            url: 'https://youtube.com/watch?v=jfKfPfyJRdk',
+            label: 'Lofi',
+            volumeLinear: 0.65,
+            pan: 0.5,
+            driftGain: true,
+            driftPan: false,
+            driftPitch: false,
+            muted: false,
+            solo: false,
+          },
+        },
+      ];
+
+      const drift = session.getLayerLiveDrift('yt1');
+      expect(drift).not.toBeNull();
+      expect(drift?.livePan).toBe(0);
+      expect(drift?.basePan).toBe(0);
+      expect(drift?.liveVol).toBe(0.65);
+    });
+  });
 });
