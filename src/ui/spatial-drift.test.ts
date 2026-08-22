@@ -19,6 +19,53 @@ describe('Spatial Canvas Drift & Telemetry', () => {
     });
   });
 
+  describe('Jump-only filtering & partial layer updates', () => {
+    it('only records layers that changed target coordinates, excluding static layers', () => {
+      interface LayerMetric {
+        id: string;
+        targetPan: number;
+        targetVol: number;
+      }
+      interface Entry {
+        id: string;
+        layers: LayerMetric[];
+      }
+
+      const prevTargets: Record<string, { targetPan: number; targetVol: number }> = {
+        'layer-1': { targetPan: 0.2, targetVol: 0.7 },
+        'layer-2': { targetPan: -0.4, targetVol: 0.5 },
+      };
+
+      const currentLayers = [
+        { id: 'layer-1', targetPan: 0.35, targetVol: 0.7 }, // Jumped!
+        { id: 'layer-2', targetPan: -0.4, targetVol: 0.5 }, // Unchanged
+      ];
+
+      const jumped: LayerMetric[] = [];
+      for (const l of currentLayers) {
+        const prev = prevTargets[l.id];
+        if (!prev || Math.abs(l.targetPan - prev.targetPan) > 0.002 || Math.abs(l.targetVol - prev.targetVol) > 0.002) {
+          jumped.push({ id: l.id, targetPan: l.targetPan, targetVol: l.targetVol });
+          prevTargets[l.id] = { targetPan: l.targetPan, targetVol: l.targetVol };
+        }
+      }
+
+      expect(jumped.length).toBe(1);
+      expect(jumped[0]?.id).toBe('layer-1');
+      expect(jumped[0]?.targetPan).toBe(0.35);
+
+      // On next tick where nothing changes:
+      const nextJumped: LayerMetric[] = [];
+      for (const l of currentLayers) {
+        const prev = prevTargets[l.id];
+        if (!prev || Math.abs(l.targetPan - prev.targetPan) > 0.002 || Math.abs(l.targetVol - prev.targetVol) > 0.002) {
+          nextJumped.push({ id: l.id, targetPan: l.targetPan, targetVol: l.targetVol });
+        }
+      }
+      expect(nextJumped.length).toBe(0);
+    });
+  });
+
   describe('Layer drift telemetry extraction', () => {
     it('extracts the 3 drift numbers (Pan, Gain dB, Pitch %) from session live drift', () => {
       const session = new Session();

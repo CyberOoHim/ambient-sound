@@ -198,45 +198,84 @@
     };
   }
 
+  let prevTargets: Record<string, { targetPan: number; targetVol: number; targetRate: number }> = {};
+
   function recordDriftSnapshot() {
-    if (!open || !playing || layers.length === 0) return;
-    tick += 1;
+    if (!open || !playing || layers.length === 0) {
+      prevTargets = {};
+      return;
+    }
     const now = new Date();
     const timeStr = now.toTimeString().slice(0, 8);
-    const metrics: LayerDriftMetric[] = [];
+    const jumpedMetrics: LayerDriftMetric[] = [];
+    let anyJumped = false;
+
+    // Clean up removed layers
+    const currentLayerIds = new Set(layers.map((l) => l.params.id));
+    for (const id of Object.keys(prevTargets)) {
+      if (!currentLayerIds.has(id)) {
+        delete prevTargets[id];
+      }
+    }
 
     for (const layer of layers) {
       const isYt = isYoutubeLayer(layer);
       const supPitch = supportsPitch(layer);
       const d = session.getLayerLiveDrift(layer.params.id);
 
-      const pan = isYt ? 0 : (d ? d.targetPan : layer.params.pan);
-      const vol = d ? d.targetVol : layer.params.volumeLinear;
+      const targetPan = isYt ? 0 : (d ? d.targetPan : layer.params.pan);
+      const targetVol = d ? d.targetVol : layer.params.volumeLinear;
+      const targetRate = d
+        ? d.targetRate
+        : 'playbackRate' in layer.params
+          ? (layer.params.playbackRate ?? 1)
+          : 1;
 
-      metrics.push({
-        id: layer.params.id,
-        label: labelFor(layer),
-        icon: iconFor(layer),
-        isYoutube: isYt,
-        supportsPitch: supPitch,
-        panDelta: d ? d.panDelta : 0,
-        gainDbDelta: d ? d.gainDbDelta : 0,
-        pitchPercentDelta: d ? d.pitchPercentDelta : 0,
-        targetPan: pan,
-        targetVol: vol,
-        targetRate: d
-          ? d.targetRate
-          : 'playbackRate' in layer.params
-            ? (layer.params.playbackRate ?? 1)
-            : 1,
-      });
+      const prev = prevTargets[layer.params.id];
+      const isFirst = !prev;
+      const hasJumped =
+        !prev ||
+        Math.abs(targetPan - prev.targetPan) > 0.002 ||
+        Math.abs(targetVol - prev.targetVol) > 0.002 ||
+        Math.abs(targetRate - prev.targetRate) > 0.002;
+
+      prevTargets[layer.params.id] = { targetPan, targetVol, targetRate };
+
+      if (hasJumped) {
+        anyJumped = true;
+        const hasDrift = d && (d.driftPanActive || d.driftGainActive || d.driftPitchActive);
+        const hasDeltas =
+          Math.abs(d ? d.panDelta : 0) > 0.002 ||
+          Math.abs(d ? d.gainDbDelta : 0) > 0.02 ||
+          Math.abs(d ? d.pitchPercentDelta : 0) > 0.02;
+
+        if (hasDrift || hasDeltas || !isFirst) {
+          jumpedMetrics.push({
+            id: layer.params.id,
+            label: labelFor(layer),
+            icon: iconFor(layer),
+            isYoutube: isYt,
+            supportsPitch: supPitch,
+            panDelta: d ? d.panDelta : 0,
+            gainDbDelta: d ? d.gainDbDelta : 0,
+            pitchPercentDelta: d ? d.pitchPercentDelta : 0,
+            targetPan,
+            targetVol,
+            targetRate,
+          });
+        }
+      }
     }
 
-    if (metrics.length > 0) {
+    if (anyJumped) {
+      tick += 1;
+    }
+
+    if (jumpedMetrics.length > 0) {
       const newEntry: DriftHistoryEntry = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         timestamp: timeStr,
-        layers: metrics,
+        layers: jumpedMetrics,
       };
       historyLog = [newEntry, ...historyLog.slice(0, MAX_HISTORY_DEPTH - 1)];
     }
@@ -245,7 +284,7 @@
   onMount(() => {
     pollTimer = setInterval(() => {
       recordDriftSnapshot();
-    }, 1000);
+    }, 400);
   });
 
   onDestroy(() => {
