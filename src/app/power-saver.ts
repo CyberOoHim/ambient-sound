@@ -4,6 +4,8 @@
  * Save-Data header/connection preference, and user choice (auto / on / off).
  */
 
+export type PowerSaverMode = 'auto' | 'on' | 'off';
+
 export type PowerSaverReason =
   | 'manual-on'
   | 'battery'
