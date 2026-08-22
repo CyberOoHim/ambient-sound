@@ -1161,6 +1161,7 @@
     <div class="side-stack">
       <SpatialCanvas
         layers={layers}
+        playing={playing}
         open={deckStates.space}
         onToggle={() => toggleDeck('space')}
       />

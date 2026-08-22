@@ -16,11 +16,12 @@
 
   interface Props {
     layers: MixerLayer[];
+    playing?: boolean;
     open?: boolean;
     onToggle?: () => void;
   }
 
-  let { layers, open = true, onToggle }: Props = $props();
+  let { layers, playing = false, open = true, onToggle }: Props = $props();
 
   let coupleFilter = $state(true);
   let showDriftZones = $state(true);
@@ -252,7 +253,6 @@
   function updateLive() {
     if (
       !open ||
-      !session.playing ||
       typeof document === 'undefined' ||
       document.visibilityState === 'hidden'
     ) {
@@ -272,7 +272,6 @@
     if (
       liveRaf === 0 &&
       open &&
-      session.playing &&
       typeof document !== 'undefined' &&
       document.visibilityState !== 'hidden'
     ) {
@@ -288,7 +287,7 @@
   }
 
   $effect(() => {
-    if (open && session.playing && layers.length > 0) {
+    if (open && layers.length > 0) {
       ensureLiveLoop();
     } else {
       stopLiveLoop();
@@ -300,12 +299,12 @@
     const onVis = () => {
       if (document.visibilityState === 'hidden') {
         stopLiveLoop();
-      } else if (open && session.playing) {
+      } else if (open) {
         ensureLiveLoop();
       }
     };
     document.addEventListener('visibilitychange', onVis);
-    if (open && session.playing) {
+    if (open) {
       ensureLiveLoop();
     }
     return () => {
@@ -400,7 +399,8 @@
           {#each layers as layer (layer.params.id)}
             {@const isYt = isYoutubeLayer(layer)}
             {@const live = liveStates[layer.params.id]}
-            {@const isDrifting = session.playing && draggingId !== layer.params.id}
+            {@const isPlaying = playing || session.playing}
+            {@const isDrifting = isPlaying && draggingId !== layer.params.id}
             {@const currentPan = isDrifting ? (live?.livePan ?? (isYt ? 0 : layer.params.pan)) : (isYt ? 0 : layer.params.pan)}
             {@const currentVol = isDrifting ? (live?.liveVol ?? layer.params.volumeLinear) : layer.params.volumeLinear}
             {@const panDelta = isDrifting ? (live?.panDelta ?? 0) : 0}
@@ -463,10 +463,10 @@
                       toggleDrift(layer.params.id, 'pan');
                     }}
                   >
-                    {#if layer.params.driftPan && session.playing && Math.abs(panDelta) >= 0.01}
-                      ↔ {panDelta > 0 ? '+' : ''}{panDelta.toFixed(2)}
+                    {#if layer.params.driftPan}
+                      ↔ {panDelta >= 0 ? '+' : ''}{panDelta.toFixed(2)}
                     {:else}
-                      ↔
+                      ↔ off
                     {/if}
                   </button>
                 {/if}
@@ -486,10 +486,10 @@
                     toggleDrift(layer.params.id, 'gain');
                   }}
                 >
-                  {#if layer.params.driftGain && session.playing && Math.abs(gainDelta) >= 0.1}
-                    🔊 {gainDelta > 0 ? '+' : ''}{gainDelta.toFixed(1)}dB
+                  {#if layer.params.driftGain}
+                    🔊 {gainDelta >= 0 ? '+' : ''}{gainDelta.toFixed(1)}dB
                   {:else}
-                    🔊
+                    🔊 off
                   {/if}
                 </button>
 
@@ -509,10 +509,10 @@
                       toggleDrift(layer.params.id, 'pitch');
                     }}
                   >
-                    {#if layer.params.driftPitch && session.playing && Math.abs(pitchDelta) >= 0.1}
-                      🎵 {pitchDelta > 0 ? '+' : ''}{pitchDelta.toFixed(1)}%
+                    {#if layer.params.driftPitch}
+                      🎵 {pitchDelta >= 0 ? '+' : ''}{pitchDelta.toFixed(1)}%
                     {:else}
-                      🎵
+                      🎵 off
                     {/if}
                   </button>
                 {/if}
@@ -637,7 +637,7 @@
 
   .surface {
     position: relative;
-    height: 13.5rem;
+    height: 14rem;
     border-radius: var(--radius-sm);
     border: 1px solid var(--border);
     background:
@@ -743,16 +743,17 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.15rem;
-    padding: 0.25rem 0.4rem 0.22rem;
+    gap: 0.2rem;
+    padding: 0.3rem 0.45rem 0.28rem;
     border-radius: var(--radius-sm);
     border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
-    background: color-mix(in srgb, var(--card) 90%, var(--accent-dim));
+    background: color-mix(in srgb, var(--card) 92%, var(--accent-dim));
     color: var(--text);
     font: inherit;
     cursor: grab;
     box-shadow: var(--shadow-soft);
-    max-width: 8rem;
+    min-width: 5.2rem;
+    max-width: 13rem;
     z-index: 2;
     touch-action: none;
     user-select: none;
@@ -795,31 +796,33 @@
   }
 
   .lab {
-    font-size: 0.58rem;
+    font-size: 0.6rem;
     font-weight: 650;
     color: var(--text-soft);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 5.5rem;
+    max-width: 6.5rem;
   }
 
   .drift-chips {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.18rem;
-    flex-wrap: wrap;
+    gap: 0.2rem;
+    flex-wrap: nowrap;
   }
 
   .drift-chip {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 0.08rem 0.25rem;
-    font-size: 0.52rem;
+    gap: 0.12rem;
+    padding: 0.09rem 0.26rem;
+    font-size: 0.54rem;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    line-height: 1.1;
+    font-weight: 550;
+    line-height: 1.15;
     border-radius: var(--radius-pill);
     border: 1px solid var(--border);
     background: var(--bg);
@@ -828,12 +831,13 @@
     user-select: none;
     touch-action: manipulation;
     white-space: nowrap;
-    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
   }
 
   .drift-chip:hover {
     color: var(--text);
     border-color: var(--accent);
+    transform: scale(1.04);
   }
 
   .drift-chip.on {
