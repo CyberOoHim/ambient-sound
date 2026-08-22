@@ -51,7 +51,7 @@
   let surface: HTMLDivElement | undefined = $state();
 
   let historyLog = $state<DriftHistoryEntry[]>([]);
-  let tick = $state(0);
+  let currentPositions = $state<Record<string, { pan: number; vol: number }>>({});
   let pollTimer: ReturnType<typeof setInterval> | null = null;
 
   function labelFor(layer: MixerLayer): string {
@@ -208,6 +208,7 @@
     const now = new Date();
     const timeStr = now.toTimeString().slice(0, 8);
     const jumpedMetrics: LayerDriftMetric[] = [];
+    const nextPositions: Record<string, { pan: number; vol: number }> = {};
     let anyJumped = false;
 
     // Clean up removed layers
@@ -230,6 +231,8 @@
         : 'playbackRate' in layer.params
           ? (layer.params.playbackRate ?? 1)
           : 1;
+
+      nextPositions[layer.params.id] = { pan: targetPan, vol: targetVol };
 
       const prev = prevTargets[layer.params.id];
       const isFirst = !prev;
@@ -268,7 +271,7 @@
     }
 
     if (anyJumped) {
-      tick += 1;
+      currentPositions = nextPositions;
     }
 
     if (jumpedMetrics.length > 0) {
@@ -323,6 +326,10 @@
     const { pan, vol } = xyToParams(clientX, clientY);
     const effectivePan = isYoutubeLayer(layer) ? 0 : pan;
     dragCoords = { pan: effectivePan, vol };
+    currentPositions = {
+      ...currentPositions,
+      [id]: { pan: effectivePan, vol },
+    };
     session.setLayerSpatial(id, effectivePan, vol, { coupleFilter });
   }
 
@@ -353,6 +360,10 @@
     if (handled) {
       e.preventDefault();
       const effectivePan = isYt ? 0 : pan;
+      currentPositions = {
+        ...currentPositions,
+        [layer.params.id]: { pan: effectivePan, vol },
+      };
       session.setLayerSpatial(layer.params.id, effectivePan, vol, { coupleFilter });
     }
   }
@@ -438,15 +449,14 @@
 
           {#each layers as layer (layer.params.id)}
             {@const isYt = isYoutubeLayer(layer)}
-            {@const _t = tick}
-            {@const drift = playing ? session.getLayerLiveDrift(layer.params.id) : null}
             {@const activeDrag = draggingId === layer.params.id ? dragCoords : null}
+            {@const livePos = playing ? currentPositions[layer.params.id] : null}
             {@const currentPan = activeDrag
               ? activeDrag.pan
-              : (isYt ? 0 : (drift ? drift.targetPan : layer.params.pan))}
+              : (livePos ? livePos.pan : (isYt ? 0 : layer.params.pan))}
             {@const currentVol = activeDrag
               ? activeDrag.vol
-              : (drift ? drift.targetVol : layer.params.volumeLinear)}
+              : (livePos ? livePos.vol : layer.params.volumeLinear)}
 
             <div
               class="marker"
