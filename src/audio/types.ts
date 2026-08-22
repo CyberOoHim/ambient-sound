@@ -88,6 +88,69 @@ export interface LayerLiveDrift {
   driftPitchActive: boolean;
 }
 
+/**
+ * Global Organic Drift configuration parameters (ENH-Drift-Control).
+ * Allows full continuous control of pitch, pan, and gain drift depths and speed.
+ */
+export type DriftSpeed = 'fast' | 'normal' | 'slow' | 'languid';
+
+export interface DriftConfig {
+  /** Enabled master toggle for all organic drifts (true by default). */
+  enabled: boolean;
+  /** Pitch drift depth percentage [0..25%], default 3.5%. */
+  pitchDepthPct: number;
+  /** Pan drift width offset [0.05..0.80], default 0.25. */
+  panSpread: number;
+  /** Gain breathing downward dB depth [0.5..6.0 dB], default 2.5 dB. */
+  gainDepthDb: number;
+  /** Drift interval cycle speed modifier. */
+  speed: DriftSpeed;
+}
+
+export const DRIFT_PITCH_DEFAULT_PCT = 3.5;
+export const DRIFT_PITCH_MIN_PCT = 0.5;
+export const DRIFT_PITCH_MAX_PCT = 25.0;
+
+export const DRIFT_PAN_DEFAULT_SPREAD = 0.25;
+export const DRIFT_PAN_MIN_SPREAD = 0.05;
+export const DRIFT_PAN_MAX_SPREAD = 0.80;
+
+export const DRIFT_GAIN_DEFAULT_DB = 2.5;
+export const DRIFT_GAIN_MIN_DB = 0.5;
+export const DRIFT_GAIN_MAX_DB = 6.0;
+
+export function defaultDriftConfig(): DriftConfig {
+  return {
+    enabled: true,
+    pitchDepthPct: DRIFT_PITCH_DEFAULT_PCT,
+    panSpread: DRIFT_PAN_DEFAULT_SPREAD,
+    gainDepthDb: DRIFT_GAIN_DEFAULT_DB,
+    speed: 'normal',
+  };
+}
+
+export function clampDriftPitchPct(pct: number): number {
+  if (!Number.isFinite(pct)) return DRIFT_PITCH_DEFAULT_PCT;
+  return Math.max(DRIFT_PITCH_MIN_PCT, Math.min(DRIFT_PITCH_MAX_PCT, pct));
+}
+
+export function clampDriftPanSpread(spread: number): number {
+  if (!Number.isFinite(spread)) return DRIFT_PAN_DEFAULT_SPREAD;
+  return Math.max(DRIFT_PAN_MIN_SPREAD, Math.min(DRIFT_PAN_MAX_SPREAD, spread));
+}
+
+export function clampDriftGainDb(db: number): number {
+  if (!Number.isFinite(db)) return DRIFT_GAIN_DEFAULT_DB;
+  return Math.max(DRIFT_GAIN_MIN_DB, Math.min(DRIFT_GAIN_MAX_DB, db));
+}
+
+export function clampDriftSpeed(speed: unknown): DriftSpeed {
+  if (speed === 'fast' || speed === 'slow' || speed === 'languid' || speed === 'normal') {
+    return speed;
+  }
+  return 'normal';
+}
+
 export function defaultLayerDrift(isSample = false): LayerDriftParams {
   return {
     driftPitch: isSample,

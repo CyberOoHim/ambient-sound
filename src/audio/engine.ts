@@ -18,6 +18,7 @@ import {
   clampPanLfoDepth,
   clampPanLfoRateHz,
   clampReverbWet,
+  defaultDriftConfig,
   defaultMasterTone,
   effectiveMuteSolo,
   FILTER_HP_OPEN_HZ,
@@ -26,6 +27,7 @@ import {
   layerId,
   layerMuted,
   layerSolo,
+  type DriftConfig,
   type LayerDriftParams,
   type LayerLiveDrift,
   type MasterToneParams,
@@ -169,6 +171,7 @@ export class AudioEngine {
   private layers = new Map<string, LayerNodes>();
   private masterVolumeLinear = 1;
   private masterTone: MasterToneParams = defaultMasterTone();
+  private driftConfig: DriftConfig = defaultDriftConfig();
   private fadeToken = 0;
   private fading = false;
   private catalog: SoundCatalog | null = null;
@@ -367,6 +370,18 @@ export class AudioEngine {
     if (this.bassEq) this.bassEq.gain.value = this.masterTone.bassDb;
     if (this.trebleEq) this.trebleEq.gain.value = this.masterTone.trebleDb;
     this.applyReverbMix(this.masterTone.reverbWet);
+  }
+
+  /** Update Organic Drift configuration and re-schedule active drifts */
+  setDriftConfig(config: Partial<DriftConfig>): void {
+    this.driftConfig = {
+      ...this.driftConfig,
+      ...config,
+    };
+    if (!this.wantRunning || !this.ctx) return;
+    for (const [id, nodes] of this.layers.entries()) {
+      this.scheduleLayerDrift(id, nodes);
+    }
   }
 
   private bindStateChange(ctx: AudioContext): void {
@@ -1276,8 +1291,9 @@ export class AudioEngine {
       return;
     }
 
+    const { enabled, pitchDepthPct, panSpread, gainDepthDb, speed } = this.driftConfig;
     const { driftPitch, driftPan, driftGain } = nodes.driftParams;
-    const hasAnyDrift = driftPitch || driftPan || driftGain;
+    const hasAnyDrift = enabled && (driftPitch || driftPan || driftGain);
     const t = this.ctx.currentTime;
 
     const prevLive = this.getLayerLiveDrift(id);
@@ -1312,7 +1328,7 @@ export class AudioEngine {
     }
 
     const eco = powerSaver.isPowerSaverActive();
-    const { holdSec, rampSec } = calculateRandomInterval(eco);
+    const { holdSec, rampSec } = calculateRandomInterval(eco, speed);
     const tc = Math.max(0.1, rampSec / 3);
 
     let targetRate = 'basePlaybackRate' in nodes ? (nodes.basePlaybackRate ?? 1) : 1;
@@ -1320,9 +1336,10 @@ export class AudioEngine {
     let targetGain = nodes.baseVolumeLinear ?? 0.7;
 
     // 1. Pitch Drift (disabled in eco mode to avoid resampling compute)
+    const pitchRatio = Math.max(0.005, Math.min(0.25, pitchDepthPct / 100));
     if (nodes.kind === 'sample' && nodes.player) {
       if (driftPitch && !eco) {
-        targetRate = calculateDriftPitch(nodes.basePlaybackRate ?? 1);
+        targetRate = calculateDriftPitch(nodes.basePlaybackRate ?? 1, 1, pitchRatio);
         nodes.player.setPlaybackRate(targetRate, rampSec);
       } else {
         targetRate = nodes.basePlaybackRate ?? 1;
@@ -1330,7 +1347,7 @@ export class AudioEngine {
       }
     } else if (nodes.kind === 'playlist' && nodes.player) {
       if (driftPitch && !eco) {
-        targetRate = calculateDriftPitch(nodes.basePlaybackRate ?? 1);
+        targetRate = calculateDriftPitch(nodes.basePlaybackRate ?? 1, 1, pitchRatio);
         nodes.player.setPlaybackRate(targetRate, rampSec);
       } else {
         targetRate = nodes.basePlaybackRate ?? 1;
@@ -1341,7 +1358,7 @@ export class AudioEngine {
     // 2. Pan Drift
     if (nodes.pan) {
       if (driftPan) {
-        targetPan = calculateDriftPan(nodes.basePan ?? 0);
+        targetPan = calculateDriftPan(nodes.basePan ?? 0, 1, panSpread);
         nodes.pan.pan.setTargetAtTime(targetPan, t, tc);
       } else {
         targetPan = Math.max(-1, Math.min(1, nodes.basePan ?? 0));
@@ -1353,7 +1370,7 @@ export class AudioEngine {
     if (nodes.volume) {
       if (driftGain) {
         const energy = this.getMixEnergy();
-        targetGain = calculateDriftGain(nodes.baseVolumeLinear ?? 0.7, energy);
+        targetGain = calculateDriftGain(nodes.baseVolumeLinear ?? 0.7, energy, 1, gainDepthDb);
         nodes.volume.gain.setTargetAtTime(clampLinear(targetGain), t, tc);
       } else {
         targetGain = clampLinear(nodes.baseVolumeLinear ?? 0.7);

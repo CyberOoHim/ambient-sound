@@ -1,4 +1,5 @@
 import type {
+  DriftConfig,
   MasterToneParams,
   MixerLayer,
   NoiseLayerParams,
@@ -8,13 +9,21 @@ import type {
   YoutubeLayerParams,
 } from '../audio/types';
 import {
+  clampDriftGainDb,
+  clampDriftPanSpread,
+  clampDriftPitchPct,
+  clampDriftSpeed,
   clampHighpassHz,
   clampLowpassHz,
   clampMasterEqDb,
   clampPanLfoDepth,
   clampPanLfoRateHz,
   clampReverbWet,
+  defaultDriftConfig,
   defaultMasterTone,
+  DRIFT_GAIN_DEFAULT_DB,
+  DRIFT_PAN_DEFAULT_SPREAD,
+  DRIFT_PITCH_DEFAULT_PCT,
   FILTER_HP_OPEN_HZ,
   FILTER_LP_OPEN_HZ,
   MASTER_BASS_DB_DEFAULT,
