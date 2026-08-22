@@ -1212,9 +1212,10 @@ export class AudioEngine {
     const baseVol = nodes.baseVolumeLinear ?? 0.7;
     const baseRate = 'basePlaybackRate' in nodes ? (nodes.basePlaybackRate ?? 1) : 1;
     const driftParams = nodes.driftParams ?? { driftPitch: false, driftPan: false, driftGain: false };
-    const isPlaying = Boolean(this.wantRunning && this.ctx && this.ctx.state === 'running');
+    const ctx = this.ctx;
+    const isPlaying = Boolean(this.wantRunning && ctx && ctx.state === 'running');
 
-    if (!isPlaying || !nodes.driftState) {
+    if (!isPlaying || !ctx || !nodes.driftState) {
       return {
         livePan: basePan,
         liveVol: baseVol,
@@ -1233,7 +1234,7 @@ export class AudioEngine {
 
     const { startPan, targetPan, startGain, targetGain, startRate, targetRate, startTime, rampSec } =
       nodes.driftState;
-    const t = this.ctx.currentTime;
+    const t = ctx.currentTime;
     const elapsed = Math.max(0, t - startTime);
     const alpha = rampSec > 0 ? Math.max(0, Math.min(1, elapsed / rampSec)) : 1;
     const ease = alpha * alpha * (3 - 2 * alpha);
