@@ -20,6 +20,7 @@
     DRIFT_PITCH_MIN_PCT,
     FILTER_HP_OPEN_HZ,
     FILTER_LP_OPEN_HZ,
+    isIosDevice,
     MASTER_BASS_DB_DEFAULT,
     MASTER_EQ_DB_MAX,
     MASTER_EQ_DB_MIN,
@@ -55,6 +56,7 @@
     type DeckId,
   } from '../app/deck-storage';
 
+  const isIos = isIosDevice();
   let layers = $state<MixerLayer[]>(session.layers);
   let playing = $state(session.playing);
   let masterDb = $state(linearToDb(session.masterVolumeLinear));
@@ -1275,23 +1277,25 @@
                   🎵 Pitch
                 </button>
               {/if}
-              <button
-                type="button"
-                class="chip drift-chip"
-                class:on={layer.params.driftPan}
-                disabled={isYtDisabled}
-                aria-pressed={layer.params.driftPan}
-                title={isYtDisabled ? 'Panning is not supported for external YouTube streams' : 'Random stereo pan wandering (±0.25 gentle stage motion)'}
-                onclick={() => setDriftPan(layer.params.id, !layer.params.driftPan)}
-              >
-                ↔ Pan
-              </button>
+              {#if !isYtDisabled}
+                <button
+                  type="button"
+                  class="chip drift-chip"
+                  class:on={layer.params.driftPan}
+                  aria-pressed={layer.params.driftPan}
+                  title="Random stereo pan wandering (±0.25 gentle stage motion)"
+                  onclick={() => setDriftPan(layer.params.id, !layer.params.driftPan)}
+                >
+                  ↔ Pan
+                </button>
+              {/if}
               <button
                 type="button"
                 class="chip drift-chip"
                 class:on={layer.params.driftGain}
+                disabled={isYtDisabled && isIos}
                 aria-pressed={layer.params.driftGain}
-                title="Random volume breathing (+0.5 dB / -2.5 dB subtle swells with anti-clipping protection)"
+                title={isYtDisabled && isIos ? 'Volume control is not supported for external YouTube streams on iPad/iOS' : 'Random volume breathing (+0.5 dB / -2.5 dB subtle swells with anti-clipping protection)'}
                 onclick={() => setDriftGain(layer.params.id, !layer.params.driftGain)}
               >
                 🔊 Gain
