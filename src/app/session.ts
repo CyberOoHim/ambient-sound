@@ -1,5 +1,9 @@
 import { audioEngine } from '../audio/engine';
 import {
+  clampDriftGainDb,
+  clampDriftPanSpread,
+  clampDriftPitchPct,
+  clampDriftSpeed,
   clampHighpassHz,
   clampLowpassHz,
   clampMasterEqDb,
@@ -10,6 +14,7 @@ import {
   createDefaultPlaylistLayer,
   createDefaultSampleLayer,
   createDefaultYoutubeLayer,
+  defaultDriftConfig,
   defaultMasterTone,
   FILTER_HP_OPEN_HZ,
   FILTER_LP_OPEN_HZ,
@@ -19,6 +24,8 @@ import {
   MAX_YOUTUBE_LAYERS,
   getMaxYoutubeLayers,
   PRESET_CROSSFADE_SEC,
+  type DriftConfig,
+  type DriftSpeed,
   type LayerLiveDrift,
   type MasterToneParams,
   type MixerLayer,
@@ -66,6 +73,7 @@ import { playbackOwner } from './playback-owner';
 import {
   createPresetId,
   deletePreset,
+  driftConfigFromPreset,
   getDefaultPresets,
   loadDuplicateMinOffsetSec,
   loadLastSession,
@@ -149,6 +157,8 @@ export class Session {
   masterVolumeLinear = 1;
   /** Master EQ + reverb (ENH-17). */
   masterTone: MasterToneParams = defaultMasterTone();
+  /** Global organic drift configuration (ENH-Drift-Control). */
+  driftConfig: DriftConfig = defaultDriftConfig();
   catalog: SoundCatalog | null = null;
   catalogError: string | null = null;
   /**
@@ -231,6 +241,7 @@ export class Session {
       ];
     }
     audioEngine.setMasterTone(this.masterTone);
+    audioEngine.setDriftConfig(this.driftConfig);
 
     // Eagerly pre-create YouTube iframes (no autoplay) so they reach
     // isReady before the user clicks Play. This lets playVideo() fire
@@ -576,6 +587,7 @@ export class Session {
       layers: this.layers,
       masterVolumeLinear: this.masterVolumeLinear,
       masterTone: this.masterTone,
+      masterDrift: this.driftConfig,
       timerDefaults: this.timerDefaults,
     });
     saveLastSession(snap);
@@ -617,6 +629,7 @@ export class Session {
     await audioEngine.resume();
     audioEngine.setMasterVolumeLinear(this.masterVolumeLinear);
     audioEngine.setMasterTone(this.masterTone);
+    audioEngine.setDriftConfig(this.driftConfig);
     if (opts?.holdSilent) {
       // Keep muted until startFadeIn; target volume remains in masterVolumeLinear.
       audioEngine.setMasterGainImmediate(0);
@@ -718,8 +731,30 @@ export class Session {
     this.schedulePersist();
   }
 
+  setDriftConfig(partial: Partial<DriftConfig>): void {
+    if (partial.enabled !== undefined) {
+      this.driftConfig.enabled = Boolean(partial.enabled);
+    }
+    if (partial.pitchDepthPct !== undefined) {
+      this.driftConfig.pitchDepthPct = clampDriftPitchPct(partial.pitchDepthPct);
+    }
+    if (partial.panSpread !== undefined) {
+      this.driftConfig.panSpread = clampDriftPanSpread(partial.panSpread);
+    }
+    if (partial.gainDepthDb !== undefined) {
+      this.driftConfig.gainDepthDb = clampDriftGainDb(partial.gainDepthDb);
+    }
+    if (partial.speed !== undefined) {
+      this.driftConfig.speed = clampDriftSpeed(partial.speed);
+    }
+    audioEngine.setDriftConfig(this.driftConfig);
+    this.notify();
+    this.schedulePersist();
+  }
+
   resetMixSettingsDefaults(): void {
     this.setMasterTone(defaultMasterTone());
+    this.setDriftConfig(defaultDriftConfig());
     this.setDuplicateMinOffsetSec(DUPLICATE_MIN_OFFSET_DEFAULT_SEC);
   }
 
@@ -2022,6 +2057,7 @@ export class Session {
     this.youtubeStatus.clear();
     this.masterVolumeLinear = clampLinear(preset.master.volumeLinear);
     this.masterTone = masterToneFromPreset(preset.master);
+    this.driftConfig = driftConfigFromPreset(preset.master);
     // Enforce YouTube layer limit & prevent duplicate YouTube streams from presets/share links
     const maxYt = getMaxYoutubeLayers();
     let youtubeCount = 0;
@@ -2126,6 +2162,7 @@ export class Session {
     this.applyPresetData(preset);
     audioEngine.setMasterVolumeLinear(this.masterVolumeLinear);
     audioEngine.setMasterTone(this.masterTone);
+    audioEngine.setDriftConfig(this.driftConfig);
     this.playing = false;
     // Preload any YT layers from the new scene while paused.
     for (const layer of this.layers) {
@@ -2172,6 +2209,7 @@ export class Session {
       layers: this.layers,
       masterVolumeLinear: this.masterVolumeLinear,
       masterTone: this.masterTone,
+      masterDrift: this.driftConfig,
       timerDefaults: this.timerDefaults,
     });
     if (existing) {
@@ -2206,6 +2244,7 @@ export class Session {
       layers: this.layers,
       masterVolumeLinear: this.masterVolumeLinear,
       masterTone: this.masterTone,
+      masterDrift: this.driftConfig,
       timerDefaults: this.timerDefaults,
     });
   }

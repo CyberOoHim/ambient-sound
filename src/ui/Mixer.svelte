@@ -9,6 +9,15 @@
   import { NOISE_TYPES, type NoiseType } from '../audio/dsp/colored-noise';
   import { dbToLinear, linearToDb, DB_MIN, DB_MAX } from '../audio/dsp/curves';
   import {
+    DRIFT_GAIN_DEFAULT_DB,
+    DRIFT_GAIN_MAX_DB,
+    DRIFT_GAIN_MIN_DB,
+    DRIFT_PAN_DEFAULT_SPREAD,
+    DRIFT_PAN_MAX_SPREAD,
+    DRIFT_PAN_MIN_SPREAD,
+    DRIFT_PITCH_DEFAULT_PCT,
+    DRIFT_PITCH_MAX_PCT,
+    DRIFT_PITCH_MIN_PCT,
     FILTER_HP_OPEN_HZ,
     FILTER_LP_OPEN_HZ,
     MASTER_BASS_DB_DEFAULT,
@@ -17,6 +26,8 @@
     MASTER_REVERB_WET_DEFAULT,
     MASTER_REVERB_WET_MAX,
     MASTER_TREBLE_DB_DEFAULT,
+    type DriftConfig,
+    type DriftSpeed,
     type MixerLayer,
   } from '../audio/types';
   import type { SoundCatalog } from '../assets/catalog';
@@ -74,6 +85,7 @@
   let masterBassDb = $state(session.masterTone.bassDb);
   let masterTrebleDb = $state(session.masterTone.trebleDb);
   let masterReverbWet = $state(session.masterTone.reverbWet);
+  let driftConfig = $state<DriftConfig>({ ...session.driftConfig });
   let powerSaverMode = $state<PowerSaverMode>(powerSaver.getMode());
   let powerSaverStatus = $state(powerSaver.getStatus());
   let shareNoticeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -194,6 +206,7 @@
     masterBassDb = session.masterTone.bassDb;
     masterTrebleDb = session.masterTone.trebleDb;
     masterReverbWet = session.masterTone.reverbWet;
+    driftConfig = { ...session.driftConfig };
     powerSaverMode = powerSaver.getMode();
     powerSaverStatus = powerSaver.getStatus();
     timerStatus = session.timer.status;
@@ -234,12 +247,45 @@
     masterReverbWet = session.masterTone.reverbWet;
   }
 
+  function onDriftEnabledToggle() {
+    session.setDriftConfig({ enabled: !driftConfig.enabled });
+    driftConfig = { ...session.driftConfig };
+  }
+
+  function onDriftPitch(e: Event) {
+    const v = Number((e.target as HTMLInputElement).value);
+    session.setDriftConfig({ pitchDepthPct: v });
+    driftConfig = { ...session.driftConfig };
+  }
+
+  function onDriftPan(e: Event) {
+    const v = Number((e.target as HTMLInputElement).value);
+    session.setDriftConfig({ panSpread: v });
+    driftConfig = { ...session.driftConfig };
+  }
+
+  function onDriftGain(e: Event) {
+    const v = Number((e.target as HTMLInputElement).value);
+    session.setDriftConfig({ gainDepthDb: v });
+    driftConfig = { ...session.driftConfig };
+  }
+
+  function onDriftSpeed(speed: DriftSpeed) {
+    session.setDriftConfig({ speed });
+    driftConfig = { ...session.driftConfig };
+  }
+
   const isMixSettingsDefault = $derived(
     masterBassDb === MASTER_BASS_DB_DEFAULT &&
       masterTrebleDb === MASTER_TREBLE_DB_DEFAULT &&
       masterReverbWet === MASTER_REVERB_WET_DEFAULT &&
       minOffsetSec === DUPLICATE_MIN_OFFSET_DEFAULT_SEC &&
-      powerSaverMode === 'auto'
+      powerSaverMode === 'auto' &&
+      driftConfig.enabled === true &&
+      driftConfig.pitchDepthPct === DRIFT_PITCH_DEFAULT_PCT &&
+      driftConfig.panSpread === DRIFT_PAN_DEFAULT_SPREAD &&
+      driftConfig.gainDepthDb === DRIFT_GAIN_DEFAULT_DB &&
+      driftConfig.speed === 'normal'
   );
 
   function resetMixSettings() {
@@ -767,6 +813,120 @@
           oninput={onMasterReverb}
         />
         <p class="dup-hint">Bass / treble / light reverb on the whole mix. Saved with presets.</p>
+
+        <p class="settings-section-label">Organic Drift</p>
+        <div class="drift-master-toggle-row">
+          <label class="dup-label no-mb" for="drift-master-toggle">
+            Master Drift Engine
+          </label>
+          <button
+            id="drift-master-toggle"
+            type="button"
+            class="chip sm"
+            class:on={driftConfig.enabled}
+            onclick={onDriftEnabledToggle}
+            title="Toggle micro-drifts (pitch wander, stereo spread, gain breathing) across all layers"
+          >
+            {driftConfig.enabled ? 'Enabled 🍃' : 'Disabled'}
+          </button>
+        </div>
+
+        <label class="dup-label" for="drift-pitch">
+          Pitch Drift Max Depth
+          <span class="dup-unit">±{driftConfig.pitchDepthPct.toFixed(1)}%</span>
+        </label>
+        <input
+          id="drift-pitch"
+          class="tone-slider"
+          type="range"
+          min={DRIFT_PITCH_MIN_PCT}
+          max={DRIFT_PITCH_MAX_PCT}
+          step="0.5"
+          disabled={!driftConfig.enabled}
+          value={driftConfig.pitchDepthPct}
+          oninput={onDriftPitch}
+        />
+
+        <label class="dup-label" for="drift-pan">
+          Pan Wander Spread
+          <span class="dup-unit">±{(driftConfig.panSpread * 100).toFixed(0)}%</span>
+        </label>
+        <input
+          id="drift-pan"
+          class="tone-slider"
+          type="range"
+          min={DRIFT_PAN_MIN_SPREAD}
+          max={DRIFT_PAN_MAX_SPREAD}
+          step="0.05"
+          disabled={!driftConfig.enabled}
+          value={driftConfig.panSpread}
+          oninput={onDriftPan}
+        />
+
+        <label class="dup-label" for="drift-gain">
+          Gain Breathing Depth
+          <span class="dup-unit">-{driftConfig.gainDepthDb.toFixed(1)} dB</span>
+        </label>
+        <input
+          id="drift-gain"
+          class="tone-slider"
+          type="range"
+          min={DRIFT_GAIN_MIN_DB}
+          max={DRIFT_GAIN_MAX_DB}
+          step="0.1"
+          disabled={!driftConfig.enabled}
+          value={driftConfig.gainDepthDb}
+          oninput={onDriftGain}
+        />
+
+        <span class="dup-label" id="drift-speed-label">
+          Drift Cycle Speed
+        </span>
+        <div class="chips eco-chips" role="group" aria-labelledby="drift-speed-label">
+          <button
+            type="button"
+            class="chip sm"
+            class:on={driftConfig.speed === 'fast'}
+            disabled={!driftConfig.enabled}
+            onclick={() => onDriftSpeed('fast')}
+            title="Fast: 6-14s cycle"
+          >
+            Fast
+          </button>
+          <button
+            type="button"
+            class="chip sm"
+            class:on={driftConfig.speed === 'normal'}
+            disabled={!driftConfig.enabled}
+            onclick={() => onDriftSpeed('normal')}
+            title="Normal: 15-35s cycle"
+          >
+            Normal
+          </button>
+          <button
+            type="button"
+            class="chip sm"
+            class:on={driftConfig.speed === 'slow'}
+            disabled={!driftConfig.enabled}
+            onclick={() => onDriftSpeed('slow')}
+            title="Slow: 33-77s cycle"
+          >
+            Slow
+          </button>
+          <button
+            type="button"
+            class="chip sm"
+            class:on={driftConfig.speed === 'languid'}
+            disabled={!driftConfig.enabled}
+            onclick={() => onDriftSpeed('languid')}
+            title="Languid: 1-2.5m cycle"
+          >
+            Languid
+          </button>
+        </div>
+        <p class="dup-hint">
+          Subtle continuous modulation avoids acoustic repetition and listening fatigue.
+        </p>
 
         <p class="settings-section-label">Duplicates</p>
         <label class="dup-label" for="dup-min-offset">
@@ -1580,6 +1740,17 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
     margin-bottom: 0.25rem;
+  }
+
+  .dup-label.no-mb {
+    margin-bottom: 0;
+  }
+
+  .drift-master-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.45rem;
   }
 
   .dup-row {

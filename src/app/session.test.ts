@@ -441,14 +441,26 @@ describe('Session duplicate layer & max same layer caps', () => {
 });
 
 describe('Session mix settings defaults', () => {
-  it('resets master tone and duplicate min offset to default values', () => {
+  it('resets master tone, drift settings, and duplicate min offset to default values', () => {
     const session = new Session();
     session.setMasterTone({ bassDb: 6, trebleDb: -4, reverbWet: 0.3 });
+    session.setDriftConfig({
+      enabled: false,
+      pitchDepthPct: 4,
+      panSpread: 0.8,
+      gainDepthDb: 5,
+      speed: 'fast',
+    });
     session.setDuplicateMinOffsetSec(12);
 
     expect(session.masterTone.bassDb).toBe(6);
     expect(session.masterTone.trebleDb).toBe(-4);
     expect(session.masterTone.reverbWet).toBe(0.3);
+    expect(session.driftConfig.enabled).toBe(false);
+    expect(session.driftConfig.pitchDepthPct).toBe(4);
+    expect(session.driftConfig.panSpread).toBe(0.8);
+    expect(session.driftConfig.gainDepthDb).toBe(5);
+    expect(session.driftConfig.speed).toBe('fast');
     expect(session.duplicateMinOffsetSec).toBe(12);
 
     session.resetMixSettingsDefaults();
@@ -456,7 +468,41 @@ describe('Session mix settings defaults', () => {
     expect(session.masterTone.bassDb).toBe(0);
     expect(session.masterTone.trebleDb).toBe(0);
     expect(session.masterTone.reverbWet).toBe(0);
+    expect(session.driftConfig.enabled).toBe(true);
+    expect(session.driftConfig.pitchDepthPct).toBe(3.5);
+    expect(session.driftConfig.panSpread).toBe(0.25);
+    expect(session.driftConfig.gainDepthDb).toBe(2.5);
+    expect(session.driftConfig.speed).toBe('normal');
     expect(session.duplicateMinOffsetSec).toBe(DUPLICATE_MIN_OFFSET_DEFAULT_SEC);
+  });
+
+  it('captures and applies driftConfig in scene snapshots and presets', () => {
+    const session = new Session();
+    session.setDriftConfig({
+      enabled: true,
+      pitchDepthPct: 5.5,
+      panSpread: 0.75,
+      gainDepthDb: 4.2,
+      speed: 'slow',
+    });
+
+    const snapshot = session.captureSceneSnapshot('Drift test');
+    expect(snapshot.master.drift).toBeDefined();
+    expect(snapshot.master.drift?.pitchDepthPct).toBe(5.5);
+    expect(snapshot.master.drift?.panSpread).toBe(0.75);
+    expect(snapshot.master.drift?.gainDepthDb).toBe(4.2);
+    expect(snapshot.master.drift?.speed).toBe('slow');
+
+    session.resetMixSettingsDefaults();
+    expect(session.driftConfig.pitchDepthPct).toBe(3.5);
+
+    // Apply snapshot data
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (session as any).applyPresetData(snapshot);
+    expect(session.driftConfig.pitchDepthPct).toBe(5.5);
+    expect(session.driftConfig.panSpread).toBe(0.75);
+    expect(session.driftConfig.gainDepthDb).toBe(4.2);
+    expect(session.driftConfig.speed).toBe('slow');
   });
 
   it('schedules single wakeup timeouts when timer is started', async () => {

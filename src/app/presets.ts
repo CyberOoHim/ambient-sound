@@ -61,6 +61,8 @@ export interface PresetMaster {
   trebleDb?: number;
   /** Master reverb wet 0…~0.55 (ENH-17). */
   reverbWet?: number;
+  /** Master organic drift configuration (ENH-Drift-Control). */
+  drift?: DriftConfig;
 }
 
 export interface PresetV1 {
@@ -91,9 +93,21 @@ export function masterToneFromPreset(master: PresetMaster): MasterToneParams {
   };
 }
 
+export function driftConfigFromPreset(master: PresetMaster): DriftConfig {
+  if (!master.drift) return defaultDriftConfig();
+  return {
+    enabled: master.drift.enabled !== false,
+    pitchDepthPct: clampDriftPitchPct(master.drift.pitchDepthPct),
+    panSpread: clampDriftPanSpread(master.drift.panSpread),
+    gainDepthDb: clampDriftGainDb(master.drift.gainDepthDb),
+    speed: clampDriftSpeed(master.drift.speed),
+  };
+}
+
 export function presetMasterFromSession(
   volumeLinear: number,
   tone: MasterToneParams,
+  drift?: DriftConfig,
 ): PresetMaster {
   const master: PresetMaster = {
     volumeLinear: clampLinear(volumeLinear),
@@ -106,6 +120,15 @@ export function presetMasterFromSession(
   }
   if (tone.reverbWet !== MASTER_REVERB_WET_DEFAULT) {
     master.reverbWet = clampReverbWet(tone.reverbWet);
+  }
+  if (drift) {
+    master.drift = {
+      enabled: drift.enabled,
+      pitchDepthPct: clampDriftPitchPct(drift.pitchDepthPct),
+      panSpread: clampDriftPanSpread(drift.panSpread),
+      gainDepthDb: clampDriftGainDb(drift.gainDepthDb),
+      speed: clampDriftSpeed(drift.speed),
+    };
   }
   return master;
 }
@@ -345,6 +368,16 @@ export function parsePreset(raw: unknown): PresetV1 | null {
   if (master.reverbWet != null && Number.isFinite(Number(master.reverbWet))) {
     parsedMaster.reverbWet = clampReverbWet(Number(master.reverbWet));
   }
+  if (master.drift && typeof master.drift === 'object') {
+    const d = master.drift as Record<string, unknown>;
+    parsedMaster.drift = {
+      enabled: d.enabled !== false,
+      pitchDepthPct: clampDriftPitchPct(Number(d.pitchDepthPct)),
+      panSpread: clampDriftPanSpread(Number(d.panSpread)),
+      gainDepthDb: clampDriftGainDb(Number(d.gainDepthDb)),
+      speed: clampDriftSpeed(d.speed),
+    };
+  }
 
   return {
     version: 1,
@@ -474,6 +507,7 @@ export interface SessionSnapshotInput {
   layers: MixerLayer[];
   masterVolumeLinear: number;
   masterTone?: MasterToneParams;
+  masterDrift?: DriftConfig;
   timerDefaults?: PresetTimerConfig | null;
   name?: string;
   id?: string;
@@ -490,7 +524,7 @@ export function snapshotFromSession(input: SessionSnapshotInput): PresetV1 {
     name: input.name ?? 'Session',
     createdAt: now,
     updatedAt: now,
-    master: presetMasterFromSession(input.masterVolumeLinear, tone),
+    master: presetMasterFromSession(input.masterVolumeLinear, tone, input.masterDrift),
     layers: input.layers.map((layer) => {
       if (layer.kind === 'noise') {
         return { kind: 'noise' as const, params: { ...layer.params } };
