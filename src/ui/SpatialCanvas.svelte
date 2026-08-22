@@ -2,13 +2,10 @@
   /**
    * 2D spatial sound canvas (ENH-14).
    * X = pan (−1..1), Y = volume (top quiet / far, bottom loud / near).
-   * Visualizes live real-time random pan wandering, applied gain/pitch readouts,
-   * base anchors, and 2D wander bounds.
+   * Displays static target placements and bounded drift areas without continuous animation loops.
    */
-  import { onDestroy, onMount } from 'svelte';
   import { session } from '../app/session';
-  import { powerSaver } from '../app/power-saver';
-  import type { LayerLiveDrift, MixerLayer } from '../audio/types';
+  import type { MixerLayer } from '../audio/types';
   import {
     PAN_DRIFT_MAX_OFFSET,
     GAIN_DRIFT_MIN_MULT,
@@ -22,16 +19,12 @@
     onToggle?: () => void;
   }
 
-  let { layers, playing = false, open = true, onToggle }: Props = $props();
+  let { layers, open = true, onToggle }: Props = $props();
 
   let coupleFilter = $state(true);
   let showDriftZones = $state(true);
   let draggingId: string | null = $state(null);
   let surface: HTMLDivElement | undefined = $state();
-  let liveStates = $state<Record<string, LayerLiveDrift>>({});
-  let liveTimer: ReturnType<typeof setTimeout> | null = null;
-  let unsubSession: (() => void) | undefined;
-  let unsubPowerSaver: (() => void) | undefined;
 
   function labelFor(layer: MixerLayer): string {
     if (layer.kind === 'noise') {
@@ -253,107 +246,6 @@
     }
   }
 
-  function isLiveActive(): boolean {
-    const isPlaying = playing || session.playing;
-    return (
-      open &&
-      isPlaying &&
-      layers.length > 0 &&
-      typeof document !== 'undefined' &&
-      document.visibilityState !== 'hidden'
-    );
-  }
-
-  function updateLive() {
-    if (!isLiveActive()) {
-      stopLiveLoop();
-      liveStates = {};
-      return;
-    }
-    const updated: Record<string, LayerLiveDrift> = {};
-    for (const layer of layers) {
-      const d = session.getLayerLiveDrift(layer.params.id);
-      if (d) updated[layer.params.id] = d;
-    }
-    liveStates = updated;
-
-    const eco = powerSaver.isPowerSaverActive();
-    // Low-frequency refresh: ~1fps in Eco mode (1000ms), ~2fps in normal mode (500ms)
-    const intervalMs = eco ? 1000 : 500;
-    liveTimer = setTimeout(updateLive, intervalMs);
-  }
-
-  function ensureLiveLoop() {
-    if (liveTimer == null && isLiveActive()) {
-      updateLive();
-    }
-  }
-
-  function stopLiveLoop() {
-    if (liveTimer != null) {
-      clearTimeout(liveTimer);
-      liveTimer = null;
-    }
-  }
-
-  $effect(() => {
-    if (isLiveActive()) {
-      ensureLiveLoop();
-    } else {
-      stopLiveLoop();
-      liveStates = {};
-    }
-  });
-
-  onMount(() => {
-    const onVis = () => {
-      if (!isLiveActive()) {
-        stopLiveLoop();
-        liveStates = {};
-      } else {
-        ensureLiveLoop();
-      }
-    };
-    document.addEventListener('visibilitychange', onVis);
-
-    unsubSession = session.subscribe(() => {
-      if (!isLiveActive()) {
-        stopLiveLoop();
-        liveStates = {};
-      } else {
-        ensureLiveLoop();
-      }
-    });
-
-    unsubPowerSaver = powerSaver.subscribe(() => {
-      if (!isLiveActive()) {
-        stopLiveLoop();
-        liveStates = {};
-      }
-    });
-
-    if (isLiveActive()) {
-      ensureLiveLoop();
-    } else {
-      stopLiveLoop();
-      liveStates = {};
-    }
-
-    return () => {
-      document.removeEventListener('visibilitychange', onVis);
-      unsubSession?.();
-      unsubPowerSaver?.();
-      stopLiveLoop();
-      liveStates = {};
-    };
-  });
-
-  onDestroy(() => {
-    unsubSession?.();
-    unsubPowerSaver?.();
-    stopLiveLoop();
-    liveStates = {};
-  });
 </script>
 
 <section class="panel spatial" class:collapsed={!open}>
@@ -436,43 +328,23 @@
 
           {#each layers as layer (layer.params.id)}
             {@const isYt = isYoutubeLayer(layer)}
-            {@const live = liveStates[layer.params.id]}
-            {@const isPlaying = playing || session.playing}
-            {@const isDrifting = isPlaying && draggingId !== layer.params.id}
-            {@const currentPan = isDrifting ? (live?.livePan ?? (isYt ? 0 : layer.params.pan)) : (isYt ? 0 : layer.params.pan)}
-            {@const currentVol = isDrifting ? (live?.liveVol ?? layer.params.volumeLinear) : layer.params.volumeLinear}
-            {@const panDelta = isDrifting ? (live?.panDelta ?? 0) : 0}
-            {@const gainDelta = isDrifting ? (live?.gainDbDelta ?? 0) : 0}
-            {@const pitchDelta = isDrifting ? (live?.pitchPercentDelta ?? 0) : 0}
-            {@const hasOffset = Math.abs(panDelta) >= 0.02 || Math.abs(gainDelta) >= 0.2}
-
-            <!-- Base anchor marker when sound is drifting away from set point -->
-            {#if isDrifting && hasOffset && !layer.params.muted}
-              <div
-                class="base-anchor"
-                style="left: {panToX(isYt ? 0 : layer.params.pan)}%; top: {volToY(layer.params.volumeLinear)}%;"
-                title={`Set anchor: pan ${layer.params.pan.toFixed(2)}, vol ${Math.round(layer.params.volumeLinear * 100)}%`}
-                aria-hidden="true"
-              >
-                <div class="anchor-dot"></div>
-              </div>
-            {/if}
+            {@const targetPan = isYt ? 0 : layer.params.pan}
+            {@const targetVol = layer.params.volumeLinear}
 
             <div
               class="marker"
               class:muted={layer.params.muted}
               class:dragging={draggingId === layer.params.id}
               class:vertical-only={isYt}
-              class:drifting={isDrifting && (layer.params.driftPan || layer.params.driftGain)}
-              style="left: {panToX(currentPan)}%; top: {volToY(currentVol)}%"
+              style="left: {panToX(targetPan)}%; top: {volToY(targetVol)}%"
               tabindex="0"
               role="button"
               title={isYt
-                ? `${labelFor(layer)} · volume ${Math.round(currentVol * 100)}% (${gainDelta >= 0 ? '+' : ''}${gainDelta.toFixed(1)} dB) · vertical move only`
-                : `${labelFor(layer)} · pan ${currentPan.toFixed(2)} (${panDelta >= 0 ? '+' : ''}${panDelta.toFixed(2)}) · vol ${Math.round(currentVol * 100)}% (${gainDelta >= 0 ? '+' : ''}${gainDelta.toFixed(1)} dB) · pitch ${pitchDelta >= 0 ? '+' : ''}${pitchDelta.toFixed(1)}%`}
+                ? `${labelFor(layer)} · volume ${Math.round(targetVol * 100)}% · vertical move only`
+                : `${labelFor(layer)} · pan ${targetPan.toFixed(2)} · vol ${Math.round(targetVol * 100)}%`}
               aria-label={isYt
-                ? `${labelFor(layer)}, volume ${Math.round(currentVol * 100)}%, gain applied ${gainDelta >= 0 ? '+' : ''}${gainDelta.toFixed(1)} dB`
-                : `${labelFor(layer)}, pan ${currentPan.toFixed(2)}, volume ${Math.round(currentVol * 100)}%, pitch applied ${pitchDelta >= 0 ? '+' : ''}${pitchDelta.toFixed(1)}%, gain applied ${gainDelta >= 0 ? '+' : ''}${gainDelta.toFixed(1)} dB`}
+                ? `${labelFor(layer)}, volume ${Math.round(targetVol * 100)}%`
+                : `${labelFor(layer)}, pan ${targetPan.toFixed(2)}, volume ${Math.round(targetVol * 100)}%`}
               onpointerdown={(e) => onPointerDown(e, layer.params.id)}
               onpointermove={onPointerMove}
               onpointerup={onPointerUp}
@@ -484,14 +356,14 @@
                 <span class="lab">{labelFor(layer)}</span>
               </div>
 
-              <div class="drift-chips" role="group" aria-label="Random variation status and live deltas">
+              <div class="drift-chips" role="group" aria-label="Random variation status">
                 {#if supportsPan(layer)}
                   <button
                     type="button"
                     class="drift-chip"
                     class:on={layer.params.driftPan}
                     title={layer.params.driftPan
-                      ? `Pan drift: applied Δ ${panDelta >= 0 ? '+' : ''}${panDelta.toFixed(2)} (click to disable)`
+                      ? 'Pan drift: enabled (click to disable)'
                       : 'Enable stereo pan drift (±0.25 wandering)'}
                     aria-label="Toggle pan drift"
                     aria-pressed={layer.params.driftPan}
@@ -502,7 +374,7 @@
                     }}
                   >
                     {#if layer.params.driftPan}
-                      ↔ {panDelta >= 0 ? '+' : ''}{panDelta.toFixed(2)}
+                      ↔ on
                     {:else}
                       ↔ off
                     {/if}
@@ -514,7 +386,7 @@
                   class="drift-chip"
                   class:on={layer.params.driftGain}
                   title={layer.params.driftGain
-                    ? `Gain drift: applied Δ ${gainDelta >= 0 ? '+' : ''}${gainDelta.toFixed(1)} dB (click to disable)`
+                    ? 'Gain drift: enabled (click to disable)'
                     : 'Enable volume gain drift (volume breathing)'}
                   aria-label="Toggle gain drift"
                   aria-pressed={layer.params.driftGain}
@@ -525,7 +397,7 @@
                   }}
                 >
                   {#if layer.params.driftGain}
-                    🔊 {gainDelta >= 0 ? '+' : ''}{gainDelta.toFixed(1)}dB
+                    🔊 on
                   {:else}
                     🔊 off
                   {/if}
@@ -537,7 +409,7 @@
                     class="drift-chip"
                     class:on={layer.params.driftPitch}
                     title={layer.params.driftPitch
-                      ? `Pitch drift: applied Δ ${pitchDelta >= 0 ? '+' : ''}${pitchDelta.toFixed(1)}% (click to disable)`
+                      ? 'Pitch drift: enabled (click to disable)'
                       : 'Enable pitch drift (±3.5% random micro-pitch variation)'}
                     aria-label="Toggle pitch drift"
                     aria-pressed={layer.params.driftPitch}
@@ -548,7 +420,7 @@
                     }}
                   >
                     {#if layer.params.driftPitch}
-                      🎵 {pitchDelta >= 0 ? '+' : ''}{pitchDelta.toFixed(1)}%
+                      🎵 on
                     {:else}
                       🎵 off
                     {/if}
@@ -738,22 +610,6 @@
     bottom: 12%;
     left: 50%;
     width: 1px;
-  }
-
-  .base-anchor {
-    position: absolute;
-    transform: translate(-50%, -50%);
-    pointer-events: none;
-    z-index: 1;
-  }
-
-  .anchor-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: color-mix(in srgb, var(--muted) 40%, transparent);
-    border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
-    box-shadow: 0 0 4px var(--accent-glow);
   }
 
   .drift-zone {
