@@ -29,8 +29,7 @@
   let draggingId: string | null = $state(null);
   let surface: HTMLDivElement | undefined = $state();
   let liveStates = $state<Record<string, LayerLiveDrift>>({});
-  let liveRaf = 0;
-  let lastLiveTime = 0;
+  let liveTimer: ReturnType<typeof setTimeout> | null = null;
   let unsubSession: (() => void) | undefined;
   let unsubPowerSaver: (() => void) | undefined;
 
@@ -265,36 +264,35 @@
     );
   }
 
-  function updateLive(now: DOMHighResTimeStamp) {
+  function updateLive() {
     if (!isLiveActive()) {
       stopLiveLoop();
       liveStates = {};
       return;
     }
-    const eco = powerSaver.isPowerSaverActive();
-    const throttleMs = eco ? 66 : 33;
-    if (now - lastLiveTime >= throttleMs) {
-      lastLiveTime = now;
-      const updated: Record<string, LayerLiveDrift> = {};
-      for (const layer of layers) {
-        const d = session.getLayerLiveDrift(layer.params.id);
-        if (d) updated[layer.params.id] = d;
-      }
-      liveStates = updated;
+    const updated: Record<string, LayerLiveDrift> = {};
+    for (const layer of layers) {
+      const d = session.getLayerLiveDrift(layer.params.id);
+      if (d) updated[layer.params.id] = d;
     }
-    liveRaf = requestAnimationFrame(updateLive);
+    liveStates = updated;
+
+    const eco = powerSaver.isPowerSaverActive();
+    // Low-frequency refresh: ~1fps in Eco mode (1000ms), ~2fps in normal mode (500ms)
+    const intervalMs = eco ? 1000 : 500;
+    liveTimer = setTimeout(updateLive, intervalMs);
   }
 
   function ensureLiveLoop() {
-    if (liveRaf === 0 && isLiveActive()) {
-      liveRaf = requestAnimationFrame(updateLive);
+    if (liveTimer == null && isLiveActive()) {
+      updateLive();
     }
   }
 
   function stopLiveLoop() {
-    if (liveRaf !== 0) {
-      cancelAnimationFrame(liveRaf);
-      liveRaf = 0;
+    if (liveTimer != null) {
+      clearTimeout(liveTimer);
+      liveTimer = null;
     }
   }
 
