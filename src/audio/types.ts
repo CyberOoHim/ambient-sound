@@ -154,11 +154,11 @@ export function clampDriftSpeed(speed: unknown): DriftSpeed {
   return 'normal';
 }
 
-export function defaultLayerDrift(isSample = false): LayerDriftParams {
+export function defaultLayerDrift(_isSample = false): LayerDriftParams {
   return {
-    driftPitch: isSample,
-    driftPan: true,
-    driftGain: true,
+    driftPitch: false,
+    driftPan: false,
+    driftGain: false,
   };
 }
 
@@ -339,9 +339,9 @@ export function createDefaultSampleLayer(
     panLfoEnabled: opts?.panLfoEnabled ?? false,
     panLfoRateHz: opts?.panLfoRateHz ?? PAN_LFO_RATE_DEFAULT_HZ,
     panLfoDepth: opts?.panLfoDepth ?? PAN_LFO_DEPTH_DEFAULT,
-    driftPitch: opts?.driftPitch ?? true,
-    driftPan: opts?.driftPan ?? true,
-    driftGain: opts?.driftGain ?? true,
+    driftPitch: opts?.driftPitch ?? false,
+    driftPan: opts?.driftPan ?? false,
+    driftGain: opts?.driftGain ?? false,
   };
 }
 
@@ -370,9 +370,9 @@ export function createDefaultYoutubeLayer(
     pan: opts?.pan ?? 0,
     ...defaultLayerFilters(),
     ...defaultPanLfo(),
-    driftPitch: false,
-    driftPan: false,
-    driftGain: opts?.driftGain ?? true,
+    driftPitch: opts?.driftPitch ?? false,
+    driftPan: opts?.driftPan ?? false,
+    driftGain: opts?.driftGain ?? false,
   };
 }
 
@@ -410,8 +410,8 @@ export function createDefaultPlaylistLayer(
     ...defaultLayerFilters(),
     ...defaultPanLfo(),
     driftPitch: opts?.driftPitch ?? false,
-    driftPan: opts?.driftPan ?? true,
-    driftGain: opts?.driftGain ?? true,
+    driftPan: opts?.driftPan ?? false,
+    driftGain: opts?.driftGain ?? false,
   };
 }
 

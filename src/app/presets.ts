@@ -172,8 +172,8 @@ function parseNoiseParams(raw: unknown, fallbackId: string): NoiseLayerParams | 
         ? clampPanLfoDepth(Number(o.panLfoDepth))
         : PAN_LFO_DEPTH_DEFAULT,
     driftPitch: false,
-    driftPan: o.driftPan !== undefined ? Boolean(o.driftPan) : true,
-    driftGain: o.driftGain !== undefined ? Boolean(o.driftGain) : true,
+    driftPan: o.driftPan !== undefined ? Boolean(o.driftPan) : false,
+    driftGain: o.driftGain !== undefined ? Boolean(o.driftGain) : false,
   };
 }
 
@@ -213,9 +213,9 @@ function parseSampleParams(
       o.panLfoDepth != null
         ? clampPanLfoDepth(Number(o.panLfoDepth))
         : PAN_LFO_DEPTH_DEFAULT,
-    driftPitch: o.driftPitch !== undefined ? Boolean(o.driftPitch) : true,
-    driftPan: o.driftPan !== undefined ? Boolean(o.driftPan) : true,
-    driftGain: o.driftGain !== undefined ? Boolean(o.driftGain) : true,
+    driftPitch: o.driftPitch !== undefined ? Boolean(o.driftPitch) : false,
+    driftPan: o.driftPan !== undefined ? Boolean(o.driftPan) : false,
+    driftGain: o.driftGain !== undefined ? Boolean(o.driftGain) : false,
   };
 }
 
@@ -258,7 +258,7 @@ function parseYoutubeParams(
         : PAN_LFO_DEPTH_DEFAULT,
     driftPitch: false,
     driftPan: false,
-    driftGain: o.driftGain !== undefined ? Boolean(o.driftGain) : true,
+    driftGain: o.driftGain !== undefined ? Boolean(o.driftGain) : false,
   };
 }
 
@@ -299,8 +299,8 @@ function parsePlaylistParams(
         ? clampPanLfoDepth(Number(o.panLfoDepth))
         : PAN_LFO_DEPTH_DEFAULT,
     driftPitch: o.driftPitch !== undefined ? Boolean(o.driftPitch) : false,
-    driftPan: o.driftPan !== undefined ? Boolean(o.driftPan) : true,
-    driftGain: o.driftGain !== undefined ? Boolean(o.driftGain) : true,
+    driftPan: o.driftPan !== undefined ? Boolean(o.driftPan) : false,
+    driftGain: o.driftGain !== undefined ? Boolean(o.driftGain) : false,
   };
 }
 

@@ -208,6 +208,40 @@ describe('presets', () => {
     expect(good.master.volumeLinear).toBe(1);
     expect(good.timer?.fadeSec).toBe(30);
   });
+
+  it('defaults layer drift toggles (pitch, pan, gain) to false when omitted', () => {
+    const parsed = parsePreset({
+      version: 1,
+      id: 'drift-test',
+      name: 'Drift Test',
+      master: { volumeLinear: 0.8 },
+      layers: [
+        {
+          kind: 'sample',
+          params: { id: 's1', assetId: 'fire_camp' },
+        },
+        {
+          kind: 'noise',
+          params: { id: 'n1', type: 'pink' },
+        },
+        {
+          kind: 'youtube',
+          params: { id: 'y1', videoId: 'abc' },
+        },
+        {
+          kind: 'playlist',
+          params: { id: 'p1', playlistId: 'pl1' },
+        },
+      ],
+    });
+
+    expect(parsed).not.toBeNull();
+    for (const layer of parsed!.layers) {
+      expect(layer.params.driftPitch).toBe(false);
+      expect(layer.params.driftPan).toBe(false);
+      expect(layer.params.driftGain).toBe(false);
+    }
+  });
 });
 
 describe('duplicate min offset preference', () => {

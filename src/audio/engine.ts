@@ -781,8 +781,8 @@ export class AudioEngine {
       basePan: params.pan,
       driftParams: {
         driftPitch: false,
-        driftPan: params.driftPan ?? true,
-        driftGain: params.driftGain ?? true,
+        driftPan: params.driftPan ?? false,
+        driftGain: params.driftGain ?? false,
       },
       driftTimer: null,
     };
@@ -800,8 +800,8 @@ export class AudioEngine {
     nodes.basePan = params.pan;
     nodes.driftParams = {
       driftPitch: false,
-      driftPan: params.driftPan ?? true,
-      driftGain: params.driftGain ?? true,
+      driftPan: params.driftPan ?? false,
+      driftGain: params.driftGain ?? false,
     };
 
     nodes.worklet.port.postMessage({
@@ -900,9 +900,9 @@ export class AudioEngine {
         basePan: params.pan,
         basePlaybackRate: params.playbackRate,
         driftParams: {
-          driftPitch: params.driftPitch ?? true,
-          driftPan: params.driftPan ?? true,
-          driftGain: params.driftGain ?? true,
+          driftPitch: params.driftPitch ?? false,
+          driftPan: params.driftPan ?? false,
+          driftGain: params.driftGain ?? false,
         },
         driftTimer: null,
       };
@@ -973,9 +973,9 @@ export class AudioEngine {
     nodes.basePan = params.pan;
     nodes.basePlaybackRate = params.playbackRate;
     nodes.driftParams = {
-      driftPitch: params.driftPitch ?? true,
-      driftPan: params.driftPan ?? true,
-      driftGain: params.driftGain ?? true,
+      driftPitch: params.driftPitch ?? false,
+      driftPan: params.driftPan ?? false,
+      driftGain: params.driftGain ?? false,
     };
     if (!nodes.driftParams.driftGain) {
       nodes.volume.gain.setTargetAtTime(clampLinear(params.volumeLinear), t, 0.015);
@@ -1036,7 +1036,7 @@ export class AudioEngine {
         panLfoDepth: params.panLfoDepth,
         driftPitch: false,
         driftPan: false,
-        driftGain: params.driftGain ?? true,
+        driftGain: params.driftGain ?? false,
       }, opts);
 
       if (onTrackEnded) {
@@ -1075,8 +1075,8 @@ export class AudioEngine {
           panLfoRateHz: params.panLfoRateHz,
           panLfoDepth: params.panLfoDepth,
           driftPitch: params.driftPitch ?? false,
-          driftPan: params.driftPan ?? true,
-          driftGain: params.driftGain ?? true,
+          driftPan: params.driftPan ?? false,
+          driftGain: params.driftGain ?? false,
         });
 
         if (this.cancelledLoads.has(params.id)) return;
@@ -1140,8 +1140,8 @@ export class AudioEngine {
           basePlaybackRate: 1,
           driftParams: {
             driftPitch: params.driftPitch ?? false,
-            driftPan: params.driftPan ?? true,
-            driftGain: params.driftGain ?? true,
+            driftPan: params.driftPan ?? false,
+            driftGain: params.driftGain ?? false,
           },
           driftTimer: null,
         };
@@ -1186,8 +1186,8 @@ export class AudioEngine {
     nodes.basePan = params.pan;
     nodes.driftParams = {
       driftPitch: params.driftPitch ?? false,
-      driftPan: params.driftPan ?? true,
-      driftGain: params.driftGain ?? true,
+      driftPan: params.driftPan ?? false,
+      driftGain: params.driftGain ?? false,
     };
     if (!nodes.driftParams.driftGain) {
       nodes.volume.gain.setTargetAtTime(

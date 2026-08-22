@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  createDefaultNoiseLayer,
+  createDefaultPlaylistLayer,
+  createDefaultSampleLayer,
+  createDefaultYoutubeLayer,
+  defaultLayerDrift,
   getMaxYoutubeLayers,
   isIosDevice,
   MAX_SAME_LAYERS,
@@ -40,5 +45,53 @@ describe('Layer Constants & iOS Cap', () => {
       'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15';
     expect(isIosDevice(ipadosDesktopUa, 'MacIntel', 5)).toBe(true);
     expect(getMaxYoutubeLayers(ipadosDesktopUa, 'MacIntel', 5)).toBe(MAX_YOUTUBE_LAYERS_IOS);
+  });
+});
+
+describe('Layer Drift Defaults', () => {
+  it('defaults defaultLayerDrift to all false', () => {
+    const drift = defaultLayerDrift();
+    expect(drift.driftPitch).toBe(false);
+    expect(drift.driftPan).toBe(false);
+    expect(drift.driftGain).toBe(false);
+
+    const sampleDrift = defaultLayerDrift(true);
+    expect(sampleDrift.driftPitch).toBe(false);
+    expect(sampleDrift.driftPan).toBe(false);
+    expect(sampleDrift.driftGain).toBe(false);
+  });
+
+  it('defaults noise layers drift toggles to all off', () => {
+    const layer = createDefaultNoiseLayer('n1', 'white');
+    expect(layer.driftPitch).toBe(false);
+    expect(layer.driftPan).toBe(false);
+    expect(layer.driftGain).toBe(false);
+  });
+
+  it('defaults sample layers drift toggles to all off', () => {
+    const layer = createDefaultSampleLayer('s1', 'rain', 'Rain');
+    expect(layer.driftPitch).toBe(false);
+    expect(layer.driftPan).toBe(false);
+    expect(layer.driftGain).toBe(false);
+  });
+
+  it('defaults YouTube layers drift toggles to all off', () => {
+    const layer = createDefaultYoutubeLayer(
+      'y1',
+      'vid123',
+      'https://youtube.com/watch?v=vid123',
+      'Stream',
+      'https://img.youtube.com/vi/vid123/default.jpg',
+    );
+    expect(layer.driftPitch).toBe(false);
+    expect(layer.driftPan).toBe(false);
+    expect(layer.driftGain).toBe(false);
+  });
+
+  it('defaults playlist layers drift toggles to all off', () => {
+    const layer = createDefaultPlaylistLayer('p1', 'pl123', 'My Playlist');
+    expect(layer.driftPitch).toBe(false);
+    expect(layer.driftPan).toBe(false);
+    expect(layer.driftGain).toBe(false);
   });
 });
