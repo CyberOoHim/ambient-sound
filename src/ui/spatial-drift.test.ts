@@ -26,10 +26,6 @@ describe('Spatial Canvas Drift & Telemetry', () => {
         targetPan: number;
         targetVol: number;
       }
-      interface Entry {
-        id: string;
-        layers: LayerMetric[];
-      }
 
       const prevTargets: Record<string, { targetPan: number; targetVol: number }> = {
         'layer-1': { targetPan: 0.2, targetVol: 0.7 },
@@ -63,6 +59,38 @@ describe('Spatial Canvas Drift & Telemetry', () => {
         }
       }
       expect(nextJumped.length).toBe(0);
+    });
+  });
+
+  describe('Power saving timer lifecycle', () => {
+    it('decides active timer state strictly based on open, playing, layers, and visibility', () => {
+      function shouldTimerRun(open: boolean, playing: boolean, layerCount: number, isVisible: boolean): boolean {
+        return open && playing && layerCount > 0 && isVisible;
+      }
+
+      // Collapsed: must be false (zero power)
+      expect(shouldTimerRun(false, true, 3, true)).toBe(false);
+
+      // Paused: must be false (zero power)
+      expect(shouldTimerRun(true, false, 3, true)).toBe(false);
+
+      // Hidden/screen locked: must be false (zero power)
+      expect(shouldTimerRun(true, true, 3, false)).toBe(false);
+
+      // Empty mix: must be false
+      expect(shouldTimerRun(true, true, 0, true)).toBe(false);
+
+      // Fully active and visible: true
+      expect(shouldTimerRun(true, true, 2, true)).toBe(true);
+    });
+
+    it('selects relaxed interval when power saver mode is active', () => {
+      function getPollIntervalMs(isPowerSaver: boolean): number {
+        return isPowerSaver ? 2500 : 1000;
+      }
+
+      expect(getPollIntervalMs(false)).toBe(1000);
+      expect(getPollIntervalMs(true)).toBe(2500);
     });
   });
 

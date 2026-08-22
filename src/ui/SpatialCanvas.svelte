@@ -3,9 +3,11 @@
    * 2D spatial sound canvas (ENH-14).
    * X = pan (−1..1), Y = volume (top quiet / far, bottom loud / near).
    * Displays target placements, bounded drift areas, and rolling history telemetry.
+   * Fully power-optimized: zero timers and zero CPU wakes when collapsed or hidden.
    */
-  import { onDestroy, onMount } from 'svelte';
+  import { onDestroy, onMount, untrack } from 'svelte';
   import { session } from '../app/session';
+  import { powerSaver } from '../app/power-saver';
   import type { MixerLayer } from '../audio/types';
   import {
     PAN_DRIFT_MAX_OFFSET,
@@ -53,6 +55,9 @@
   let historyLog = $state<DriftHistoryEntry[]>([]);
   let currentPositions = $state<Record<string, { pan: number; vol: number }>>({});
   let pollTimer: ReturnType<typeof setInterval> | null = null;
+  let currentIntervalMs = 0;
+  let isVisible = $state(typeof document !== 'undefined' ? document.visibilityState === 'visible' : true);
+  let unsubPowerSaver: (() => void) | null = null;
 
   function labelFor(layer: MixerLayer): string {
     if (layer.kind === 'noise') {
@@ -200,16 +205,75 @@
 
   let prevTargets: Record<string, { targetPan: number; targetVol: number; targetRate: number }> = {};
 
-  function recordDriftSnapshot() {
-    if (!open || !playing || layers.length === 0) {
+  function stopPollTimer() {
+    if (pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+      currentIntervalMs = 0;
+    }
+  }
+
+  function updateTimerState() {
+    const shouldRun = open && playing && layers.length > 0 && isVisible;
+    if (!shouldRun) {
+      stopPollTimer();
       prevTargets = {};
       return;
     }
+
+    const intervalMs = powerSaver.isPowerSaverActive() ? 2500 : 1000;
+    if (pollTimer && currentIntervalMs === intervalMs) {
+      return;
+    }
+
+    stopPollTimer();
+    currentIntervalMs = intervalMs;
+    pollTimer = setInterval(recordDriftSnapshot, intervalMs);
+    // Instant sync on start
+    recordDriftSnapshot();
+  }
+
+  function recordDriftSnapshot() {
+    if (!open || !playing || layers.length === 0 || !isVisible) {
+      stopPollTimer();
+      prevTargets = {};
+      return;
+    }
+
+    let anyJumped = false;
+    // Fast-path: check if any layer jumped before performing allocations
+    for (const layer of layers) {
+      const isYt = isYoutubeLayer(layer);
+      const d = session.getLayerLiveDrift(layer.params.id);
+      const targetPan = isYt ? 0 : (d ? d.targetPan : layer.params.pan);
+      const targetVol = d ? d.targetVol : layer.params.volumeLinear;
+      const targetRate = d
+        ? d.targetRate
+        : 'playbackRate' in layer.params
+          ? (layer.params.playbackRate ?? 1)
+          : 1;
+
+      const prev = prevTargets[layer.params.id];
+      if (
+        !prev ||
+        Math.abs(targetPan - prev.targetPan) > 0.002 ||
+        Math.abs(targetVol - prev.targetVol) > 0.002 ||
+        Math.abs(targetRate - prev.targetRate) > 0.002
+      ) {
+        anyJumped = true;
+        break;
+      }
+    }
+
+    if (!anyJumped) {
+      // 0 DOM updates, 0 array allocations during steady state
+      return;
+    }
+
     const now = new Date();
     const timeStr = now.toTimeString().slice(0, 8);
     const jumpedMetrics: LayerDriftMetric[] = [];
     const nextPositions: Record<string, { pan: number; vol: number }> = {};
-    let anyJumped = false;
 
     // Clean up removed layers
     const currentLayerIds = new Set(layers.map((l) => l.params.id));
@@ -245,7 +309,6 @@
       prevTargets[layer.params.id] = { targetPan, targetVol, targetRate };
 
       if (hasJumped) {
-        anyJumped = true;
         const hasDrift = d && (d.driftPanActive || d.driftGainActive || d.driftPitchActive);
         const hasDeltas =
           Math.abs(d ? d.panDelta : 0) > 0.002 ||
@@ -270,9 +333,7 @@
       }
     }
 
-    if (anyJumped) {
-      currentPositions = nextPositions;
-    }
+    currentPositions = nextPositions;
 
     if (jumpedMetrics.length > 0) {
       const newEntry: DriftHistoryEntry = {
@@ -284,17 +345,52 @@
     }
   }
 
+  $effect(() => {
+    const _open = open;
+    const _playing = playing;
+    const _layerCount = layers.length;
+
+    untrack(() => {
+      updateTimerState();
+    });
+
+    return () => {
+      untrack(() => {
+        stopPollTimer();
+      });
+    };
+  });
+
   onMount(() => {
-    pollTimer = setInterval(() => {
-      recordDriftSnapshot();
-    }, 400);
+    const onVisChange = () => {
+      isVisible = typeof document !== 'undefined' ? document.visibilityState === 'visible' : true;
+      updateTimerState();
+    };
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', onVisChange);
+    }
+
+    unsubPowerSaver = powerSaver.subscribe(() => {
+      updateTimerState();
+    });
+
+    updateTimerState();
+
+    return () => {
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', onVisChange);
+      }
+      unsubPowerSaver?.();
+      unsubPowerSaver = null;
+      stopPollTimer();
+    };
   });
 
   onDestroy(() => {
-    if (pollTimer) {
-      clearInterval(pollTimer);
-      pollTimer = null;
-    }
+    stopPollTimer();
+    unsubPowerSaver?.();
+    unsubPowerSaver = null;
   });
 
   function onPointerDown(e: PointerEvent, id: string) {
@@ -512,7 +608,7 @@
           {#if historyLog.length === 0}
             <div class="log-empty">
               {#if playing}
-                Capturing drift telemetry…
+                Waiting for sound drift jumps…
               {:else}
                 Start playback to record real-time drift telemetry (depth: {MAX_HISTORY_DEPTH}).
               {/if}
@@ -775,7 +871,7 @@
 
   .drift-zone {
     position: absolute;
-    transform: translate(-50%, -50%);
+    transform: translate3d(-50%, -50%, 0);
     border-radius: var(--radius);
     border: 1px dashed color-mix(in srgb, var(--accent) 30%, transparent);
     background: radial-gradient(
@@ -794,7 +890,7 @@
 
   .marker {
     position: absolute;
-    transform: translate(-50%, -50%);
+    transform: translate3d(-50%, -50%, 0);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -810,6 +906,7 @@
     z-index: 2;
     touch-action: none;
     user-select: none;
+    contain: layout paint;
     transition: box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
   }
 
@@ -1043,5 +1140,19 @@
   .val-center,
   .val-na {
     color: var(--muted-soft);
+  }
+
+  /* --- Power Saver Overrides --- */
+  :global([data-power-saver="true"]) .pulse-indicator.recording {
+    box-shadow: none;
+  }
+
+  :global([data-power-saver="true"]) .drift-zone {
+    background: transparent;
+    transition: none;
+  }
+
+  :global([data-power-saver="true"]) .surface {
+    background: var(--bg);
   }
 </style>
