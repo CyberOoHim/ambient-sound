@@ -4,6 +4,7 @@
    * X = pan (−1..1), Y = volume (top quiet / far, bottom loud / near).
    * Displays target placements, bounded drift areas, and rolling history telemetry.
    */
+  import { onDestroy, onMount } from 'svelte';
   import { session } from '../app/session';
   import type { MixerLayer } from '../audio/types';
   import {
@@ -46,10 +47,11 @@
   let coupleFilter = $state(true);
   let showDriftZones = $state(true);
   let draggingId: string | null = $state(null);
+  let dragCoords = $state<{ pan: number; vol: number } | null>(null);
   let surface: HTMLDivElement | undefined = $state();
 
-  let liveTargets = $state<Record<string, { pan: number; vol: number }>>({});
   let historyLog = $state<DriftHistoryEntry[]>([]);
+  let tick = $state(0);
   let pollTimer: ReturnType<typeof setInterval> | null = null;
 
   function labelFor(layer: MixerLayer): string {
@@ -196,57 +198,41 @@
     };
   }
 
-  function syncTargetsAndRecord(shouldRecordHistory = false) {
-    const nextTargets: Record<string, { pan: number; vol: number }> = {};
-    const metrics: LayerDriftMetric[] = [];
+  function recordDriftSnapshot() {
+    if (!open || !playing || layers.length === 0) return;
+    tick += 1;
     const now = new Date();
     const timeStr = now.toTimeString().slice(0, 8);
+    const metrics: LayerDriftMetric[] = [];
 
     for (const layer of layers) {
-      if (draggingId === layer.params.id) {
-        continue;
-      }
       const isYt = isYoutubeLayer(layer);
       const supPitch = supportsPitch(layer);
-      const d = playing ? session.getLayerLiveDrift(layer.params.id) : null;
+      const d = session.getLayerLiveDrift(layer.params.id);
 
       const pan = isYt ? 0 : (d ? d.targetPan : layer.params.pan);
       const vol = d ? d.targetVol : layer.params.volumeLinear;
 
-      nextTargets[layer.params.id] = { pan, vol };
-
-      if (shouldRecordHistory && playing) {
-        metrics.push({
-          id: layer.params.id,
-          label: labelFor(layer),
-          icon: iconFor(layer),
-          isYoutube: isYt,
-          supportsPitch: supPitch,
-          panDelta: d ? d.panDelta : 0,
-          gainDbDelta: d ? d.gainDbDelta : 0,
-          pitchPercentDelta: d ? d.pitchPercentDelta : 0,
-          targetPan: pan,
-          targetVol: vol,
-          targetRate: d
-            ? d.targetRate
-            : 'playbackRate' in layer.params
-              ? (layer.params.playbackRate ?? 1)
-              : 1,
-        });
-      }
+      metrics.push({
+        id: layer.params.id,
+        label: labelFor(layer),
+        icon: iconFor(layer),
+        isYoutube: isYt,
+        supportsPitch: supPitch,
+        panDelta: d ? d.panDelta : 0,
+        gainDbDelta: d ? d.gainDbDelta : 0,
+        pitchPercentDelta: d ? d.pitchPercentDelta : 0,
+        targetPan: pan,
+        targetVol: vol,
+        targetRate: d
+          ? d.targetRate
+          : 'playbackRate' in layer.params
+            ? (layer.params.playbackRate ?? 1)
+            : 1,
+      });
     }
 
-    // Preserve dragging target if active
-    if (draggingId) {
-      const activeDrag = liveTargets[draggingId];
-      if (activeDrag) {
-        nextTargets[draggingId] = activeDrag;
-      }
-    }
-
-    liveTargets = nextTargets;
-
-    if (shouldRecordHistory && playing && metrics.length > 0) {
+    if (metrics.length > 0) {
       const newEntry: DriftHistoryEntry = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         timestamp: timeStr,
@@ -256,27 +242,17 @@
     }
   }
 
-  $effect(() => {
+  onMount(() => {
+    pollTimer = setInterval(() => {
+      recordDriftSnapshot();
+    }, 1000);
+  });
+
+  onDestroy(() => {
     if (pollTimer) {
       clearInterval(pollTimer);
       pollTimer = null;
     }
-
-    syncTargetsAndRecord(false);
-
-    if (open && playing && layers.length > 0) {
-      syncTargetsAndRecord(true);
-      pollTimer = setInterval(() => {
-        syncTargetsAndRecord(true);
-      }, 1000);
-    }
-
-    return () => {
-      if (pollTimer) {
-        clearInterval(pollTimer);
-        pollTimer = null;
-      }
-    };
   });
 
   function onPointerDown(e: PointerEvent, id: string) {
@@ -300,17 +276,14 @@
       }
     }
     draggingId = null;
-    syncTargetsAndRecord(false);
+    dragCoords = null;
   }
 
   function applyAt(id: string, clientX: number, clientY: number) {
     const layer = layers.find((l) => l.params.id === id);
     const { pan, vol } = xyToParams(clientX, clientY);
     const effectivePan = isYoutubeLayer(layer) ? 0 : pan;
-    liveTargets = {
-      ...liveTargets,
-      [id]: { pan: effectivePan, vol },
-    };
+    dragCoords = { pan: effectivePan, vol };
     session.setLayerSpatial(id, effectivePan, vol, { coupleFilter });
   }
 
@@ -341,10 +314,6 @@
     if (handled) {
       e.preventDefault();
       const effectivePan = isYt ? 0 : pan;
-      liveTargets = {
-        ...liveTargets,
-        [layer.params.id]: { pan: effectivePan, vol },
-      };
       session.setLayerSpatial(layer.params.id, effectivePan, vol, { coupleFilter });
     }
   }
@@ -430,25 +399,30 @@
 
           {#each layers as layer (layer.params.id)}
             {@const isYt = isYoutubeLayer(layer)}
-            {@const pos = liveTargets[layer.params.id] ?? {
-              pan: isYt ? 0 : layer.params.pan,
-              vol: layer.params.volumeLinear,
-            }}
+            {@const _t = tick}
+            {@const drift = playing ? session.getLayerLiveDrift(layer.params.id) : null}
+            {@const activeDrag = draggingId === layer.params.id ? dragCoords : null}
+            {@const currentPan = activeDrag
+              ? activeDrag.pan
+              : (isYt ? 0 : (drift ? drift.targetPan : layer.params.pan))}
+            {@const currentVol = activeDrag
+              ? activeDrag.vol
+              : (drift ? drift.targetVol : layer.params.volumeLinear)}
 
             <div
               class="marker"
               class:muted={layer.params.muted}
               class:dragging={draggingId === layer.params.id}
               class:vertical-only={isYt}
-              style="left: {panToX(pos.pan)}%; top: {volToY(pos.vol)}%"
+              style="left: {panToX(currentPan)}%; top: {volToY(currentVol)}%"
               tabindex="0"
               role="button"
               title={isYt
-                ? `${labelFor(layer)} · volume ${Math.round(pos.vol * 100)}% · vertical move only`
-                : `${labelFor(layer)} · pan ${pos.pan.toFixed(2)} · vol ${Math.round(pos.vol * 100)}%`}
+                ? `${labelFor(layer)} · volume ${Math.round(currentVol * 100)}% · vertical move only`
+                : `${labelFor(layer)} · pan ${currentPan.toFixed(2)} · vol ${Math.round(currentVol * 100)}%`}
               aria-label={isYt
-                ? `${labelFor(layer)}, volume ${Math.round(pos.vol * 100)}%`
-                : `${labelFor(layer)}, pan ${pos.pan.toFixed(2)}, volume ${Math.round(pos.vol * 100)}%`}
+                ? `${labelFor(layer)}, volume ${Math.round(currentVol * 100)}%`
+                : `${labelFor(layer)}, pan ${currentPan.toFixed(2)}, volume ${Math.round(currentVol * 100)}%`}
               onpointerdown={(e) => onPointerDown(e, layer.params.id)}
               onpointermove={onPointerMove}
               onpointerup={onPointerUp}
