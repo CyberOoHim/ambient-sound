@@ -499,10 +499,45 @@
   }
 
   let lastMeterTime = 0;
+  let meterInterval: ReturnType<typeof setInterval> | null = null;
+
   function ensureMeterLoop() {
-    if (meterRaf !== 0 || typeof document === 'undefined' || document.visibilityState === 'hidden') {
+    if (meterRaf !== 0 || meterInterval !== null || typeof document === 'undefined' || document.visibilityState === 'hidden') {
       return;
     }
+
+    if (powerSaverStatus.active) {
+      // Eco mode: use slow ~4fps setInterval instead of rAF to allow GPU / display pipeline to idle
+      meterInterval = setInterval(() => {
+        if (!session.playing) {
+          stopMeterLoop();
+          peakL = 0;
+          peakR = 0;
+          peak = 0;
+          return;
+        }
+        const levels = session.getPeakLevels();
+        peakL = levels.left;
+        peakR = levels.right;
+        peak = Math.max(peakL, peakR);
+
+        if (session.timer.status === 'running' || session.timer.status === 'fading') {
+          const remaining = session.remainingMs();
+          const currentSec = Math.floor((remaining ?? 0) / 1000);
+          const prevSec = Math.floor((timerRemainingMs ?? 0) / 1000);
+          if (currentSec !== prevSec || timerStatus !== session.timer.status) {
+            timerStatus = session.timer.status;
+            timerRemainingMs = remaining;
+            timerPanel?.sync();
+          }
+        } else if (timerStatus !== 'idle' && timerStatus !== 'done') {
+          timerStatus = session.timer.status;
+          timerRemainingMs = null;
+        }
+      }, 250);
+      return;
+    }
+
     const tick = (now: DOMHighResTimeStamp) => {
       if (!session.playing) {
         let animating = false;
@@ -558,6 +593,10 @@
       cancelAnimationFrame(meterRaf);
       meterRaf = 0;
     }
+    if (meterInterval !== null) {
+      clearInterval(meterInterval);
+      meterInterval = null;
+    }
   }
 
   function onVisibilityChange() {
@@ -596,6 +635,10 @@
     unsubPowerSaver = powerSaver.subscribe(() => {
       powerSaverMode = powerSaver.getMode();
       powerSaverStatus = powerSaver.getStatus();
+      stopMeterLoop();
+      if (session.playing) {
+        ensureMeterLoop();
+      }
     });
     void session.whenCatalogReady().then(() => {
       libraryPanel?.sync();
@@ -984,7 +1027,7 @@
         </div>
         <p class="dup-hint">
           {#if powerSaverStatus.active}
-            🌿 Power Saver active ({powerSaverStatus.reason === 'battery' ? `Low battery ${Math.round((powerSaverStatus.batteryLevel ?? 0.2) * 100)}%` : powerSaverStatus.reason === 'savedata' ? 'Save-Data active' : powerSaverStatus.reason === 'reduced-motion' ? 'Reduced motion active' : 'Manual'}) · Blur and animations reduced.
+            🌿 Power Saver active ({powerSaverStatus.reason === 'battery' ? `Low battery ${Math.round((powerSaverStatus.batteryLevel ?? 0.2) * 100)}%` : powerSaverStatus.reason === 'savedata' ? 'Save-Data active' : powerSaverStatus.reason === 'reduced-motion' ? 'Reduced motion active' : powerSaverStatus.reason === 'touch-device' ? 'Mobile/tablet detected' : 'Manual'}) · Blur, animations, and DSP throttled.
           {:else}
             Auto enables Eco Mode when battery drops to 20% or Save-Data is requested.
           {/if}

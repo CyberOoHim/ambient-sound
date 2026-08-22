@@ -55,4 +55,17 @@ describe('PowerSaverManager', () => {
 
     unsub();
   });
+
+  it('auto-activates power saver on touch/mobile devices without battery API', () => {
+    vi.stubGlobal('navigator', {
+      userAgent: 'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
+      platform: 'MacIntel',
+      maxTouchPoints: 5,
+    });
+    const mgr = new PowerSaverManager();
+    expect(mgr.getMode()).toBe('auto');
+    const status = mgr.getStatus();
+    expect(status.active).toBe(true);
+    expect(status.reason).toBe('touch-device');
+  });
 });

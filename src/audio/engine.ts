@@ -183,6 +183,8 @@ export class AudioEngine {
   private wantRunning = false;
   private stateChangeBound = false;
   private powerSaverUnsub: (() => void) | null = null;
+  private driftCoordinatorTimer: ReturnType<typeof setTimeout> | null = null;
+  private layerNextDriftTime = new Map<string, number>();
 
   constructor() {
     this.powerSaverUnsub = powerSaver.subscribe(() => this.onPowerSaverChange());
@@ -475,6 +477,11 @@ export class AudioEngine {
 
   async suspend(): Promise<void> {
     this.wantRunning = false;
+    if (this.driftCoordinatorTimer != null) {
+      clearTimeout(this.driftCoordinatorTimer);
+      this.driftCoordinatorTimer = null;
+    }
+    this.layerNextDriftTime.clear();
     for (const layer of this.layers.values()) {
       if (layer.driftTimer != null) {
         clearTimeout(layer.driftTimer);
@@ -1290,14 +1297,62 @@ export class AudioEngine {
     };
   }
 
+  private cancelLayerDriftTimer(id: string, nodes?: LayerNodes): void {
+    this.layerNextDriftTime.delete(id);
+    if (nodes && nodes.driftTimer != null) {
+      clearTimeout(nodes.driftTimer);
+      nodes.driftTimer = null;
+    }
+    if (this.layerNextDriftTime.size === 0 && this.driftCoordinatorTimer != null) {
+      clearTimeout(this.driftCoordinatorTimer);
+      this.driftCoordinatorTimer = null;
+    }
+  }
+
+  private scheduleDriftCoordinator(): void {
+    if (this.driftCoordinatorTimer != null) {
+      clearTimeout(this.driftCoordinatorTimer);
+      this.driftCoordinatorTimer = null;
+    }
+    if (this.layerNextDriftTime.size === 0 || !this.wantRunning || !this.ctx || this.ctx.state !== 'running') {
+      return;
+    }
+
+    let earliest = Infinity;
+    for (const t of this.layerNextDriftTime.values()) {
+      if (t < earliest) earliest = t;
+    }
+    if (!Number.isFinite(earliest)) return;
+
+    const delay = Math.max(50, earliest - Date.now());
+    this.driftCoordinatorTimer = setTimeout(() => {
+      this.driftCoordinatorTimer = null;
+      if (!this.wantRunning || !this.ctx || this.ctx.state !== 'running') return;
+      const now = Date.now();
+      const dueLayers: Array<{ id: string; nodes: LayerNodes }> = [];
+      for (const [id, t] of this.layerNextDriftTime.entries()) {
+        if (t <= now + 20) {
+          const nodes = this.layers.get(id);
+          if (nodes) {
+            dueLayers.push({ id, nodes });
+          }
+          this.layerNextDriftTime.delete(id);
+        }
+      }
+      for (const { id, nodes } of dueLayers) {
+        this.scheduleLayerDrift(id, nodes);
+      }
+      if (this.layerNextDriftTime.size > 0) {
+        this.scheduleDriftCoordinator();
+      }
+    }, delay);
+  }
+
   /**
    * Sparse discrete-hold random variation scheduler for pitch, pan, and gain.
    */
   private scheduleLayerDrift(id: string, nodes: LayerNodes): void {
-    if (nodes.driftTimer != null) {
-      clearTimeout(nodes.driftTimer);
-      nodes.driftTimer = null;
-    }
+    this.cancelLayerDriftTimer(id, nodes);
 
     if (!this.ctx || !this.wantRunning || this.ctx.state !== 'running' || !nodes.driftParams) {
       return;
@@ -1347,23 +1402,27 @@ export class AudioEngine {
     let targetPan = nodes.basePan ?? 0;
     let targetGain = nodes.baseVolumeLinear ?? 0.7;
 
-    // 1. Pitch Drift (disabled in eco mode to avoid resampling compute)
+    // 1. Pitch Drift (runs with extended languid intervals in eco mode)
     const pitchRatio = Math.max(0.005, Math.min(0.25, pitchDepthPct / 100));
     if (nodes.kind === 'sample' && nodes.player) {
-      if (driftPitch && !eco) {
+      if (driftPitch) {
         targetRate = calculateDriftPitch(nodes.basePlaybackRate ?? 1, 1, pitchRatio);
         nodes.player.setPlaybackRate(targetRate, rampSec);
       } else {
         targetRate = nodes.basePlaybackRate ?? 1;
-        nodes.player.setPlaybackRate(targetRate, 0.5);
+        if (Math.abs(nodes.player.getPlaybackRate() - targetRate) > 0.0001) {
+          nodes.player.setPlaybackRate(targetRate, 0.5);
+        }
       }
     } else if (nodes.kind === 'playlist' && nodes.player) {
-      if (driftPitch && !eco) {
+      if (driftPitch) {
         targetRate = calculateDriftPitch(nodes.basePlaybackRate ?? 1, 1, pitchRatio);
         nodes.player.setPlaybackRate(targetRate, rampSec);
       } else {
         targetRate = nodes.basePlaybackRate ?? 1;
-        nodes.player.setPlaybackRate(targetRate, 0.5);
+        if (Math.abs(nodes.player.getPlaybackRate() - targetRate) > 0.0001) {
+          nodes.player.setPlaybackRate(targetRate, 0.5);
+        }
       }
     }
 
@@ -1374,7 +1433,9 @@ export class AudioEngine {
         nodes.pan.pan.setTargetAtTime(targetPan, t, tc);
       } else {
         targetPan = Math.max(-1, Math.min(1, nodes.basePan ?? 0));
-        nodes.pan.pan.setTargetAtTime(targetPan, t, 0.1);
+        if (nodes.driftState && Math.abs(nodes.driftState.targetPan - targetPan) > 0.001) {
+          nodes.pan.pan.setTargetAtTime(targetPan, t, 0.1);
+        }
       }
     }
 
@@ -1386,7 +1447,9 @@ export class AudioEngine {
         nodes.volume.gain.setTargetAtTime(clampLinear(targetGain), t, tc);
       } else {
         targetGain = clampLinear(nodes.baseVolumeLinear ?? 0.7);
-        nodes.volume.gain.setTargetAtTime(targetGain, t, 0.1);
+        if (nodes.driftState && Math.abs(nodes.driftState.targetGain - targetGain) > 0.001) {
+          nodes.volume.gain.setTargetAtTime(targetGain, t, 0.1);
+        }
       }
     }
 
@@ -1402,11 +1465,8 @@ export class AudioEngine {
     };
 
     const nextDelayMs = Math.max(500, Math.round((holdSec + rampSec) * 1000));
-    nodes.driftTimer = setTimeout(() => {
-      if (this.layers.get(id) === nodes) {
-        this.scheduleLayerDrift(id, nodes);
-      }
-    }, nextDelayMs);
+    this.layerNextDriftTime.set(id, Date.now() + nextDelayMs);
+    this.scheduleDriftCoordinator();
   }
 
   /**
@@ -1522,10 +1582,7 @@ export class AudioEngine {
     const nodes = this.layers.get(id);
     if (!nodes) return;
     try {
-      if (nodes.driftTimer != null) {
-        clearTimeout(nodes.driftTimer);
-        nodes.driftTimer = null;
-      }
+      this.cancelLayerDriftTimer(id, nodes);
       this.disposePanLfo(nodes);
       if (nodes.kind === 'noise') {
         nodes.worklet.disconnect();

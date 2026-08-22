@@ -4,7 +4,13 @@
  * Save-Data header/connection preference, and user choice (auto / on / off).
  */
 
-export type PowerSaverMode = 'auto' | 'on' | 'off';
+export type PowerSaverReason =
+  | 'manual-on'
+  | 'battery'
+  | 'savedata'
+  | 'reduced-motion'
+  | 'touch-device'
+  | 'none';
 
 export interface PowerSaverStatus {
   mode: PowerSaverMode;
@@ -13,7 +19,18 @@ export interface PowerSaverStatus {
   isCharging: boolean | null;
   saveData: boolean;
   reducedMotion: boolean;
-  reason: 'manual-on' | 'battery' | 'savedata' | 'reduced-motion' | 'none';
+  reason: PowerSaverReason;
+}
+
+/** Detect mobile/tablet devices that lack Battery API */
+export function isTouchDevice(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent;
+  if (/iPad|iPhone|iPod/.test(ua)) return true;
+  if (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) return true;
+  if (/Android/i.test(ua)) return true;
+  if (/Mobile|webOS|BlackBerry|IEMobile|Opera Mini/i.test(ua) && !/Windows NT/i.test(ua)) return true;
+  return false;
 }
 
 const STORAGE_KEY = 'ambient-sound:power-saver-mode';
@@ -181,6 +198,19 @@ export class PowerSaverManager {
         saveData,
         reducedMotion,
         reason: 'reduced-motion',
+      };
+    }
+
+    // 4. Touch/Mobile device without Battery API — enable eco optimizations by default
+    if (this.batteryLevel === null && isTouchDevice()) {
+      return {
+        mode: 'auto',
+        active: true,
+        batteryLevel: null,
+        isCharging: null,
+        saveData,
+        reducedMotion,
+        reason: 'touch-device',
       };
     }
 
