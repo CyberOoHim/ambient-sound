@@ -237,8 +237,11 @@
     }
 
     // Preserve dragging target if active
-    if (draggingId && liveTargets[draggingId]) {
-      nextTargets[draggingId] = liveTargets[draggingId];
+    if (draggingId) {
+      const activeDrag = liveTargets[draggingId];
+      if (activeDrag) {
+        nextTargets[draggingId] = activeDrag;
+      }
     }
 
     liveTargets = nextTargets;
