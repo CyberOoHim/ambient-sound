@@ -1,5 +1,5 @@
 import workletUrl from './worklets/noise-processor.js?url';
-import { clampLinear } from './dsp/curves';
+import { clampLinear, linearToDb } from './dsp/curves';
 import type { NoiseType } from './dsp/colored-noise';
 import {
   calculateDriftGain,
@@ -27,6 +27,7 @@ import {
   layerMuted,
   layerSolo,
   type LayerDriftParams,
+  type LayerLiveDrift,
   type MasterToneParams,
   type MixerLayer,
   type NoiseLayerParams,
@@ -70,11 +71,23 @@ interface PanLfoNodes {
   depthGain: GainNode;
 }
 
+export interface LayerDriftTransition {
+  startPan: number;
+  targetPan: number;
+  startGain: number;
+  targetGain: number;
+  startRate: number;
+  targetRate: number;
+  startTime: number;
+  rampSec: number;
+}
+
 interface BaseLayerState {
   baseVolumeLinear: number;
   basePan: number;
   driftParams: LayerDriftParams;
   driftTimer: ReturnType<typeof setTimeout> | null;
+  driftState?: LayerDriftTransition;
 }
 
 interface NoiseNodes extends BaseLayerState {
@@ -1189,6 +1202,67 @@ export class AudioEngine {
   }
 
   /**
+   * Returns the current live drifting spatial parameters and applied deltas for a layer.
+   */
+  getLayerLiveDrift(id: string): LayerLiveDrift | null {
+    const nodes = this.layers.get(id);
+    if (!nodes) return null;
+
+    const basePan = nodes.basePan ?? 0;
+    const baseVol = nodes.baseVolumeLinear ?? 0.7;
+    const baseRate = 'basePlaybackRate' in nodes ? (nodes.basePlaybackRate ?? 1) : 1;
+    const driftParams = nodes.driftParams ?? { driftPitch: false, driftPan: false, driftGain: false };
+    const isPlaying = Boolean(this.wantRunning && this.ctx && this.ctx.state === 'running');
+
+    if (!isPlaying || !nodes.driftState) {
+      return {
+        livePan: basePan,
+        liveVol: baseVol,
+        liveRate: baseRate,
+        basePan,
+        baseVol,
+        baseRate,
+        panDelta: 0,
+        gainDbDelta: 0,
+        pitchPercentDelta: 0,
+        driftPanActive: driftParams.driftPan,
+        driftGainActive: driftParams.driftGain,
+        driftPitchActive: driftParams.driftPitch,
+      };
+    }
+
+    const { startPan, targetPan, startGain, targetGain, startRate, targetRate, startTime, rampSec } =
+      nodes.driftState;
+    const t = this.ctx.currentTime;
+    const elapsed = Math.max(0, t - startTime);
+    const alpha = rampSec > 0 ? Math.max(0, Math.min(1, elapsed / rampSec)) : 1;
+    const ease = alpha * alpha * (3 - 2 * alpha);
+
+    const livePan = driftParams.driftPan ? startPan + (targetPan - startPan) * ease : basePan;
+    const liveVol = driftParams.driftGain ? startGain + (targetGain - startGain) * ease : baseVol;
+    const liveRate = driftParams.driftPitch ? startRate + (targetRate - startRate) * ease : baseRate;
+
+    const panDelta = livePan - basePan;
+    const gainDbDelta = linearToDb(Math.max(0.0001, liveVol)) - linearToDb(Math.max(0.0001, baseVol));
+    const pitchPercentDelta = baseRate > 0 ? ((liveRate / baseRate) - 1) * 100 : 0;
+
+    return {
+      livePan: Math.max(-1, Math.min(1, livePan)),
+      liveVol: Math.max(0, Math.min(1, liveVol)),
+      liveRate,
+      basePan,
+      baseVol,
+      baseRate,
+      panDelta,
+      gainDbDelta,
+      pitchPercentDelta,
+      driftPanActive: driftParams.driftPan,
+      driftGainActive: driftParams.driftGain,
+      driftPitchActive: driftParams.driftPitch,
+    };
+  }
+
+  /**
    * Sparse discrete-hold random variation scheduler for pitch, pan, and gain.
    */
   private scheduleLayerDrift(id: string, nodes: LayerNodes): void {
@@ -1205,6 +1279,11 @@ export class AudioEngine {
     const hasAnyDrift = driftPitch || driftPan || driftGain;
     const t = this.ctx.currentTime;
 
+    const prevLive = this.getLayerLiveDrift(id);
+    const startPan = prevLive?.livePan ?? nodes.basePan ?? 0;
+    const startGain = prevLive?.liveVol ?? nodes.baseVolumeLinear ?? 0.7;
+    const startRate = prevLive?.liveRate ?? ('basePlaybackRate' in nodes ? (nodes.basePlaybackRate ?? 1) : 1);
+
     if (!hasAnyDrift) {
       // Restore exact base parameters
       if (nodes.volume) {
@@ -1218,6 +1297,16 @@ export class AudioEngine {
       } else if (nodes.kind === 'playlist' && nodes.player) {
         nodes.player.setPlaybackRate(nodes.basePlaybackRate ?? 1, 0.5);
       }
+      nodes.driftState = {
+        startPan: nodes.basePan ?? 0,
+        targetPan: nodes.basePan ?? 0,
+        startGain: nodes.baseVolumeLinear ?? 0.7,
+        targetGain: nodes.baseVolumeLinear ?? 0.7,
+        startRate: 'basePlaybackRate' in nodes ? (nodes.basePlaybackRate ?? 1) : 1,
+        targetRate: 'basePlaybackRate' in nodes ? (nodes.basePlaybackRate ?? 1) : 1,
+        startTime: t,
+        rampSec: 0.1,
+      };
       return;
     }
 
@@ -1225,30 +1314,37 @@ export class AudioEngine {
     const { holdSec, rampSec } = calculateRandomInterval(eco);
     const tc = Math.max(0.1, rampSec / 3);
 
+    let targetRate = 'basePlaybackRate' in nodes ? (nodes.basePlaybackRate ?? 1) : 1;
+    let targetPan = nodes.basePan ?? 0;
+    let targetGain = nodes.baseVolumeLinear ?? 0.7;
+
     // 1. Pitch Drift (disabled in eco mode to avoid resampling compute)
     if (nodes.kind === 'sample' && nodes.player) {
       if (driftPitch && !eco) {
-        const rate = calculateDriftPitch(nodes.basePlaybackRate ?? 1);
-        nodes.player.setPlaybackRate(rate, rampSec);
+        targetRate = calculateDriftPitch(nodes.basePlaybackRate ?? 1);
+        nodes.player.setPlaybackRate(targetRate, rampSec);
       } else {
-        nodes.player.setPlaybackRate(nodes.basePlaybackRate ?? 1, 0.5);
+        targetRate = nodes.basePlaybackRate ?? 1;
+        nodes.player.setPlaybackRate(targetRate, 0.5);
       }
     } else if (nodes.kind === 'playlist' && nodes.player) {
       if (driftPitch && !eco) {
-        const rate = calculateDriftPitch(nodes.basePlaybackRate ?? 1);
-        nodes.player.setPlaybackRate(rate, rampSec);
+        targetRate = calculateDriftPitch(nodes.basePlaybackRate ?? 1);
+        nodes.player.setPlaybackRate(targetRate, rampSec);
       } else {
-        nodes.player.setPlaybackRate(nodes.basePlaybackRate ?? 1, 0.5);
+        targetRate = nodes.basePlaybackRate ?? 1;
+        nodes.player.setPlaybackRate(targetRate, 0.5);
       }
     }
 
     // 2. Pan Drift
     if (nodes.pan) {
       if (driftPan) {
-        const pan = calculateDriftPan(nodes.basePan ?? 0);
-        nodes.pan.pan.setTargetAtTime(pan, t, tc);
+        targetPan = calculateDriftPan(nodes.basePan ?? 0);
+        nodes.pan.pan.setTargetAtTime(targetPan, t, tc);
       } else {
-        nodes.pan.pan.setTargetAtTime(Math.max(-1, Math.min(1, nodes.basePan ?? 0)), t, 0.1);
+        targetPan = Math.max(-1, Math.min(1, nodes.basePan ?? 0));
+        nodes.pan.pan.setTargetAtTime(targetPan, t, 0.1);
       }
     }
 
@@ -1256,12 +1352,24 @@ export class AudioEngine {
     if (nodes.volume) {
       if (driftGain) {
         const energy = this.getMixEnergy();
-        const gain = calculateDriftGain(nodes.baseVolumeLinear ?? 0.7, energy);
-        nodes.volume.gain.setTargetAtTime(clampLinear(gain), t, tc);
+        targetGain = calculateDriftGain(nodes.baseVolumeLinear ?? 0.7, energy);
+        nodes.volume.gain.setTargetAtTime(clampLinear(targetGain), t, tc);
       } else {
-        nodes.volume.gain.setTargetAtTime(clampLinear(nodes.baseVolumeLinear ?? 0.7), t, 0.1);
+        targetGain = clampLinear(nodes.baseVolumeLinear ?? 0.7);
+        nodes.volume.gain.setTargetAtTime(targetGain, t, 0.1);
       }
     }
+
+    nodes.driftState = {
+      startPan,
+      targetPan,
+      startGain,
+      targetGain,
+      startRate,
+      targetRate,
+      startTime: t,
+      rampSec,
+    };
 
     const nextDelayMs = Math.max(500, Math.round((holdSec + rampSec) * 1000));
     nodes.driftTimer = setTimeout(() => {

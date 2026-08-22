@@ -181,6 +181,10 @@ export class SamplePlayer {
     }
   }
 
+  getPlaybackRate(): number {
+    return this.opts.playbackRate;
+  }
+
   private startNative(): void {
     const src = this.ctx.createBufferSource();
     src.buffer = this.buffer;

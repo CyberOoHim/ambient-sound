@@ -19,6 +19,7 @@ import {
   MAX_YOUTUBE_LAYERS,
   getMaxYoutubeLayers,
   PRESET_CROSSFADE_SEC,
+  type LayerLiveDrift,
   type MasterToneParams,
   type MixerLayer,
   type NoiseType,
@@ -1764,6 +1765,30 @@ export class Session {
       patch.lowpassHz = clampLowpassHz(lp);
     }
     this.updateLayerCommon(id, patch);
+  }
+
+  getLayerLiveDrift(id: string): LayerLiveDrift | null {
+    const fromEngine = audioEngine.getLayerLiveDrift(id);
+    if (fromEngine) return fromEngine;
+    const layer = this.layers.find((l) => l.params.id === id);
+    if (!layer) return null;
+    const basePan = layer.kind === 'youtube' ? 0 : layer.params.pan;
+    const baseVol = layer.params.volumeLinear;
+    const baseRate = 'playbackRate' in layer.params ? (layer.params.playbackRate ?? 1) : 1;
+    return {
+      livePan: basePan,
+      liveVol: baseVol,
+      liveRate: baseRate,
+      basePan,
+      baseVol,
+      baseRate,
+      panDelta: 0,
+      gainDbDelta: 0,
+      pitchPercentDelta: 0,
+      driftPanActive: layer.params.driftPan,
+      driftGainActive: layer.params.driftGain,
+      driftPitchActive: layer.params.driftPitch,
+    };
   }
 
   getPeakLevels(): { left: number; right: number } {

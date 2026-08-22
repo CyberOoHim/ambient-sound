@@ -73,6 +73,21 @@ export interface LayerDriftParams {
   driftGain: boolean;
 }
 
+export interface LayerLiveDrift {
+  livePan: number;
+  liveVol: number;
+  liveRate: number;
+  basePan: number;
+  baseVol: number;
+  baseRate: number;
+  panDelta: number;
+  gainDbDelta: number;
+  pitchPercentDelta: number;
+  driftPanActive: boolean;
+  driftGainActive: boolean;
+  driftPitchActive: boolean;
+}
+
 export function defaultLayerDrift(isSample = false): LayerDriftParams {
   return {
     driftPitch: isSample,
