@@ -16,6 +16,7 @@
   } from '../audio/dsp/drift';
 
   const MAX_HISTORY_DEPTH = 20;
+  const MANUAL_ADJUST_DEBOUNCE_MS = 400;
 
   export interface LayerDriftMetric {
     id: string;
@@ -58,6 +59,125 @@
   let currentIntervalMs = 0;
   let isVisible = $state(typeof document !== 'undefined' ? document.visibilityState === 'visible' : true);
   let unsubPowerSaver: (() => void) | null = null;
+
+  let adjustingLayers = new Set<string>();
+  let adjustDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastKnownBase: Record<string, { pan: number; vol: number }> = {};
+
+  function markLayerAdjusting(id: string) {
+    adjustingLayers.add(id);
+    if (adjustDebounceTimer != null) {
+      clearTimeout(adjustDebounceTimer);
+      adjustDebounceTimer = null;
+    }
+    adjustDebounceTimer = setTimeout(() => {
+      adjustDebounceTimer = null;
+      flushDebouncedAdjustments();
+    }, MANUAL_ADJUST_DEBOUNCE_MS);
+  }
+
+  function flushDebouncedAdjustments() {
+    if (draggingId != null) {
+      // User is still dragging on the canvas; postpone flush until pointer is released
+      adjustDebounceTimer = setTimeout(() => {
+        adjustDebounceTimer = null;
+        flushDebouncedAdjustments();
+      }, MANUAL_ADJUST_DEBOUNCE_MS);
+      return;
+    }
+
+    if (adjustingLayers.size === 0) return;
+
+    const targetLayerIds = Array.from(adjustingLayers);
+    adjustingLayers.clear();
+
+    if (!open || !playing || layers.length === 0 || !isVisible) {
+      for (const id of targetLayerIds) {
+        const layer = layers.find((l) => l.params.id === id);
+        if (!layer) continue;
+        const isYt = isYoutubeLayer(layer);
+        const d = session.getLayerLiveDrift(id);
+        const targetPan = isYt ? 0 : (d ? d.targetPan : layer.params.pan);
+        const targetVol = d ? d.targetVol : layer.params.volumeLinear;
+        const targetRate = d
+          ? d.targetRate
+          : 'playbackRate' in layer.params
+            ? (layer.params.playbackRate ?? 1)
+            : 1;
+        prevTargets[id] = { targetPan, targetVol, targetRate };
+        currentPositions[id] = { pan: targetPan, vol: targetVol };
+      }
+      return;
+    }
+
+    const now = new Date();
+    const timeStr = now.toTimeString().slice(0, 8);
+    const jumpedMetrics: LayerDriftMetric[] = [];
+    const nextPositions: Record<string, { pan: number; vol: number }> = { ...currentPositions };
+
+    for (const id of targetLayerIds) {
+      const layer = layers.find((l) => l.params.id === id);
+      if (!layer) continue;
+      const isYt = isYoutubeLayer(layer);
+      const supPitch = supportsPitch(layer);
+      const d = session.getLayerLiveDrift(id);
+
+      const targetPan = isYt ? 0 : (d ? d.targetPan : layer.params.pan);
+      const targetVol = d ? d.targetVol : layer.params.volumeLinear;
+      const targetRate = d
+        ? d.targetRate
+        : 'playbackRate' in layer.params
+          ? (layer.params.playbackRate ?? 1)
+          : 1;
+
+      nextPositions[id] = { pan: targetPan, vol: targetVol };
+
+      const prev = prevTargets[id];
+      const isFirst = !prev;
+      const hasJumped =
+        !prev ||
+        Math.abs(targetPan - prev.targetPan) > 0.002 ||
+        Math.abs(targetVol - prev.targetVol) > 0.002 ||
+        Math.abs(targetRate - prev.targetRate) > 0.002;
+
+      prevTargets[id] = { targetPan, targetVol, targetRate };
+
+      if (hasJumped) {
+        const hasDrift = d && (d.driftPanActive || d.driftGainActive || d.driftPitchActive);
+        const hasDeltas =
+          Math.abs(d ? d.panDelta : 0) > 0.002 ||
+          Math.abs(d ? d.gainDbDelta : 0) > 0.02 ||
+          Math.abs(d ? d.pitchPercentDelta : 0) > 0.02;
+
+        if (hasDrift || hasDeltas || !isFirst) {
+          jumpedMetrics.push({
+            id: layer.params.id,
+            label: labelFor(layer),
+            icon: iconFor(layer),
+            isYoutube: isYt,
+            supportsPitch: supPitch,
+            panDelta: d ? d.panDelta : 0,
+            gainDbDelta: d ? d.gainDbDelta : 0,
+            pitchPercentDelta: d ? d.pitchPercentDelta : 0,
+            targetPan,
+            targetVol,
+            targetRate,
+          });
+        }
+      }
+    }
+
+    currentPositions = nextPositions;
+
+    if (jumpedMetrics.length > 0) {
+      const newEntry: DriftHistoryEntry = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        timestamp: timeStr,
+        layers: jumpedMetrics,
+      };
+      historyLog = [newEntry, ...historyLog.slice(0, MAX_HISTORY_DEPTH - 1)];
+    }
+  }
 
   function labelFor(layer: MixerLayer): string {
     if (layer.kind === 'noise') {
@@ -217,6 +337,11 @@
     const shouldRun = open && playing && layers.length > 0 && isVisible;
     if (!shouldRun) {
       stopPollTimer();
+      if (adjustDebounceTimer != null) {
+        clearTimeout(adjustDebounceTimer);
+        adjustDebounceTimer = null;
+      }
+      adjustingLayers.clear();
       prevTargets = {};
       return;
     }
@@ -241,10 +366,14 @@
     }
 
     let anyJumped = false;
-    // Fast-path: check if any layer jumped before performing allocations
+    // Fast-path: check if any non-adjusting layer jumped before performing allocations
     for (const layer of layers) {
+      const id = layer.params.id;
+      if (adjustingLayers.has(id) || draggingId === id) {
+        continue;
+      }
       const isYt = isYoutubeLayer(layer);
-      const d = session.getLayerLiveDrift(layer.params.id);
+      const d = session.getLayerLiveDrift(id);
       const targetPan = isYt ? 0 : (d ? d.targetPan : layer.params.pan);
       const targetVol = d ? d.targetVol : layer.params.volumeLinear;
       const targetRate = d
@@ -253,7 +382,7 @@
           ? (layer.params.playbackRate ?? 1)
           : 1;
 
-      const prev = prevTargets[layer.params.id];
+      const prev = prevTargets[id];
       if (
         !prev ||
         Math.abs(targetPan - prev.targetPan) > 0.002 ||
@@ -273,7 +402,7 @@
     const now = new Date();
     const timeStr = now.toTimeString().slice(0, 8);
     const jumpedMetrics: LayerDriftMetric[] = [];
-    const nextPositions: Record<string, { pan: number; vol: number }> = {};
+    const nextPositions: Record<string, { pan: number; vol: number }> = { ...currentPositions };
 
     // Clean up removed layers
     const currentLayerIds = new Set(layers.map((l) => l.params.id));
@@ -284,9 +413,10 @@
     }
 
     for (const layer of layers) {
+      const id = layer.params.id;
       const isYt = isYoutubeLayer(layer);
       const supPitch = supportsPitch(layer);
-      const d = session.getLayerLiveDrift(layer.params.id);
+      const d = session.getLayerLiveDrift(id);
 
       const targetPan = isYt ? 0 : (d ? d.targetPan : layer.params.pan);
       const targetVol = d ? d.targetVol : layer.params.volumeLinear;
@@ -296,9 +426,14 @@
           ? (layer.params.playbackRate ?? 1)
           : 1;
 
-      nextPositions[layer.params.id] = { pan: targetPan, vol: targetVol };
+      nextPositions[id] = { pan: targetPan, vol: targetVol };
 
-      const prev = prevTargets[layer.params.id];
+      if (adjustingLayers.has(id) || draggingId === id) {
+        // Skip logging intermediate telemetry while user is actively adjusting this layer
+        continue;
+      }
+
+      const prev = prevTargets[id];
       const isFirst = !prev;
       const hasJumped =
         !prev ||
@@ -306,7 +441,7 @@
         Math.abs(targetVol - prev.targetVol) > 0.002 ||
         Math.abs(targetRate - prev.targetRate) > 0.002;
 
-      prevTargets[layer.params.id] = { targetPan, targetVol, targetRate };
+      prevTargets[id] = { targetPan, targetVol, targetRate };
 
       if (hasJumped) {
         const hasDrift = d && (d.driftPanActive || d.driftGainActive || d.driftPitchActive);
@@ -361,6 +496,33 @@
     };
   });
 
+  $effect(() => {
+    // Detect base location adjustments from sliders or external inputs
+    const currentLayers = layers;
+    for (const layer of currentLayers) {
+      const isYt = isYoutubeLayer(layer);
+      const basePan = isYt ? 0 : layer.params.pan;
+      const baseVol = layer.params.volumeLinear;
+      const prev = lastKnownBase[layer.params.id];
+      if (!prev) {
+        lastKnownBase[layer.params.id] = { pan: basePan, vol: baseVol };
+      } else if (
+        Math.abs(basePan - prev.pan) > 0.001 ||
+        Math.abs(baseVol - prev.vol) > 0.001
+      ) {
+        lastKnownBase[layer.params.id] = { pan: basePan, vol: baseVol };
+        markLayerAdjusting(layer.params.id);
+      }
+    }
+
+    const currentIds = new Set(currentLayers.map((l) => l.params.id));
+    for (const id of Object.keys(lastKnownBase)) {
+      if (!currentIds.has(id)) {
+        delete lastKnownBase[id];
+      }
+    }
+  });
+
   onMount(() => {
     const onVisChange = () => {
       isVisible = typeof document !== 'undefined' ? document.visibilityState === 'visible' : true;
@@ -383,12 +545,20 @@
       }
       unsubPowerSaver?.();
       unsubPowerSaver = null;
+      if (adjustDebounceTimer != null) {
+        clearTimeout(adjustDebounceTimer);
+        adjustDebounceTimer = null;
+      }
       stopPollTimer();
     };
   });
 
   onDestroy(() => {
     stopPollTimer();
+    if (adjustDebounceTimer != null) {
+      clearTimeout(adjustDebounceTimer);
+      adjustDebounceTimer = null;
+    }
     unsubPowerSaver?.();
     unsubPowerSaver = null;
   });
@@ -397,24 +567,31 @@
     e.preventDefault();
     draggingId = id;
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    markLayerAdjusting(id);
     applyAt(id, e.clientX, e.clientY);
   }
 
   function onPointerMove(e: PointerEvent) {
     if (!draggingId) return;
+    markLayerAdjusting(draggingId);
     applyAt(draggingId, e.clientX, e.clientY);
   }
 
   function onPointerUp(e: PointerEvent) {
     if (draggingId) {
+      const id = draggingId;
       try {
         (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
       } catch {
         /* */
       }
+      draggingId = null;
+      dragCoords = null;
+      markLayerAdjusting(id);
+    } else {
+      draggingId = null;
+      dragCoords = null;
     }
-    draggingId = null;
-    dragCoords = null;
   }
 
   function applyAt(id: string, clientX: number, clientY: number) {
@@ -460,6 +637,7 @@
         ...currentPositions,
         [layer.params.id]: { pan: effectivePan, vol },
       };
+      markLayerAdjusting(layer.params.id);
       session.setLayerSpatial(layer.params.id, effectivePan, vol, { coupleFilter });
     }
   }

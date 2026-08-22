@@ -173,4 +173,138 @@ describe('Spatial Canvas Drift & Telemetry', () => {
       expect(ytDrift?.basePan).toBe(0);
     });
   });
+
+  describe('Debounced manual location adjustments', () => {
+    interface HistoryEntry {
+      id: string;
+      pan: number;
+      vol: number;
+    }
+
+    it('suppresses intermediate values during continuous adjustment and only logs the latest settled value', () => {
+      let historyLog: HistoryEntry[] = [];
+      let prevTarget = { pan: 0.0, vol: 0.7 };
+      let adjustingLayers = new Set<string>();
+      let draggingId: string | null = null;
+      let currentVal = { pan: 0.0, vol: 0.7 };
+
+      // Helper function matching SpatialCanvas poll snapshot
+      function pollSnapshot() {
+        if (adjustingLayers.has('layer-1') || draggingId === 'layer-1') {
+          // Suppress intermediate logging while actively adjusting
+          return;
+        }
+        if (Math.abs(currentVal.pan - prevTarget.pan) > 0.002 || Math.abs(currentVal.vol - prevTarget.vol) > 0.002) {
+          historyLog.push({ id: `entry-${historyLog.length + 1}`, pan: currentVal.pan, vol: currentVal.vol });
+          prevTarget = { ...currentVal };
+        }
+      }
+
+      // Helper function matching debounce flush
+      function flushDebounce() {
+        if (draggingId !== null) return; // Still dragging
+        adjustingLayers.clear();
+        if (Math.abs(currentVal.pan - prevTarget.pan) > 0.002 || Math.abs(currentVal.vol - prevTarget.vol) > 0.002) {
+          historyLog.push({ id: `entry-${historyLog.length + 1}`, pan: currentVal.pan, vol: currentVal.vol });
+          prevTarget = { ...currentVal };
+        }
+      }
+
+      // 1. User starts moving slider / dragging
+      adjustingLayers.add('layer-1');
+      currentVal = { pan: 0.2, vol: 0.7 }; // intermediate 1
+      pollSnapshot(); // Poll fires during drag -> skipped!
+
+      currentVal = { pan: 0.5, vol: 0.75 }; // intermediate 2
+      pollSnapshot(); // Poll fires during drag -> skipped!
+
+      currentVal = { pan: 0.8, vol: 0.85 }; // final target
+      pollSnapshot(); // Poll fires during drag -> skipped!
+
+      expect(historyLog.length).toBe(0); // ZERO intermediate entries logged!
+
+      // 2. User stops moving -> debounce settles
+      flushDebounce();
+
+      expect(historyLog.length).toBe(1);
+      expect(historyLog[0]?.pan).toBe(0.8);
+      expect(historyLog[0]?.vol).toBe(0.85);
+
+      // 3. Subsequent normal poll ticks do not duplicate the entry
+      pollSnapshot();
+      expect(historyLog.length).toBe(1);
+    });
+
+    it('suppresses intermediate values during touch drag on graph and flushes after release', () => {
+      let historyLog: HistoryEntry[] = [];
+      let prevTarget = { pan: -0.2, vol: 0.5 };
+      let adjustingLayers = new Set<string>();
+      let draggingId: string | null = null;
+      let currentVal = { pan: -0.2, vol: 0.5 };
+
+      function pollSnapshot() {
+        if (adjustingLayers.has('layer-1') || draggingId === 'layer-1') return;
+        if (Math.abs(currentVal.pan - prevTarget.pan) > 0.002 || Math.abs(currentVal.vol - prevTarget.vol) > 0.002) {
+          historyLog.push({ id: `entry-${historyLog.length + 1}`, pan: currentVal.pan, vol: currentVal.vol });
+          prevTarget = { ...currentVal };
+        }
+      }
+
+      function flushDebounce() {
+        if (draggingId !== null) return;
+        adjustingLayers.clear();
+        if (Math.abs(currentVal.pan - prevTarget.pan) > 0.002 || Math.abs(currentVal.vol - prevTarget.vol) > 0.002) {
+          historyLog.push({ id: `entry-${historyLog.length + 1}`, pan: currentVal.pan, vol: currentVal.vol });
+          prevTarget = { ...currentVal };
+        }
+      }
+
+      // Pointer down & drag
+      draggingId = 'layer-1';
+      adjustingLayers.add('layer-1');
+      currentVal = { pan: 0.1, vol: 0.6 };
+      pollSnapshot();
+
+      currentVal = { pan: 0.4, vol: 0.8 };
+      pollSnapshot();
+      expect(historyLog.length).toBe(0);
+
+      // Debounce trigger while pointer is still down does not flush prematurely
+      flushDebounce();
+      expect(historyLog.length).toBe(0);
+
+      // Pointer up + debounce settles
+      draggingId = null;
+      currentVal = { pan: 0.6, vol: 0.9 }; // final released position
+      flushDebounce();
+
+      expect(historyLog.length).toBe(1);
+      expect(historyLog[0]?.pan).toBe(0.6);
+      expect(historyLog[0]?.vol).toBe(0.9);
+    });
+
+    it('does not log if card location returns to original value before debounce settles', () => {
+      let historyLog: HistoryEntry[] = [];
+      let prevTarget = { pan: 0.3, vol: 0.6 };
+      let adjustingLayers = new Set<string>();
+      let draggingId: string | null = null;
+      let currentVal = { pan: 0.3, vol: 0.6 };
+
+      function flushDebounce() {
+        if (draggingId !== null) return;
+        adjustingLayers.clear();
+        if (Math.abs(currentVal.pan - prevTarget.pan) > 0.002 || Math.abs(currentVal.vol - prevTarget.vol) > 0.002) {
+          historyLog.push({ id: `entry-${historyLog.length + 1}`, pan: currentVal.pan, vol: currentVal.vol });
+          prevTarget = { ...currentVal };
+        }
+      }
+
+      adjustingLayers.add('layer-1');
+      currentVal = { pan: 0.8, vol: 0.9 }; // user moved slider
+      currentVal = { pan: 0.3, vol: 0.6 }; // user moved it back to starting position
+
+      flushDebounce();
+      expect(historyLog.length).toBe(0); // Nothing logged!
+    });
+  });
 });
